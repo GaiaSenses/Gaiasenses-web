@@ -40,6 +40,8 @@ export type MotionDiagnostics = {
   calibrated: boolean;
 };
 
+export type MotionMappingMethod = "euler" | "quaternion";
+
 export type MotionTuningSettings = {
   bufferSize: number;
   calibrationSampleCount: number;
@@ -52,6 +54,10 @@ export type MotionTuningSettings = {
   motionStopDuration: number;
   popupHardLockDuration: number;
   popupUnlockThreshold: number;
+  mappingMethod: MotionMappingMethod;
+  invertLatitude: boolean;
+  invertLongitude: boolean;
+  invertBearing: boolean;
 };
 
 export const DEFAULT_MOTION_TUNING_SETTINGS: MotionTuningSettings = {
@@ -66,6 +72,10 @@ export const DEFAULT_MOTION_TUNING_SETTINGS: MotionTuningSettings = {
   motionStopDuration: 420,
   popupHardLockDuration: 850,
   popupUnlockThreshold: 0.85,
+  mappingMethod: "quaternion",
+  invertLatitude: false,
+  invertLongitude: false,
+  invertBearing: false,
 };
 
 const DEFAULT_MOTION_DIAGNOSTICS: MotionDiagnostics = {
@@ -270,6 +280,25 @@ function getRelativeEuler(
   return null;
 }
 
+function getQuaternionProjection(relativeQuaternion: Quaternion) {
+  const { w, x, y, z } = normalizeQuaternion(relativeQuaternion);
+  const vx = 2 * (x * z + w * y);
+  const vy = 2 * (y * z - w * x);
+  const vz = 1 - 2 * (x * x + y * y);
+
+  const longitude = normalizeAngle((Math.atan2(vx, vz) * 180) / Math.PI);
+  const latitude = clamp(
+    (Math.asin(clamp(vy, -1, 1)) * 180) / Math.PI,
+    -85,
+    85,
+  );
+  const bearing = normalizeAngle(
+    (Math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z)) * 180) / Math.PI,
+  );
+
+  return { latitude, longitude, bearing };
+}
+
 export function useSensorSmoothing(
   mapRef: React.RefObject<MapRef>,
   onMotionStop?: () => void,
@@ -296,6 +325,7 @@ export function useSensorSmoothing(
   });
   const baselineQuaternionRef = useRef<Quaternion | null>(null);
   const baselineEulerRef = useRef<EulerAngles | null>(null);
+  const latestRelativeQuaternionRef = useRef<Quaternion | null>(null);
   const lastRelativeAnglesRef = useRef<EulerAngles | null>(null);
   const motionPhaseRef = useRef<MotionPhase>("calibrating");
   const lowMotionStartTimeRef = useRef<number | null>(null);
@@ -348,6 +378,7 @@ export function useSensorSmoothing(
     sensorSmoothedRef.current = { alpha: 0, beta: 0, gamma: 0 };
     baselineQuaternionRef.current = null;
     baselineEulerRef.current = null;
+    latestRelativeQuaternionRef.current = null;
     lastRelativeAnglesRef.current = null;
     motionPhaseRef.current = "calibrating";
     lowMotionStartTimeRef.current = null;
@@ -413,6 +444,16 @@ export function useSensorSmoothing(
       if (!relative) {
         return;
       }
+
+      latestRelativeQuaternionRef.current =
+        quaternion && baselineQuaternionRef.current
+          ? normalizeQuaternion(
+              multiplyQuaternion(
+                invertQuaternion(baselineQuaternionRef.current),
+                quaternion,
+              ),
+            )
+          : null;
 
       const previous = lastRelativeAnglesRef.current;
       lastRelativeAnglesRef.current = relative;
@@ -534,16 +575,50 @@ export function useSensorSmoothing(
         if (now - lastMapUpdate >= mapUpdateMs) {
           lastMapUpdate = now;
 
-          const yawRad = (smoothed.alpha * Math.PI) / 180;
-          const latitude = clamp(
-            -(
-              smoothed.beta * Math.cos(yawRad) -
-              smoothed.gamma * Math.sin(yawRad)
-            ),
-            -85,
-            85,
-          );
-          const targetLongitude = normalizeAngle(-smoothed.alpha);
+          const useQuaternionProjection =
+            currentTuning.mappingMethod === "quaternion";
+
+          let latitude: number;
+          let targetLongitude: number;
+          let targetBearing: number | null = null;
+
+          const relativeQuaternion = latestRelativeQuaternionRef.current;
+          if (useQuaternionProjection) {
+            if (!relativeQuaternion) {
+              raf = requestAnimationFrame(step);
+              return;
+            }
+
+            const projection = getQuaternionProjection(relativeQuaternion);
+            latitude = projection.latitude;
+            targetLongitude = projection.longitude;
+            targetBearing = -projection.bearing;
+          } else {
+            const yawRad = (smoothed.alpha * Math.PI) / 180;
+            latitude = clamp(
+              -(
+                smoothed.beta * Math.cos(yawRad) -
+                smoothed.gamma * Math.sin(yawRad)
+              ),
+              -85,
+              85,
+            );
+            targetLongitude = normalizeAngle(-smoothed.alpha);
+          }
+
+          if (currentTuning.invertLatitude) {
+            latitude = -latitude;
+          }
+          latitude = clamp(latitude, -85, 85);
+
+          if (currentTuning.invertLongitude) {
+            targetLongitude = normalizeAngle(-targetLongitude);
+          }
+
+          if (targetBearing !== null && currentTuning.invertBearing) {
+            targetBearing = normalizeAngle(-targetBearing);
+          }
+
           const center = mapRef.current.getCenter();
           const latitudeDelta = latitude - center.lat;
           const longitudeDelta = shortestAngleDelta(
@@ -562,11 +637,31 @@ export function useSensorSmoothing(
                 Math.sign(longitudeDelta) * currentTuning.maxDeltaPerUpdate
               : center.lng + longitudeDelta;
 
-          mapRef.current.easeTo({
+          const easeOptions: {
+            center: [number, number];
+            duration: number;
+            easing: (t: number) => number;
+            bearing?: number;
+          } = {
             center: [clampedLng, clampedLat],
             duration: Math.max(40, mapUpdateMs * 0.9),
             easing: (t) => t,
-          });
+          };
+
+          if (targetBearing !== null) {
+            const currentBearing = mapRef.current.getBearing();
+            const bearingDelta = shortestAngleDelta(
+              targetBearing,
+              currentBearing,
+            );
+            easeOptions.bearing =
+              Math.abs(bearingDelta) > currentTuning.maxDeltaPerUpdate
+                ? currentBearing +
+                  Math.sign(bearingDelta) * currentTuning.maxDeltaPerUpdate
+                : currentBearing + bearingDelta;
+          }
+
+          mapRef.current.easeTo(easeOptions);
         }
       }
 

@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
 import type {
+  MotionMappingMethod,
   MotionDiagnostics,
   MotionTuningSettings,
 } from "./use-sensor-smoothing";
@@ -31,7 +32,7 @@ type MotionTuningPanelProps = {
 };
 
 type TuningField = {
-  key: keyof MotionTuningSettings;
+  key: NumericTuningKey;
   label: string;
   description: string;
   min: number;
@@ -40,11 +41,21 @@ type TuningField = {
   unit?: string;
 };
 
+type NumericTuningKey = Exclude<
+  keyof MotionTuningSettings,
+  "mappingMethod" | "invertLatitude" | "invertLongitude" | "invertBearing"
+>;
+
 type TuningPreset = {
   name: string;
   description: string;
-  settings: MotionTuningSettings;
+  settings: Partial<MotionTuningSettings>;
 };
+
+const mappingMethods: { label: string; value: MotionMappingMethod }[] = [
+  { label: "Euler", value: "euler" },
+  { label: "Quaternion", value: "quaternion" },
+];
 
 const tuningFields: TuningField[] = [
   {
@@ -248,8 +259,25 @@ export default function MotionTuningPanel({
     });
   }
 
+  function updateMappingMethod(value: MotionMappingMethod) {
+    onChange({
+      ...settings,
+      mappingMethod: value,
+    });
+  }
+
+  function updateInversionSetting(
+    key: "invertLatitude" | "invertLongitude" | "invertBearing",
+    value: boolean,
+  ) {
+    onChange({
+      ...settings,
+      [key]: value,
+    });
+  }
+
   function applyPreset(preset: TuningPreset) {
-    onChange({ ...preset.settings });
+    onChange({ ...settings, ...preset.settings });
   }
 
   function updateCo2Threshold(rawValue: number) {
@@ -390,6 +418,92 @@ export default function MotionTuningPanel({
                           </button>
                         );
                       })}
+                    </div>
+                  </div>
+
+                  <div className="rounded-md border bg-slate-50 p-3 space-y-3">
+                    <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                      Mapping Method
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {mappingMethods.map((method) => {
+                        const isActive =
+                          settings.mappingMethod === method.value;
+                        return (
+                          <button
+                            key={method.value}
+                            type="button"
+                            onClick={() => updateMappingMethod(method.value)}
+                            className={`rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                              isActive
+                                ? "border-sky-300 bg-sky-50 text-sky-900"
+                                : "bg-white hover:bg-slate-50"
+                            }`}
+                          >
+                            {method.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      Quaternion maps orientation directly from IMU quaternions.
+                      Euler uses the legacy angle-based transform.
+                    </p>
+
+                    <div className="space-y-2 pt-1">
+                      <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Axis Inversion
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateInversionSetting(
+                              "invertLatitude",
+                              !settings.invertLatitude,
+                            )
+                          }
+                          className={`rounded-md border px-2 py-1.5 text-xs font-medium transition-colors ${
+                            settings.invertLatitude
+                              ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                              : "bg-white hover:bg-slate-50"
+                          }`}
+                        >
+                          Lat
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateInversionSetting(
+                              "invertLongitude",
+                              !settings.invertLongitude,
+                            )
+                          }
+                          className={`rounded-md border px-2 py-1.5 text-xs font-medium transition-colors ${
+                            settings.invertLongitude
+                              ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                              : "bg-white hover:bg-slate-50"
+                          }`}
+                        >
+                          Lng
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateInversionSetting(
+                              "invertBearing",
+                              !settings.invertBearing,
+                            )
+                          }
+                          className={`rounded-md border px-2 py-1.5 text-xs font-medium transition-colors ${
+                            settings.invertBearing
+                              ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                              : "bg-white hover:bg-slate-50"
+                          }`}
+                        >
+                          Bearing
+                        </button>
+                      </div>
                     </div>
                   </div>
 
