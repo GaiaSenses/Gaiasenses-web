@@ -4,6 +4,7 @@ import { Montserrat } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { NextIntlClientProvider, useMessages } from "next-intl";
+import Script from "next/script";
 const montserrat = Montserrat({
   subsets: ["latin"],
   variable: "--font-montserrat",
@@ -39,6 +40,13 @@ export default function LocaleLayout({
           disableTransitionOnChange
         >
         </ThemeProvider> */}
+        <Script id="pd4web-globals" strategy="beforeInteractive">
+          {`var Pd4WebAudioContext; var Pd4WebAudioWorkletNode;`}
+        </Script>
+        <Script
+          src="/pd4webShared/pd4web.threads.js"
+          strategy="beforeInteractive"
+        />
         <NextIntlClientProvider locale={locale} messages={msg}>
           {children}
         </NextIntlClientProvider>

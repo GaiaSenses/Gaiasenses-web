@@ -21,6 +21,7 @@ import DataSender from "@/components/dataSender";
 import { Suspense } from "react";
 import { Pd4WebInstanceProvider } from "./pd4web-instance-context";
 import { getCompositionForClima } from "./use-composition-queue";
+import { Pd4WebProvider, usePd4Web } from "./pd4web-context";
 
 function stringToBoolean(value: string | undefined): boolean {
   if (value === undefined) {
@@ -165,7 +166,7 @@ export default async function Page({ params, searchParams }: PageProps) {
   };
 
   return (
-    <Pd4WebInstanceProvider>
+    <Pd4WebProvider>
       <div className="grid grid-cols-1 grid-rows-1">
         <div className="col-start-1 row-start-1 isolate">
           <GaiasensesMap
@@ -291,6 +292,6 @@ export default async function Page({ params, searchParams }: PageProps) {
           </div>
         </InfoModal>
       </div>
-    </Pd4WebInstanceProvider>
+    </Pd4WebProvider>
   );
 }

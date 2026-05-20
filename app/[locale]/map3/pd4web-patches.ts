@@ -214,6 +214,12 @@ export const MAP3_PD4WEB_PATCHES: readonly Map3Pd4WebPatch[] = [
   },
 ] as const;
 
+export function getMap3Pd4WebPatchById(
+  patchId: string,
+): Map3Pd4WebPatch | null {
+  return MAP3_PD4WEB_PATCHES.find((patch) => patch.id === patchId) ?? null;
+}
+
 // ---------------------------------------------------------------------------
 // Path helpers
 // These derive the URLs that Pd4WebMapAudio needs to inject the loader script

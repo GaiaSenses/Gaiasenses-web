@@ -26,7 +26,7 @@ import BLEControl from "./ble-control";
 import AutoMove from "./auto-move";
 import CoordinateDisplay from "./coordinate-display";
 import MotionTuningPanel from "./motion-tuning-panel";
-import Pd4WebAudio from "./pd4web-audio";
+
 import { useMapInteractions } from "./use-map-interactions";
 import { useAutoMode } from "./use-auto-mode";
 import { useBLESensor } from "./use-ble-sensor";
@@ -44,6 +44,8 @@ import {
   enabledCompositionKeys,
 } from "./map-constants";
 import CompositionsInfo from "@/components/compositions/compositions-info";
+import { usePd4Web } from "./pd4web-context";
+import { Button } from "@/components/ui/button";
 
 const MOTION_TUNING_STORAGE_KEY = "map3-motion-tuning-settings";
 const CO2_THRESHOLD_STORAGE_KEY = "map3-co2-threshold";
@@ -210,6 +212,112 @@ export default function GaiasensesMap({
     tickMs: 250,
   });
 
+  const {
+    pd4web,
+    activePatch,
+    isInitializing,
+    isStopping,
+    status,
+    startPatch,
+    stopPatch,
+  } = usePd4Web();
+  const isBusy = isInitializing || isStopping;
+
+  useEffect(() => {
+    if (!pd4web || !activePatch || !isMapInputActive) {
+      return;
+    }
+
+    if (activePatch.binding.type !== "map-center") {
+      return;
+    }
+
+    const binding = activePatch.binding;
+    const pollMs = Math.max(16, Math.round(binding.pollMs ?? 100));
+    const epsilon = Math.max(0, binding.epsilon ?? 0.0001);
+    const accEpsilon = Math.max(0, binding.accEpsilon ?? 0.05);
+
+    let prevLat: number | null = null;
+    let prevLng: number | null = null;
+    let prevAccX: number | null = null;
+    let prevAccY: number | null = null;
+    let prevAccZ: number | null = null;
+
+    const intervalId = window.setInterval(() => {
+      const map = mapRef.current;
+      if (!map) {
+        return;
+      }
+
+      const center = map.getCenter();
+      const lat = center.lat;
+      const lng = center.lng;
+
+      const latChanged = prevLat === null || Math.abs(lat - prevLat) >= epsilon;
+      const lngChanged = prevLng === null || Math.abs(lng - prevLng) >= epsilon;
+
+      if (latChanged || lngChanged) {
+        prevLat = lat;
+        prevLng = lng;
+
+        if (binding.latitudeReceiver) {
+          pd4web.sendFloat(binding.latitudeReceiver, lat);
+        }
+        if (binding.longitudeReceiver) {
+          pd4web.sendFloat(binding.longitudeReceiver, lng);
+        }
+      }
+
+      const acc = latestSensorDataRef.current?.acc;
+      if (!acc) {
+        return;
+      }
+
+      const accX = acc.x;
+      const accY = acc.y;
+      const accZ = acc.z;
+
+      if (
+        accX === null ||
+        accX === undefined ||
+        accY === null ||
+        accY === undefined ||
+        accZ === null ||
+        accZ === undefined
+      ) {
+        return;
+      }
+
+      const accXChanged =
+        prevAccX === null || Math.abs(accX - prevAccX) >= accEpsilon;
+      const accYChanged =
+        prevAccY === null || Math.abs(accY - prevAccY) >= accEpsilon;
+      const accZChanged =
+        prevAccZ === null || Math.abs(accZ - prevAccZ) >= accEpsilon;
+
+      if (!(accXChanged || accYChanged || accZChanged)) {
+        return;
+      }
+
+      prevAccX = accX;
+      prevAccY = accY;
+      prevAccZ = accZ;
+
+      if (binding.accXReceiver) {
+        pd4web.sendFloat(binding.accXReceiver, accX);
+      }
+      if (binding.accYReceiver) {
+        pd4web.sendFloat(binding.accYReceiver, accY);
+      }
+      if (binding.accZReceiver) {
+        pd4web.sendFloat(binding.accZReceiver, accZ);
+      }
+    }, pollMs);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [activePatch, isMapInputActive, pd4web]);
   return (
     <div
       style={{ height: "100svh", width: "100svw" }}
@@ -217,6 +325,24 @@ export default function GaiasensesMap({
       onMouseMove={handleMouseMove}
     >
       <CoordinateDisplay lat={latlng[0]} lng={latlng[1]} />
+      <div className="absolute bottom-[1rem] left-4 z-10">
+        {!activePatch ? (
+          <Button
+            variant={"secondary"}
+            disabled={isBusy || activePatch !== null}
+            onClick={() => startPatch("paraiso32")}
+          >
+            Start Patch
+          </Button>
+        ) : (
+          <Button variant={"destructive"} onClick={() => stopPatch()}>
+            Stop Patch
+          </Button>
+        )}
+      </div>
+      <div className="absolute bottom-[1rem] left-32 z-10 rounded bg-white/80 px-2 py-1 text-xs text-zinc-700 shadow">
+        {status}
+      </div>
       <div>
         <NotificationDialog />
       </div>
@@ -319,7 +445,7 @@ export default function GaiasensesMap({
         )}
       </Map>
 
-      <Pd4WebAudio
+      {/* <Pd4WebAudio
         moment={mode}
         composition={composition}
         mapRef={mapRef}
@@ -328,7 +454,7 @@ export default function GaiasensesMap({
         accX={latestSensorDataRef.current?.acc?.x}
         accY={latestSensorDataRef.current?.acc?.y}
         accZ={latestSensorDataRef.current?.acc?.z}
-      />
+      /> */}
 
       {/*
         CSS-centered pin — always at the visual center of the map canvas.

@@ -68,10 +68,14 @@ declare namespace pd4web {
      *
      * @see {@link Pd4Web.sendList}
      */
-    sendMessage: (name: string, selector: string, list: Array<string | number>) => boolean;
+    sendMessage: (
+      name: string,
+      selector: string,
+      list: Array<string | number>,
+    ) => boolean;
 
     /**
-     * Send a file’s binary data to Pure Data.
+     * Send a file's binary data to Pure Data.
      *
      * _Pd4Web_ uses an internal file system within an
      * [AudioWorklet](https://developer.mozilla.org/en-US/docs/Web/API/AudioWorklet).
@@ -91,17 +95,26 @@ declare namespace pd4web {
     /**
      * Register a callback function that is triggered when a `number` is received.
      */
-    onFloatReceived: (name: string, callback: (name: string, n: number) => void) => void;
+    onFloatReceived: (
+      name: string,
+      callback: (name: string, n: number) => void,
+    ) => void;
 
     /**
      * Register a callback function that is triggered when a `symbol` is received.
      */
-    onSymbolReceived: (name: string, callback: (name: string, symbol: string) => void) => void;
+    onSymbolReceived: (
+      name: string,
+      callback: (name: string, symbol: string) => void,
+    ) => void;
 
     /**
      * Register a callback function that is triggered when a `list` is received.
      */
-    onListReceived: (name: string, callback: (name: string, list: Array<string | number>) => void) => void;
+    onListReceived: (
+      name: string,
+      callback: (name: string, list: Array<string | number>) => void,
+    ) => void;
   };
 
   export type OpenPatchOptions = {
@@ -110,76 +123,77 @@ declare namespace pd4web {
      *
      * The element will be resized.
      */
-    canvasId?: string,
+    canvasId?: string;
 
     /**
      * The ID of the `<canvas>` element in your HTML where _Pd4Web_ will add a
      * listener for `click` (to initialize audio).
      */
-    soundToggleId?: string,
+    soundToggleId?: string;
 
     /**
      * The zoom level of the patch.
      */
-    patchZoom?: number,
+    patchZoom?: number;
 
     /**
      * The name of the project.
      *
      * _Pd4Web_ will use this value as the title of the page.
      */
-    projectName?: string,
+    projectName?: string;
 
     /**
      * The number of input channels.
      */
-    channelCountIn?: number,
+    channelCountIn?: number;
 
     /**
      * The number of output channels.
      */
-    channelCountOut?: number,
+    channelCountOut?: number;
 
     /**
      * The sample rate of the patch.
      */
-    sampleRate?: number,
+    sampleRate?: number;
 
     /**
      * Should _Pd4Web_ render the GUI?
      */
-    renderGui?: boolean,
+    renderGui?: boolean;
 
     /**
      * Should _Pd4Web_ request MIDI access?
      */
-    requestMidi?: boolean,
+    requestMidi?: boolean;
 
     /**
      * The FPS of the patch.
      *
      * On `0` the browser will decide this.
      */
-    fps?: number,
+    fps?: number;
   };
 }
 
-declare global {
-  /**
-   * The _Pd4Web_ instance, exposed as a global.
-   *
-   * ```js
-   * // Pd4Web object must be declared in the global scope
-   * var Pd4Web = null;
-   *
-   * Pd4WebModule().then((module) => {
-   *    Pd4Web = new module.Pd4Web();
-   * });
-   * ```
-   */
-  export let Pd4Web: pd4web.Pd4Web;
+/**
+ * The _Pd4Web_ instance, exposed as a global.
+ *
+ * ```js
+ * // Pd4Web object must be declared in the global scope
+ * var Pd4Web = null;
+ *
+ * Pd4WebModule().then((module) => {
+ *    Pd4Web = new module.Pd4Web();
+ * });
+ * ```
+ */
+declare let Pd4Web: pd4web.Pd4Web;
 
-  export const Pd4WebModule: pd4web.Pd4WebModule;
+declare const Pd4WebModule: pd4web.Pd4WebModule;
+
+interface Window {
+  Pd4WebAudioContext?: AudioContext;
+  Pd4WebAudioWorkletNode?: AudioNode;
 }
-
-export {}
