@@ -149,6 +149,7 @@ const CompositionsInfo: CompositionsInfoType = {
     thumb: "cloud-bubble.png",
     openProcessingLink: "https://openprocessing.org/sketch/1786759",
     author: "Naoki Tsutae",
+    keepMapPatch: true,
   },
   digitalOrganism: {
     name: "digitalOrganism",

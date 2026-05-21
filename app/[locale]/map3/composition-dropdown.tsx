@@ -60,12 +60,14 @@ export function CompositionDropdown({
 
     router.push(`?${params.toString()}`);
 
-    if (activePatch?.activation.moments.includes("map")) {
-      await stopPatch();
-    }
-    if (compositionInfo.patchId) {
-      const startedPatch = await startPatch(compositionInfo.patchId);
-      console.log("startedPatch:", startedPatch);
+    if (!compositionInfo.keepMapPatch) {
+      if (activePatch?.activation.moments.includes("map")) {
+        await stopPatch();
+      }
+      if (compositionInfo.patchId) {
+        const startedPatch = await startPatch(compositionInfo.patchId);
+        console.log("startedPatch:", startedPatch);
+      }
     }
   }
 

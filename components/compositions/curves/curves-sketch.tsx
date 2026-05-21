@@ -11,6 +11,7 @@ export type CurvesSketchProps = {
   rain: number;
   temperature: number;
   play: boolean;
+  pd4web?: pd4web.Pd4Web | null;
 };
 
 const FPS_MIN = 5;
@@ -36,6 +37,8 @@ function sketch(p5: P5CanvasInstance<SketchProps & CurvesSketchProps>) {
   let [width, height] = [p5.windowWidth, p5.windowHeight];
   let canvas: any | null = null;
 
+  let pd4web: pd4web.Pd4Web | null = null;
+
   p5.setup = () => {
     if (!play) p5.noLoop();
     canvas = p5.createCanvas(width, height, p5.P2D);
@@ -58,6 +61,7 @@ function sketch(p5: P5CanvasInstance<SketchProps & CurvesSketchProps>) {
     } else {
       p5.noLoop();
     }
+    pd4web = props.pd4web;
   };
 
   p5.draw = () => {
@@ -77,6 +81,11 @@ function sketch(p5: P5CanvasInstance<SketchProps & CurvesSketchProps>) {
       p5.random(width),
       height,
     );
+    const lat = randomLatitude();
+    const lon = randomLongitude();
+
+    pd4web?.sendFloat(latitudeReceiver, lat);
+    pd4web?.sendFloat(longitudeReceiver, lon);
   };
 }
 
@@ -111,28 +120,6 @@ export default function CurvesSketch(initialProps: CurvesSketchProps) {
       ? urlPlay === "true" || urlPlay === "1"
       : initialProps.play;
 
-  useEffect(() => {
-    if (!play) {
-      return;
-    }
-
-    const intervalId = window.setInterval(() => {
-      if (!pd4web) {
-        return;
-      }
-
-      const lat = randomLatitude();
-      const lon = randomLongitude();
-
-      pd4web.sendFloat(latitudeReceiver, lat);
-      pd4web.sendFloat(longitudeReceiver, lon);
-    }, pollFrequencyMs);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [pd4web, play]);
-
   // passa os valores numéricos ao wrapper p5 — NextReactP5Wrapper chamará updateWithProps internamente
   return (
     <NextReactP5Wrapper
@@ -140,6 +127,7 @@ export default function CurvesSketch(initialProps: CurvesSketchProps) {
       rain={rain}
       temperature={temperature}
       play={play}
+      pd4web={pd4web}
     />
   );
 }

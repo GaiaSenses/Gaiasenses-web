@@ -8,12 +8,12 @@ import Map, {
   ViewStateChangeEvent,
   MapRef,
 } from "react-map-gl";
-import { MapPin } from "lucide-react";
+import { MapPin, Volume2, VolumeX } from "lucide-react";
 
 // @ts-ignore
 import "mapbox-gl/dist/mapbox-gl.css";
 import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
@@ -26,6 +26,10 @@ import BLEControl from "./ble-control";
 import AutoMove from "./auto-move";
 import CoordinateDisplay from "./coordinate-display";
 import MotionTuningPanel from "./motion-tuning-panel";
+import Pd4WebPatchLog, {
+  type Pd4WebPatchLogControls,
+  type Pd4WebPatchLogEntry,
+} from "./pd4web-patch-log";
 
 import { useMapInteractions } from "./use-map-interactions";
 import { useAutoMode } from "./use-auto-mode";
@@ -49,6 +53,15 @@ import { Button } from "@/components/ui/button";
 
 const MOTION_TUNING_STORAGE_KEY = "map3-motion-tuning-settings";
 const CO2_THRESHOLD_STORAGE_KEY = "map3-co2-threshold";
+const MAP_PATCH_LOG_MAX_ENTRIES = 250;
+
+function clampPatchPollMs(value: number) {
+  return Math.max(16, Math.round(value));
+}
+
+function clampPatchEpsilon(value: number) {
+  return Math.max(0, value);
+}
 
 type GaiasensesMapProps = {
   children: ReactNode;
@@ -88,6 +101,17 @@ export default function GaiasensesMap({
     DEFAULT_MOTION_TUNING_SETTINGS,
   );
   const [co2Threshold, setCo2Threshold] = useState(DEFAULT_CO2_LEVEL_THRESHOLD);
+  const [isPatchLogOpen, setIsPatchLogOpen] = useState(false);
+  const [patchLogControls, setPatchLogControls] =
+    useState<Pd4WebPatchLogControls>({
+      pollMs: 64,
+      epsilon: 1,
+      accEpsilon: 0.05,
+      alwaysSendMovement: false,
+    });
+  const [patchLogs, setPatchLogs] = useState<Pd4WebPatchLogEntry[]>([]);
+  const nextPatchLogIdRef = useRef(0);
+  const previousPatchIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(MOTION_TUNING_STORAGE_KEY);
@@ -224,6 +248,82 @@ export default function GaiasensesMap({
   } = usePd4Web();
   const isBusy = isInitializing || isStopping;
 
+  const appendPatchLogs = useCallback(
+    (entries: Omit<Pd4WebPatchLogEntry, "id">[]) => {
+      if (entries.length === 0) {
+        return;
+      }
+
+      setPatchLogs((current) => {
+        const withIds = entries.map((entry) => ({
+          ...entry,
+          id: ++nextPatchLogIdRef.current,
+        }));
+        const next = [...withIds, ...current];
+        return next.slice(0, MAP_PATCH_LOG_MAX_ENTRIES);
+      });
+    },
+    [],
+  );
+
+  const appendPatchSystemLog = useCallback(
+    (message: string) => {
+      appendPatchLogs([
+        {
+          timestamp: Date.now(),
+          source: "system",
+          receiver: "system",
+          value: null,
+          delta: null,
+          threshold: null,
+          message,
+        },
+      ]);
+    },
+    [appendPatchLogs],
+  );
+
+  useEffect(() => {
+    const currentPatchId = activePatch?.id ?? null;
+    const previousPatchId = previousPatchIdRef.current;
+
+    if (currentPatchId === previousPatchId) {
+      return;
+    }
+
+    previousPatchIdRef.current = currentPatchId;
+
+    if (previousPatchId && currentPatchId === null) {
+      appendPatchSystemLog(`Patch stopped: ${previousPatchId}`);
+    }
+
+    if (!activePatch || activePatch.binding.type !== "map-center") {
+      setIsPatchLogOpen(false);
+      return;
+    }
+
+    setPatchLogControls({
+      pollMs: clampPatchPollMs(activePatch.binding.pollMs ?? 100),
+      epsilon: clampPatchEpsilon(activePatch.binding.epsilon ?? 0.0001),
+      accEpsilon: clampPatchEpsilon(activePatch.binding.accEpsilon ?? 0.05),
+      alwaysSendMovement: false,
+    });
+    nextPatchLogIdRef.current = 0;
+    setPatchLogs([]);
+    appendPatchSystemLog(`Patch started: ${activePatch.id}`);
+  }, [activePatch, appendPatchSystemLog]);
+
+  const isMapPatchDebugEnabled =
+    isMapInputActive &&
+    activePatch?.id === "paraiso32" &&
+    activePatch.binding.type === "map-center";
+
+  useEffect(() => {
+    if (!isMapPatchDebugEnabled) {
+      setIsPatchLogOpen(false);
+    }
+  }, [isMapPatchDebugEnabled]);
+
   useEffect(() => {
     if (!pd4web || !activePatch || !isMapInputActive) {
       return;
@@ -234,9 +334,10 @@ export default function GaiasensesMap({
     }
 
     const binding = activePatch.binding;
-    const pollMs = Math.max(16, Math.round(binding.pollMs ?? 100));
-    const epsilon = Math.max(0, binding.epsilon ?? 0.0001);
-    const accEpsilon = Math.max(0, binding.accEpsilon ?? 0.05);
+    const pollMs = clampPatchPollMs(patchLogControls.pollMs);
+    const epsilon = clampPatchEpsilon(patchLogControls.epsilon);
+    const accEpsilon = clampPatchEpsilon(patchLogControls.accEpsilon);
+    const alwaysSendMovement = patchLogControls.alwaysSendMovement;
 
     let prevLat: number | null = null;
     let prevLng: number | null = null;
@@ -245,6 +346,13 @@ export default function GaiasensesMap({
     let prevAccZ: number | null = null;
 
     const intervalId = window.setInterval(() => {
+      const tickLogs: Omit<Pd4WebPatchLogEntry, "id">[] = [];
+      const flushTickLogs = () => {
+        if (tickLogs.length > 0) {
+          appendPatchLogs(tickLogs);
+        }
+      };
+
       const map = mapRef.current;
       if (!map) {
         return;
@@ -256,21 +364,43 @@ export default function GaiasensesMap({
 
       const latChanged = prevLat === null || Math.abs(lat - prevLat) >= epsilon;
       const lngChanged = prevLng === null || Math.abs(lng - prevLng) >= epsilon;
+      const shouldSendMapMovement =
+        alwaysSendMovement || latChanged || lngChanged;
 
-      if (latChanged || lngChanged) {
+      if (shouldSendMapMovement) {
+        const latDelta = prevLat === null ? null : Math.abs(lat - prevLat);
+        const lngDelta = prevLng === null ? null : Math.abs(lng - prevLng);
+
         prevLat = lat;
         prevLng = lng;
 
         if (binding.latitudeReceiver) {
           pd4web.sendFloat(binding.latitudeReceiver, lat);
+          tickLogs.push({
+            timestamp: Date.now(),
+            source: "lat",
+            receiver: binding.latitudeReceiver,
+            value: lat,
+            delta: latDelta,
+            threshold: alwaysSendMovement ? null : epsilon,
+          });
         }
         if (binding.longitudeReceiver) {
           pd4web.sendFloat(binding.longitudeReceiver, lng);
+          tickLogs.push({
+            timestamp: Date.now(),
+            source: "lng",
+            receiver: binding.longitudeReceiver,
+            value: lng,
+            delta: lngDelta,
+            threshold: alwaysSendMovement ? null : epsilon,
+          });
         }
       }
 
       const acc = latestSensorDataRef.current?.acc;
       if (!acc) {
+        flushTickLogs();
         return;
       }
 
@@ -286,8 +416,13 @@ export default function GaiasensesMap({
         accZ === null ||
         accZ === undefined
       ) {
+        flushTickLogs();
         return;
       }
+
+      const accXDelta = prevAccX === null ? null : Math.abs(accX - prevAccX);
+      const accYDelta = prevAccY === null ? null : Math.abs(accY - prevAccY);
+      const accZDelta = prevAccZ === null ? null : Math.abs(accZ - prevAccZ);
 
       const accXChanged =
         prevAccX === null || Math.abs(accX - prevAccX) >= accEpsilon;
@@ -297,6 +432,7 @@ export default function GaiasensesMap({
         prevAccZ === null || Math.abs(accZ - prevAccZ) >= accEpsilon;
 
       if (!(accXChanged || accYChanged || accZChanged)) {
+        flushTickLogs();
         return;
       }
 
@@ -306,19 +442,55 @@ export default function GaiasensesMap({
 
       if (binding.accXReceiver) {
         pd4web.sendFloat(binding.accXReceiver, accX);
+        tickLogs.push({
+          timestamp: Date.now(),
+          source: "accX",
+          receiver: binding.accXReceiver,
+          value: accX,
+          delta: accXDelta,
+          threshold: accEpsilon,
+        });
       }
       if (binding.accYReceiver) {
         pd4web.sendFloat(binding.accYReceiver, accY);
+        tickLogs.push({
+          timestamp: Date.now(),
+          source: "accY",
+          receiver: binding.accYReceiver,
+          value: accY,
+          delta: accYDelta,
+          threshold: accEpsilon,
+        });
       }
       if (binding.accZReceiver) {
         pd4web.sendFloat(binding.accZReceiver, accZ);
+        tickLogs.push({
+          timestamp: Date.now(),
+          source: "accZ",
+          receiver: binding.accZReceiver,
+          value: accZ,
+          delta: accZDelta,
+          threshold: accEpsilon,
+        });
       }
+
+      flushTickLogs();
     }, pollMs);
 
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [activePatch, isMapInputActive, pd4web]);
+  }, [
+    activePatch,
+    appendPatchLogs,
+    isMapInputActive,
+    patchLogControls.accEpsilon,
+    patchLogControls.alwaysSendMovement,
+    patchLogControls.epsilon,
+    patchLogControls.pollMs,
+    pd4web,
+  ]);
+
   return (
     <div
       style={{ height: "100svh", width: "100svw" }}
@@ -326,24 +498,38 @@ export default function GaiasensesMap({
       onMouseMove={handleMouseMove}
     >
       <CoordinateDisplay lat={latlng[0]} lng={latlng[1]} />
-      <div className="absolute bottom-[1rem] left-4 z-10">
-        {!activePatch ? (
-          <Button
-            variant={"secondary"}
-            disabled={isBusy || activePatch !== null}
-            onClick={() => startPatch("paraiso32")}
-          >
-            Start Patch
-          </Button>
-        ) : (
-          <Button variant={"destructive"} onClick={() => stopPatch()}>
-            Stop Patch
-          </Button>
-        )}
+
+      <div className="absolute bottom-[1rem] left-4 z-10 flex flex-col gap-4">
+        <Pd4WebPatchLog
+          isEnabled={Boolean(isMapPatchDebugEnabled)}
+          isOpen={isPatchLogOpen}
+          onOpenChange={setIsPatchLogOpen}
+          controls={patchLogControls}
+          onControlsChange={setPatchLogControls}
+          logs={patchLogs}
+          onClearLogs={() => setPatchLogs([])}
+          patchLabel={activePatch?.label ?? "Map sound 32"}
+        />
+        <div>
+          {!activePatch ? (
+            <Button
+              variant={"secondary"}
+              disabled={isBusy || activePatch !== null}
+              onClick={() => startPatch("paraiso32")}
+            >
+              <VolumeX></VolumeX>
+            </Button>
+          ) : (
+            <Button variant={"secondary"} onClick={() => stopPatch()}>
+              <Volume2></Volume2>
+            </Button>
+          )}
+        </div>
+        <div className="z-10 rounded bg-white/80 px-2 py-1 text-xs text-zinc-700 shadow">
+          {status}
+        </div>
       </div>
-      <div className="absolute bottom-[1rem] left-32 z-10 rounded bg-white/80 px-2 py-1 text-xs text-zinc-700 shadow">
-        {status}
-      </div>
+
       <div>
         <NotificationDialog />
       </div>

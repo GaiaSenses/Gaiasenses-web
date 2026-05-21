@@ -172,9 +172,14 @@ export default function CloudBubbleSketch(
 
       const lat = Math.random() * 180 - 90;
       const lon = Math.random() * 360 - 180;
-
+      const accX = Math.random() * 5000;
+      const accY = Math.random() * 5000;
+      const accZ = Math.random() * 5000;
       pd4web.sendFloat("lati", lat);
       pd4web.sendFloat("rotacaoSite", lon);
+      pd4web.sendFloat("aceX", accX);
+      pd4web.sendFloat("aceY", accY);
+      pd4web.sendFloat("aceZ", accZ);
     }, 2000);
 
     return () => {
