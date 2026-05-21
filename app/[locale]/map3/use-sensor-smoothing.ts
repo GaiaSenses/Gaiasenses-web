@@ -21,6 +21,8 @@ export type SignedQuaternionComponent =
 
 export type QuaternionProjectionChannel = "latitude" | "longitude" | "bearing";
 
+export type BasicEulerChannel = "yaw" | "pitch" | "roll";
+
 type ProjectionAngles = {
   latitude: number;
   longitude: number;
@@ -60,7 +62,7 @@ export type MotionDiagnostics = {
   calibrated: boolean;
 };
 
-export type MotionMappingMethod = "euler" | "quaternion";
+export type MotionMappingMethod = "euler" | "quaternion" | "basic";
 
 export type MotionTuningSettings = {
   bufferSize: number;
@@ -75,9 +77,12 @@ export type MotionTuningSettings = {
   popupHardLockDuration: number;
   popupUnlockThreshold: number;
   mappingMethod: MotionMappingMethod;
-  invertLatitude: boolean;
-  invertLongitude: boolean;
-  invertBearing: boolean;
+  basicLatitudeFrom: BasicEulerChannel;
+  basicLongitudeFrom: BasicEulerChannel;
+  basicBearingFrom: BasicEulerChannel;
+  basicInvertLatitude: boolean;
+  basicInvertLongitude: boolean;
+  basicInvertBearing: boolean;
   lockBearing: boolean;
   quaternionRemapW: SignedQuaternionComponent;
   quaternionRemapX: SignedQuaternionComponent;
@@ -86,6 +91,9 @@ export type MotionTuningSettings = {
   quaternionLatitudeFrom: QuaternionProjectionChannel;
   quaternionLongitudeFrom: QuaternionProjectionChannel;
   quaternionBearingFrom: QuaternionProjectionChannel;
+  quaternionLatitudeOffset: number;
+  quaternionLongitudeOffset: number;
+  quaternionBearingOffset: number;
 };
 
 export const DEFAULT_MOTION_TUNING_SETTINGS: MotionTuningSettings = {
@@ -101,9 +109,12 @@ export const DEFAULT_MOTION_TUNING_SETTINGS: MotionTuningSettings = {
   popupHardLockDuration: 850,
   popupUnlockThreshold: 0.85,
   mappingMethod: "quaternion",
-  invertLatitude: false,
-  invertLongitude: false,
-  invertBearing: false,
+  basicLatitudeFrom: "pitch",
+  basicLongitudeFrom: "roll",
+  basicBearingFrom: "yaw",
+  basicInvertLatitude: false,
+  basicInvertLongitude: false,
+  basicInvertBearing: false,
   lockBearing: true,
   quaternionRemapW: "w",
   quaternionRemapX: "y",
@@ -112,6 +123,9 @@ export const DEFAULT_MOTION_TUNING_SETTINGS: MotionTuningSettings = {
   quaternionLatitudeFrom: "latitude",
   quaternionLongitudeFrom: "longitude",
   quaternionBearingFrom: "bearing",
+  quaternionLatitudeOffset: 0,
+  quaternionLongitudeOffset: 0,
+  quaternionBearingOffset: 0,
 };
 
 const DEFAULT_MOTION_DIAGNOSTICS: MotionDiagnostics = {
@@ -359,6 +373,10 @@ function readProjectionChannel(
   return projection[source];
 }
 
+function readBasicChannel(angles: EulerAngles, source: BasicEulerChannel) {
+  return angles[source];
+}
+
 function getQuaternionProjection(
   relativeQuaternion: Quaternion,
   tuning: MotionTuningSettings,
@@ -389,7 +407,11 @@ function getQuaternionProjection(
     readProjectionChannel(rawProjection, tuning.quaternionBearingFrom),
   );
 
-  return { latitude, longitude, bearing };
+  return {
+    latitude: clamp(latitude + tuning.quaternionLatitudeOffset, -85, 85),
+    longitude: normalizeAngle(longitude + tuning.quaternionLongitudeOffset),
+    bearing: normalizeAngle(bearing + tuning.quaternionBearingOffset),
+  };
 }
 
 export function useSensorSmoothing(
@@ -681,6 +703,7 @@ export function useSensorSmoothing(
 
           const useQuaternionProjection =
             currentTuning.mappingMethod === "quaternion";
+          const useBasicProjection = currentTuning.mappingMethod === "basic";
 
           let latitude: number;
           let targetLongitude: number;
@@ -700,6 +723,33 @@ export function useSensorSmoothing(
             latitude = projection.latitude;
             targetLongitude = projection.longitude;
             targetBearing = -projection.bearing;
+          } else if (useBasicProjection) {
+            const smoothedEuler: EulerAngles = {
+              yaw: smoothed.alpha,
+              pitch: smoothed.beta,
+              roll: smoothed.gamma,
+            };
+            latitude = clamp(
+              readBasicChannel(smoothedEuler, currentTuning.basicLatitudeFrom),
+              -85,
+              85,
+            );
+            targetLongitude = normalizeAngle(
+              readBasicChannel(smoothedEuler, currentTuning.basicLongitudeFrom),
+            );
+            targetBearing = normalizeAngle(
+              readBasicChannel(smoothedEuler, currentTuning.basicBearingFrom),
+            );
+
+            if (currentTuning.basicInvertLatitude) {
+              latitude = -latitude;
+            }
+            if (currentTuning.basicInvertLongitude) {
+              targetLongitude = normalizeAngle(-targetLongitude);
+            }
+            if (targetBearing !== null && currentTuning.basicInvertBearing) {
+              targetBearing = normalizeAngle(-targetBearing);
+            }
           } else {
             const yawRad = (smoothed.alpha * Math.PI) / 180;
             latitude = clamp(
@@ -712,22 +762,10 @@ export function useSensorSmoothing(
             );
             targetLongitude = normalizeAngle(-smoothed.alpha);
           }
-
-          if (currentTuning.invertLatitude) {
-            latitude = -latitude;
-          }
           latitude = clamp(latitude, -85, 85);
-
-          if (currentTuning.invertLongitude) {
-            targetLongitude = normalizeAngle(-targetLongitude);
-          }
 
           if (currentTuning.lockBearing) {
             targetBearing = null;
-          }
-
-          if (targetBearing !== null && currentTuning.invertBearing) {
-            targetBearing = normalizeAngle(-targetBearing);
           }
 
           const center = mapRef.current.getCenter();

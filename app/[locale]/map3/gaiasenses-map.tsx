@@ -37,6 +37,7 @@ import { useBLESensor } from "./use-ble-sensor";
 import { useCo2Simulation } from "./use-co2-simulation";
 import {
   DEFAULT_MOTION_TUNING_SETTINGS,
+  type MotionMappingMethod,
   type MotionTuningSettings,
 } from "./use-sensor-smoothing";
 import {
@@ -54,6 +55,42 @@ import { Button } from "@/components/ui/button";
 const MOTION_TUNING_STORAGE_KEY = "map3-motion-tuning-settings";
 const CO2_THRESHOLD_STORAGE_KEY = "map3-co2-threshold";
 const MAP_PATCH_LOG_MAX_ENTRIES = 250;
+const VALID_MOTION_MAPPING_METHODS: MotionMappingMethod[] = [
+  "euler",
+  "quaternion",
+  "basic",
+];
+
+function normalizeMotionTuningSettings(
+  settings: Partial<MotionTuningSettings>,
+): MotionTuningSettings {
+  const normalized: MotionTuningSettings = {
+    ...DEFAULT_MOTION_TUNING_SETTINGS,
+    ...settings,
+  };
+
+  if (!VALID_MOTION_MAPPING_METHODS.includes(normalized.mappingMethod)) {
+    normalized.mappingMethod = DEFAULT_MOTION_TUNING_SETTINGS.mappingMethod;
+  }
+
+  normalized.quaternionLatitudeOffset = Number.isFinite(
+    normalized.quaternionLatitudeOffset,
+  )
+    ? Math.max(-45, Math.min(45, normalized.quaternionLatitudeOffset))
+    : DEFAULT_MOTION_TUNING_SETTINGS.quaternionLatitudeOffset;
+  normalized.quaternionLongitudeOffset = Number.isFinite(
+    normalized.quaternionLongitudeOffset,
+  )
+    ? Math.max(-45, Math.min(45, normalized.quaternionLongitudeOffset))
+    : DEFAULT_MOTION_TUNING_SETTINGS.quaternionLongitudeOffset;
+  normalized.quaternionBearingOffset = Number.isFinite(
+    normalized.quaternionBearingOffset,
+  )
+    ? Math.max(-180, Math.min(180, normalized.quaternionBearingOffset))
+    : DEFAULT_MOTION_TUNING_SETTINGS.quaternionBearingOffset;
+
+  return normalized;
+}
 
 function clampPatchPollMs(value: number) {
   return Math.max(16, Math.round(value));
@@ -121,7 +158,7 @@ export default function GaiasensesMap({
 
     try {
       const parsed = JSON.parse(saved) as Partial<MotionTuningSettings>;
-      setMotionTuning((current) => ({ ...current, ...parsed }));
+      setMotionTuning(normalizeMotionTuningSettings(parsed));
     } catch {
       window.localStorage.removeItem(MOTION_TUNING_STORAGE_KEY);
     }

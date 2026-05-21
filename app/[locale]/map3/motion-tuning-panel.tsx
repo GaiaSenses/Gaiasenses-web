@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
 import type {
+  BasicEulerChannel,
   MotionMappingMethod,
   MotionDiagnostics,
   QuaternionProjectionChannel,
@@ -48,9 +49,12 @@ type TuningField = {
 type NumericTuningKey = Exclude<
   keyof MotionTuningSettings,
   | "mappingMethod"
-  | "invertLatitude"
-  | "invertLongitude"
-  | "invertBearing"
+  | "basicLatitudeFrom"
+  | "basicLongitudeFrom"
+  | "basicBearingFrom"
+  | "basicInvertLatitude"
+  | "basicInvertLongitude"
+  | "basicInvertBearing"
   | "lockBearing"
   | "quaternionRemapW"
   | "quaternionRemapX"
@@ -70,6 +74,16 @@ type TuningPreset = {
 const mappingMethods: { label: string; value: MotionMappingMethod }[] = [
   { label: "Euler", value: "euler" },
   { label: "Quaternion", value: "quaternion" },
+  { label: "Basic", value: "basic" },
+];
+
+const basicEulerChannelOptions: {
+  label: string;
+  value: BasicEulerChannel;
+}[] = [
+  { label: "Yaw", value: "yaw" },
+  { label: "Pitch", value: "pitch" },
+  { label: "Roll", value: "roll" },
 ];
 
 const signedQuaternionComponentOptions: {
@@ -205,6 +219,39 @@ const tuningFields: TuningField[] = [
   },
 ];
 
+const quaternionOffsetFields: TuningField[] = [
+  {
+    key: "quaternionLatitudeOffset",
+    label: "Latitude offset",
+    description:
+      "Applies a fixed offset to the quaternion latitude result before the map is moved. Use it to correct a vertical motion that drifts diagonally on the globe.",
+    min: -45,
+    max: 45,
+    step: 0.1,
+    unit: "deg",
+  },
+  {
+    key: "quaternionLongitudeOffset",
+    label: "Longitude offset",
+    description:
+      "Applies a fixed offset to the quaternion longitude result before the map is moved. Use it to push the movement back onto the intended horizontal axis.",
+    min: -45,
+    max: 45,
+    step: 0.1,
+    unit: "deg",
+  },
+  {
+    key: "quaternionBearingOffset",
+    label: "Bearing offset",
+    description:
+      "Applies a fixed offset to the quaternion bearing result before the map is moved. Use it to counter a residual rotation that makes the globe feel skewed.",
+    min: -180,
+    max: 180,
+    step: 0.1,
+    unit: "deg",
+  },
+];
+
 const tuningPresets: TuningPreset[] = [
   {
     name: "Super Stable",
@@ -305,8 +352,8 @@ export default function MotionTuningPanel({
     });
   }
 
-  function updateInversionSetting(
-    key: "invertLatitude" | "invertLongitude" | "invertBearing",
+  function updateBasicInversionSetting(
+    key: "basicInvertLatitude" | "basicInvertLongitude" | "basicInvertBearing",
     value: boolean,
   ) {
     onChange({
@@ -349,6 +396,16 @@ export default function MotionTuningPanel({
     });
   }
 
+  function updateBasicAxisChannel(
+    key: "basicLatitudeFrom" | "basicLongitudeFrom" | "basicBearingFrom",
+    value: BasicEulerChannel,
+  ) {
+    onChange({
+      ...settings,
+      [key]: value,
+    });
+  }
+
   function resetQuaternionRemap() {
     onChange({
       ...settings,
@@ -359,6 +416,27 @@ export default function MotionTuningPanel({
       quaternionLatitudeFrom: "latitude",
       quaternionLongitudeFrom: "longitude",
       quaternionBearingFrom: "bearing",
+    });
+  }
+
+  function resetQuaternionOffsets() {
+    onChange({
+      ...settings,
+      quaternionLatitudeOffset: 0,
+      quaternionLongitudeOffset: 0,
+      quaternionBearingOffset: 0,
+    });
+  }
+
+  function resetBasicMapping() {
+    onChange({
+      ...settings,
+      basicLatitudeFrom: "pitch",
+      basicLongitudeFrom: "roll",
+      basicBearingFrom: "yaw",
+      basicInvertLatitude: false,
+      basicInvertLongitude: false,
+      basicInvertBearing: false,
     });
   }
 
@@ -511,7 +589,7 @@ export default function MotionTuningPanel({
                     <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
                       Mapping Method
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-3 gap-2">
                       {mappingMethods.map((method) => {
                         const isActive =
                           settings.mappingMethod === method.value;
@@ -533,7 +611,9 @@ export default function MotionTuningPanel({
                     </div>
                     <p className="text-xs text-slate-500 leading-relaxed">
                       Quaternion maps orientation directly from IMU quaternions.
-                      Euler uses the legacy angle-based transform.
+                      Euler uses the legacy angle-based transform. Basic maps
+                      yaw/pitch/roll directly to map channels with configurable
+                      routing.
                     </p>
 
                     <div className="space-y-2 pt-1">
@@ -916,6 +996,89 @@ export default function MotionTuningPanel({
                           </div>
                         </div>
 
+                        <div className="rounded bg-slate-50 p-2 border border-slate-200 space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500 font-medium">
+                              <span>Axis Offset</span>
+                              <div className="group relative inline-flex items-center">
+                                <button
+                                  type="button"
+                                  className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-500 hover:text-slate-700"
+                                  aria-label="Ajuda sobre os offsets do quaternion"
+                                >
+                                  <span className="text-[10px] font-bold leading-none">
+                                    ?
+                                  </span>
+                                </button>
+                                <div className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 w-72 -translate-x-1/2 rounded-md border bg-white p-2 text-[11px] normal-case leading-relaxed text-slate-600 opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                                  Estes offsets somam um ajuste fixo ao
+                                  resultado do mapeamento quaternion antes dele
+                                  ir para o mapa. Use latitude para corrigir o
+                                  desvio vertical, longitude para alinhar o
+                                  movimento lateral e bearing para compensar uma
+                                  rotação residual. Se o movimento estiver indo
+                                  na diagonal, ajuste primeiro latitude e
+                                  longitude até o globo responder no eixo certo.
+                                </div>
+                              </div>
+                            </div>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={resetQuaternionOffsets}
+                              className="h-7 text-xs"
+                            >
+                              Reset Offsets
+                            </Button>
+                          </div>
+                          <div className="grid grid-cols-1 gap-2 text-xs">
+                            {quaternionOffsetFields.map((field) => (
+                              <label key={field.key} className="space-y-1">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-slate-600">
+                                    {field.label}
+                                  </span>
+                                  <span className="text-[11px] text-slate-400">
+                                    {field.unit ?? ""}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    id={field.key}
+                                    type="number"
+                                    value={settings[field.key]}
+                                    min={field.min}
+                                    max={field.max}
+                                    step={field.step}
+                                    className="h-8"
+                                    onChange={(event) =>
+                                      updateSetting(
+                                        field.key,
+                                        Number(event.target.value),
+                                      )
+                                    }
+                                  />
+                                  <input
+                                    type="range"
+                                    min={field.min}
+                                    max={field.max}
+                                    step={field.step}
+                                    value={settings[field.key]}
+                                    onChange={(event) =>
+                                      updateSetting(
+                                        field.key,
+                                        Number(event.target.value),
+                                      )
+                                    }
+                                    className="flex-1 accent-sky-600"
+                                  />
+                                </div>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+
                         {!diagnostics.calibrated && (
                           <div className="text-[11px] text-slate-500 text-center py-1">
                             Connect Bluetooth and calibration will establish on
@@ -925,61 +1088,171 @@ export default function MotionTuningPanel({
                       </div>
                     )}
 
-                    <div className="space-y-2 pt-1">
-                      <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                        Axis Inversion
+                    {settings.mappingMethod === "basic" && (
+                      <div className="space-y-2 rounded-md bg-white border border-sky-100 p-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                            Basic Mapping
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={resetBasicMapping}
+                              className="h-7 text-xs"
+                            >
+                              Reset Basic
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={onRecalibrate}
+                              className="h-7 text-xs"
+                            >
+                              Calibrate
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="rounded bg-slate-50 p-2 border border-slate-200 space-y-2">
+                          <div className="text-[10px] uppercase tracking-wide text-slate-500 font-medium">
+                            Axis Routing
+                          </div>
+                          <div className="grid grid-cols-1 gap-2 text-xs">
+                            <label className="space-y-1">
+                              <span className="text-slate-600">
+                                Latitude comes from
+                              </span>
+                              <select
+                                className="w-full h-7 rounded border border-slate-300 bg-white px-2"
+                                value={settings.basicLatitudeFrom}
+                                onChange={(event) =>
+                                  updateBasicAxisChannel(
+                                    "basicLatitudeFrom",
+                                    event.target.value as BasicEulerChannel,
+                                  )
+                                }
+                              >
+                                {basicEulerChannelOptions.map((option) => (
+                                  <option
+                                    key={`basic-lat-${option.value}`}
+                                    value={option.value}
+                                  >
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <label className="space-y-1">
+                              <span className="text-slate-600">
+                                Longitude comes from
+                              </span>
+                              <select
+                                className="w-full h-7 rounded border border-slate-300 bg-white px-2"
+                                value={settings.basicLongitudeFrom}
+                                onChange={(event) =>
+                                  updateBasicAxisChannel(
+                                    "basicLongitudeFrom",
+                                    event.target.value as BasicEulerChannel,
+                                  )
+                                }
+                              >
+                                {basicEulerChannelOptions.map((option) => (
+                                  <option
+                                    key={`basic-lng-${option.value}`}
+                                    value={option.value}
+                                  >
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <label className="space-y-1">
+                              <span className="text-slate-600">
+                                Bearing comes from
+                              </span>
+                              <select
+                                className="w-full h-7 rounded border border-slate-300 bg-white px-2"
+                                value={settings.basicBearingFrom}
+                                onChange={(event) =>
+                                  updateBasicAxisChannel(
+                                    "basicBearingFrom",
+                                    event.target.value as BasicEulerChannel,
+                                  )
+                                }
+                              >
+                                {basicEulerChannelOptions.map((option) => (
+                                  <option
+                                    key={`basic-bearing-${option.value}`}
+                                    value={option.value}
+                                  >
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2 pt-1">
+                          <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                            Axis Inversion
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateBasicInversionSetting(
+                                  "basicInvertLatitude",
+                                  !settings.basicInvertLatitude,
+                                )
+                              }
+                              className={`rounded-md border px-2 py-1.5 text-xs font-medium transition-colors ${
+                                settings.basicInvertLatitude
+                                  ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                                  : "bg-white hover:bg-slate-50"
+                              }`}
+                            >
+                              Lat
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateBasicInversionSetting(
+                                  "basicInvertLongitude",
+                                  !settings.basicInvertLongitude,
+                                )
+                              }
+                              className={`rounded-md border px-2 py-1.5 text-xs font-medium transition-colors ${
+                                settings.basicInvertLongitude
+                                  ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                                  : "bg-white hover:bg-slate-50"
+                              }`}
+                            >
+                              Lng
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateBasicInversionSetting(
+                                  "basicInvertBearing",
+                                  !settings.basicInvertBearing,
+                                )
+                              }
+                              className={`rounded-md border px-2 py-1.5 text-xs font-medium transition-colors ${
+                                settings.basicInvertBearing
+                                  ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                                  : "bg-white hover:bg-slate-50"
+                              }`}
+                            >
+                              Bearing
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            updateInversionSetting(
-                              "invertLatitude",
-                              !settings.invertLatitude,
-                            )
-                          }
-                          className={`rounded-md border px-2 py-1.5 text-xs font-medium transition-colors ${
-                            settings.invertLatitude
-                              ? "border-emerald-300 bg-emerald-50 text-emerald-900"
-                              : "bg-white hover:bg-slate-50"
-                          }`}
-                        >
-                          Lat
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            updateInversionSetting(
-                              "invertLongitude",
-                              !settings.invertLongitude,
-                            )
-                          }
-                          className={`rounded-md border px-2 py-1.5 text-xs font-medium transition-colors ${
-                            settings.invertLongitude
-                              ? "border-emerald-300 bg-emerald-50 text-emerald-900"
-                              : "bg-white hover:bg-slate-50"
-                          }`}
-                        >
-                          Lng
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            updateInversionSetting(
-                              "invertBearing",
-                              !settings.invertBearing,
-                            )
-                          }
-                          className={`rounded-md border px-2 py-1.5 text-xs font-medium transition-colors ${
-                            settings.invertBearing
-                              ? "border-emerald-300 bg-emerald-50 text-emerald-900"
-                              : "bg-white hover:bg-slate-50"
-                          }`}
-                        >
-                          Bearing
-                        </button>
-                      </div>
-                    </div>
+                    )}
                   </div>
 
                   <div className="rounded-md border bg-slate-50 p-3 space-y-2">
