@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import type { ViewStateChangeEvent, MapRef } from "react-map-gl";
+import type { ViewStateChangeEvent, MapRef } from "react-map-gl/mapbox";
 import { locations, type MapLocation } from "./map-constants";
 
 const TIMEOUT_1_PAUSE = 5000;

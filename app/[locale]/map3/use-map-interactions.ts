@@ -5,7 +5,7 @@ import type {
   ViewStateChangeEvent,
   GeolocateResultEvent,
   MapRef,
-} from "react-map-gl";
+} from "react-map-gl/mapbox";
 
 type UseMapInteractionsOptions = {
   initialLat: number;

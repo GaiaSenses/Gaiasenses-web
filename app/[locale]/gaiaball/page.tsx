@@ -9,7 +9,6 @@ import {
   useState,
 } from "react";
 import useInterval from "@/hooks/use-interval";
-import type { MapRef } from "react-map-gl";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -89,7 +88,7 @@ function MetricRow({ label, value }: { label: string; value: string }) {
 
 function SensorMonitorPageContent() {
   // ...existing code...
-  const mapRef = useRef<MapRef>(null);
+  const mapRef = useRef(null);
   const [rawSensorData, setRawSensorData] = useState<espResponse | null>(null);
   const [co2Data, setCo2Data] = useState<espCo2Response | null>(null);
   const [inputMode, setInputMode] = useState("mouse");

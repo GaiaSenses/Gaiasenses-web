@@ -1,6 +1,6 @@
 import { useRef, useCallback, useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import type { MapRef } from "react-map-gl";
+import type { MapRef } from "react-map-gl/mapbox";
 import {
   useSensorSmoothing,
   type MotionDiagnostics,

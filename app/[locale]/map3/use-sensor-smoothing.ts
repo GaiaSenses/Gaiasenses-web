@@ -1,6 +1,7 @@
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { MapRef } from "react-map-gl";
+
+import type { MapRef } from "react-map-gl/mapbox";
 
 type Quaternion = {
   w: number;

@@ -147,9 +147,9 @@ const sketch: P5jsSketch = (p, parentRef, temp) => {
           //@ts-ignore
           this.osc = new p5.constructor.TriOsc();
         }
-        //@ts-expect-error not sure why this has changed
+        //@ts-ignore not sure why this has changed
         this.osc.freq(p5.midiToFreq(this.midi + pan));
-        //@ts-expect-error not sure why this has changed
+        //@ts-ignore not sure why this has changed
         this.useFreq = p5.midiToFreq(this.midi + pan);
       } else {
         //@ts-ignore
@@ -165,9 +165,9 @@ const sketch: P5jsSketch = (p, parentRef, temp) => {
     update() {
       this.trTime++;
       if (p5.random() < 0.05 && this.trTime > 5) {
-        //@ts-expect-error not sure why this has changed
+        //@ts-ignore not sure why this has changed
         this.osc.freq(p5.midiToFreq(this.midi + pan));
-        //@ts-expect-error not sure why this has changed
+        //@ts-ignore not sure why this has changed
         this.useFreq = p5.midiToFreq(this.midi + pan);
       }
 
@@ -208,7 +208,7 @@ const sketch: P5jsSketch = (p, parentRef, temp) => {
     }
     play() {
       var midiValue = this.midi;
-      //@ts-expect-error not sure why this has changed
+      //@ts-ignore not sure why this has changed
       var freqValue = p5.midiToFreq(midiValue);
       this.trTime = 0;
 
@@ -386,7 +386,7 @@ export const P5jsContainer: P5jsContainer = ({ sketch, temp }) => {
         if (!(window as any).p5) {
           (window as any).p5 = p5;
         }
-        //@ts-expect-error not sure why this has changed
+        //@ts-ignore not sure why this has changed
         await import("p5/lib/addons/p5.sound");
         new p5((p) => {
           //@ts-ignore

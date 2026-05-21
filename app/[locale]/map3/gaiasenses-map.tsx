@@ -7,7 +7,7 @@ import Map, {
   Popup,
   ViewStateChangeEvent,
   MapRef,
-} from "react-map-gl";
+} from "react-map-gl/mapbox";
 import { MapPin, Volume2, VolumeX } from "lucide-react";
 
 // @ts-ignore
