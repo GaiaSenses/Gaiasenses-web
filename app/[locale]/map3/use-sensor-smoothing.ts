@@ -78,6 +78,7 @@ export type MotionTuningSettings = {
   invertLatitude: boolean;
   invertLongitude: boolean;
   invertBearing: boolean;
+  lockBearing: boolean;
   quaternionRemapW: SignedQuaternionComponent;
   quaternionRemapX: SignedQuaternionComponent;
   quaternionRemapY: SignedQuaternionComponent;
@@ -103,6 +104,7 @@ export const DEFAULT_MOTION_TUNING_SETTINGS: MotionTuningSettings = {
   invertLatitude: false,
   invertLongitude: false,
   invertBearing: false,
+  lockBearing: true,
   quaternionRemapW: "w",
   quaternionRemapX: "y",
   quaternionRemapY: "-x",
@@ -718,6 +720,10 @@ export function useSensorSmoothing(
 
           if (currentTuning.invertLongitude) {
             targetLongitude = normalizeAngle(-targetLongitude);
+          }
+
+          if (currentTuning.lockBearing) {
+            targetBearing = null;
           }
 
           if (targetBearing !== null && currentTuning.invertBearing) {

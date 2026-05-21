@@ -51,6 +51,7 @@ type NumericTuningKey = Exclude<
   | "invertLatitude"
   | "invertLongitude"
   | "invertBearing"
+  | "lockBearing"
   | "quaternionRemapW"
   | "quaternionRemapX"
   | "quaternionRemapY"
@@ -314,6 +315,13 @@ export default function MotionTuningPanel({
     });
   }
 
+  function updateBearingLock(value: boolean) {
+    onChange({
+      ...settings,
+      lockBearing: value,
+    });
+  }
+
   function updateQuaternionRemap(
     key:
       | "quaternionRemapW"
@@ -528,6 +536,29 @@ export default function MotionTuningPanel({
                       Euler uses the legacy angle-based transform.
                     </p>
 
+                    <div className="space-y-2 pt-1">
+                      <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                        North Orientation
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => updateBearingLock(!settings.lockBearing)}
+                        className={`w-full rounded-md border px-3 py-2 text-left text-sm font-medium transition-colors ${
+                          settings.lockBearing
+                            ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                            : "bg-white hover:bg-slate-50"
+                        }`}
+                      >
+                        {settings.lockBearing
+                          ? "Bearing Locked (North Fixed)"
+                          : "Bearing Unlocked (Follows Motion)"}
+                      </button>
+                      <p className="text-[11px] text-slate-500 leading-tight">
+                        Keep this enabled to avoid rotating north while moving
+                        the globe.
+                      </p>
+                    </div>
+
                     {settings.mappingMethod === "quaternion" && (
                       <div className="space-y-2 rounded-md bg-white border border-sky-100 p-2.5">
                         <div className="flex items-center justify-between gap-2">
@@ -621,8 +652,26 @@ export default function MotionTuningPanel({
                         </div>
 
                         <div className="rounded bg-slate-50 p-2 border border-slate-200 space-y-2">
-                          <div className="text-[10px] uppercase tracking-wide text-slate-500 font-medium">
-                            Quaternion Component Remap
+                          <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500 font-medium">
+                            <span>Quaternion Remap</span>
+                            <div className="group relative inline-flex items-center">
+                              <button
+                                type="button"
+                                className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-500 hover:text-slate-700"
+                                aria-label="Ajuda sobre remapeamento dos componentes do quaternion"
+                              >
+                                <span className="text-[10px] font-bold leading-none">
+                                  ?
+                                </span>
+                              </button>
+                              <div className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 w-64 -translate-x-1/2 rounded-md border bg-white p-2 text-[11px] normal-case leading-relaxed text-slate-600 opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                                Aqui voce escolhe qual componente do sensor vai
+                                para cada saida (w, x, y, z). Trocar X/Y/Z ou
+                                usar sinal negativo inverte o sentido da
+                                rotacao. Ajuste ate o movimento fisico do globo
+                                combinar com o movimento no mapa.
+                              </div>
+                            </div>
                           </div>
                           <div className="grid grid-cols-2 gap-2 text-xs">
                             <label className="space-y-1">
@@ -729,8 +778,26 @@ export default function MotionTuningPanel({
                         </div>
 
                         <div className="rounded bg-slate-50 p-2 border border-slate-200 space-y-2">
-                          <div className="text-[10px] uppercase tracking-wide text-slate-500 font-medium">
-                            Map Axis Remap
+                          <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500 font-medium">
+                            <span>Map Axis Remap</span>
+                            <div className="group relative inline-flex items-center">
+                              <button
+                                type="button"
+                                className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-500 hover:text-slate-700"
+                                aria-label="Ajuda sobre remapeamento dos eixos do mapa"
+                              >
+                                <span className="text-[10px] font-bold leading-none">
+                                  ?
+                                </span>
+                              </button>
+                              <div className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 w-64 -translate-x-1/2 rounded-md border bg-white p-2 text-[11px] normal-case leading-relaxed text-slate-600 opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                                Aqui voce define qual resultado do quaternion
+                                controla Latitude, Longitude e Bearing no
+                                Mapbox. Se yaw estiver mexendo no eixo errado,
+                                troque os campos ate cada movimento fisico
+                                responder no eixo esperado.
+                              </div>
+                            </div>
                           </div>
                           <div className="grid grid-cols-1 gap-2 text-xs">
                             <label className="space-y-1">
