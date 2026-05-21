@@ -134,6 +134,18 @@ const DEFAULT_POSITION_EPSILON = 0.0001;
  */
 export const MAP3_PD4WEB_PATCHES: readonly Map3Pd4WebPatch[] = [
   {
+    id: "thunder4",
+    label: "Thunder 4",
+    bundleFolder: "thunder4",
+    activation: {
+      moments: ["player"],
+      compositions: ["lightningBolts"],
+    },
+    binding: {
+      type: "none",
+    },
+  },
+  {
     id: "bubble1",
     label: "Bubble 1",
     bundleFolder: "bubble1",

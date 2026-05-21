@@ -6,15 +6,17 @@ import { NextReactP5Wrapper } from "@p5-wrapper/next";
 import p5Types from "p5";
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
+import { usePd4Web } from "@/app/[locale]/map3/pd4web-context";
 
 export type LightningBoltsSketchProps = {
   lightningCount: number;
   play: boolean;
+  pd4web?: pd4web.Pd4Web | null;
 };
 
 function sketch(p5: P5CanvasInstance<SketchProps & LightningBoltsSketchProps>) {
   //inspired by https://openprocessing.org/sketch/639075
-  //configured by Lucas Mielle 
+  //configured by Lucas Mielle
   let bolts: ChaoticLine[] = [];
   let boltTimer = 0;
   let lightningCount = 0;
@@ -23,9 +25,10 @@ function sketch(p5: P5CanvasInstance<SketchProps & LightningBoltsSketchProps>) {
   let [width, height] = [p5.windowWidth, p5.windowHeight];
 
   let play = false;
-
+  let pd4web: pd4web.Pd4Web | null = null;
   p5.setup = () => {
     p5.createCanvas(p5.windowWidth, p5.windowHeight);
+    p5.pixelDensity(1);
     p5.frameRate(40);
     bolts = [];
     p5.background(0);
@@ -38,9 +41,11 @@ function sketch(p5: P5CanvasInstance<SketchProps & LightningBoltsSketchProps>) {
     play = props.play;
     lightningCount = count;
     boltInterval = 35 / lightningCount;
+    pd4web = props.pd4web;
   };
 
   p5.draw = () => {
+    p5.noStroke();
     p5.fill(0, 24);
     p5.rect(0, 0, width, height);
 
@@ -52,15 +57,16 @@ function sketch(p5: P5CanvasInstance<SketchProps & LightningBoltsSketchProps>) {
         let r2 = 700;
         let p1 = p5.createVector(
           p5.int(r1 * p5.cos(a1)),
-          p5.int(r1 * p5.sin(a1))
+          p5.int(r1 * p5.sin(a1)),
         );
         p1.add(width / 2, height / 2);
         let p2 = p5.createVector(
           p5.int(r2 * p5.cos(a2)),
-          p5.int(r2 * p5.sin(a2))
+          p5.int(r2 * p5.sin(a2)),
         );
         p2.add(width / 2, height / 2);
         bolts.push(new ChaoticLine(p1, p2, 0.35, p5));
+        pd4web?.sendBang("bolt");
       }
       boltTimer = 0;
     } else {
@@ -100,7 +106,7 @@ function sketch(p5: P5CanvasInstance<SketchProps & LightningBoltsSketchProps>) {
       public p1: p5Types.Vector,
       public p2: p5Types.Vector,
       public chaos: number,
-      private p5: p5Types
+      private p5: p5Types,
     ) {
       this.ptlist = this.createPoints(p1, p2, chaos);
       this.ptlist.push(p2);
@@ -136,7 +142,7 @@ function sketch(p5: P5CanvasInstance<SketchProps & LightningBoltsSketchProps>) {
 }
 
 export default function LightningBoltsSketch(
-  initialProps: LightningBoltsSketchProps
+  initialProps: LightningBoltsSketchProps,
 ) {
   const searchParams = useSearchParams();
 
@@ -149,7 +155,7 @@ export default function LightningBoltsSketch(
       urlLightningCount !== null
         ? Number(urlLightningCount)
         : initialProps.lightningCount,
-    [urlLightningCount, initialProps.lightningCount]
+    [urlLightningCount, initialProps.lightningCount],
   );
 
   const play =
@@ -157,12 +163,14 @@ export default function LightningBoltsSketch(
       ? urlPlay === "true" || urlPlay === "1"
       : initialProps.play;
 
+  const { pd4web } = usePd4Web();
   // passa os valores numéricos ao wrapper p5 — NextReactP5Wrapper chamará updateWithProps internamente
   return (
     <NextReactP5Wrapper
       sketch={sketch}
       lightningCount={lightningCount}
       play={play}
+      pd4web={pd4web}
     />
   );
 }

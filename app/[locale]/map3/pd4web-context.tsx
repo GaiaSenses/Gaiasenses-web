@@ -96,7 +96,7 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
 
       const instance = new pdModule.Pd4Web();
       instance.openPatch("index.pd", {
-        canvasId: P4DWEB_CANVAS_ID,
+        //canvasId: P4DWEB_CANVAS_ID,
         renderGui: false,
       });
       await instance.init();

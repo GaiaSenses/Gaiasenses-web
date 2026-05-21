@@ -246,6 +246,7 @@ const CompositionsInfo: CompositionsInfoType = {
     thumb: "lightning-bolts.png",
     openProcessingLink: "https://openprocessing.org/sketch/639075",
     author: "Gweltaz Duval-Guennoc",
+    patchId: "thunder4",
   },
   burningTrees: {
     name: "burningTrees",

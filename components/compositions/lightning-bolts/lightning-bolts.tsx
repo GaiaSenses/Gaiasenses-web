@@ -44,13 +44,17 @@ export default async function LightningBolts(props: LightningBoltsProps) {
   }
 
   const refreshKey = props.refresh ?? "default";
-  lightningBoltsAudio = getAudio(lightningCount);
+  //lightningBoltsAudio = getAudio(lightningCount);
 
-return (
-  <Composition>
-    <LightningBoltsSketch key={refreshKey} lightningCount={lightningCount} play={props.play} />
-    <CompositionControls play={props.play} mp3 patchPath={lightningBoltsAudio} />
-    {<DebugPanel data={[{ lightningCount }]} />}
-  </Composition>
+  return (
+    <Composition>
+      <LightningBoltsSketch
+        key={refreshKey}
+        lightningCount={lightningCount}
+        play={props.play}
+      />
+      <CompositionControls play={props.play} />
+      {<DebugPanel data={[{ lightningCount }]} />}
+    </Composition>
   );
 }
