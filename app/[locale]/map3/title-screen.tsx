@@ -2,6 +2,9 @@
 import { Button } from "@/components/ui/button";
 
 import { ReactNode, useState, AnimationEvent } from "react";
+import { usePd4Web } from "./pd4web-context";
+import { start } from "repl";
+import { MAP3_PD4WEB_PATCHES } from "./pd4web-patches";
 
 export default function TitleScreen({
   children,
@@ -17,11 +20,19 @@ export default function TitleScreen({
   titleButtonText: string;
 }) {
   const [state, setState] = useState<"idle" | "animating" | "ended">(
-    show === false ? "ended" : "idle"
+    show === false ? "ended" : "idle",
   );
+
+  const { startPatch, isInitializing } = usePd4Web();
 
   function onClick() {
     if (state == "idle") setState("animating");
+    const mapPatch = MAP3_PD4WEB_PATCHES.find((patch) =>
+      patch.activation.moments.includes("map"),
+    );
+    if (mapPatch) {
+      const patch = startPatch(mapPatch.id);
+    }
   }
 
   function onAnimationEnd(e: AnimationEvent<HTMLDivElement>) {

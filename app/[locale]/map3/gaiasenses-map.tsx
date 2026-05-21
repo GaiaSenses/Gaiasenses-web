@@ -18,7 +18,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import type { espCo2Response, espResponse } from "./ble-control";
-import type { Map3Pd4WebMoment } from "./pd4web-patches";
+import { MAP3_PD4WEB_PATCHES, type Map3Pd4WebMoment } from "./pd4web-patches";
 
 import InfoButton from "./info-button";
 import NotificationDialog from "./notifications-dialog";
@@ -315,8 +315,11 @@ export default function GaiasensesMap({
 
   const isMapPatchDebugEnabled =
     isMapInputActive &&
-    activePatch?.id === "paraiso32" &&
-    activePatch.binding.type === "map-center";
+    activePatch?.id ===
+      MAP3_PD4WEB_PATCHES.find((patch) =>
+        patch.activation.moments.includes("map"),
+      )?.id &&
+    activePatch?.binding.type === "map-center";
 
   useEffect(() => {
     if (!isMapPatchDebugEnabled) {
@@ -491,6 +494,26 @@ export default function GaiasensesMap({
     pd4web,
   ]);
 
+  const handleUnmuteClick = () => {
+    const mapPatch = MAP3_PD4WEB_PATCHES.find((patch) =>
+      patch.activation.moments.includes("map"),
+    );
+
+    if (mapPatch) {
+      if (!activePatch) {
+        startPatch(mapPatch.id);
+      }
+      if (activePatch && activePatch.id === mapPatch.id) {
+        console.log("Patch already started: ", activePatch.id);
+      }
+    }
+  };
+
+  const handleMuteClick = () => {
+    if (activePatch) {
+      stopPatch();
+    }
+  };
   return (
     <div
       style={{ height: "100svh", width: "100svw" }}
@@ -515,12 +538,12 @@ export default function GaiasensesMap({
             <Button
               variant={"secondary"}
               disabled={isBusy || activePatch !== null}
-              onClick={() => startPatch("paraiso32")}
+              onClick={handleUnmuteClick}
             >
               <VolumeX></VolumeX>
             </Button>
           ) : (
-            <Button variant={"secondary"} onClick={() => stopPatch()}>
+            <Button variant={"secondary"} onClick={handleMuteClick}>
               <Volume2></Volume2>
             </Button>
           )}
