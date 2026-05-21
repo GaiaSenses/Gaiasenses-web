@@ -50,6 +50,9 @@ export function CompositionDropdown({
   async function handleClick() {
     const compositionInfo =
       CompositionsInfo[selectedComposition as keyof typeof CompositionsInfo];
+    const wasMapPatchActive = Boolean(
+      activePatch?.activation.moments.includes("map"),
+    );
 
     const params = new URLSearchParams({
       ...searchParams,
@@ -57,11 +60,16 @@ export function CompositionDropdown({
       mode: "player",
       play: "true",
     });
+    params.set("mapPatchWasOn", wasMapPatchActive ? "true" : "false");
 
-    router.push(`?${params.toString()}`);
+    router.replace(`?${params.toString()}`);
 
     if (!compositionInfo.keepMapPatch) {
-      if (activePatch?.activation.moments.includes("map")) {
+      if (
+        activePatch?.activation.moments.includes("map") &&
+        !isInitializing &&
+        !isStopping
+      ) {
         await stopPatch();
       }
       if (compositionInfo.patchId) {

@@ -34,6 +34,7 @@ export default function TogglePlayButton({
     const lng = searchParams.get("lng");
     const composition = searchParams.get("composition");
     const debug = searchParams.get("debug");
+    const shouldRestoreMapPatch = searchParams.get("mapPatchWasOn") === "true";
 
     newParams.set("lat", lat ?? "0");
     newParams.set("lng", lng ?? "0");
@@ -51,20 +52,40 @@ export default function TogglePlayButton({
       // }
     } else {
       if (onPause) onPause(newPlayStatus);
-      if (activePatch && !isInitializing && !isStopping) {
-        await stopPatch();
+
+      if (shouldRestoreMapPatch) {
         const mapPatch = MAP3_PD4WEB_PATCHES.find((patch) =>
           patch.activation.moments.includes("map"),
         );
-        if (mapPatch) {
-          startPatch(mapPatch.id);
+        const hasNonMapPatchActive = Boolean(
+          activePatch && !activePatch.activation.moments.includes("map"),
+        );
+        const hasMapPatchActive = Boolean(
+          activePatch && activePatch.activation.moments.includes("map"),
+        );
+
+        if (hasNonMapPatchActive) {
+          if (!isInitializing && !isStopping) {
+            await stopPatch();
+          }
+        }
+
+        if (!hasMapPatchActive && mapPatch) {
+          const patch = await startPatch(mapPatch.id);
+          console.log("Started map patch on return:", patch);
+        }
+      } else {
+        if (
+          activePatch &&
+          !activePatch.activation.moments.includes("map") &&
+          !isInitializing &&
+          !isStopping
+        ) {
+          await stopPatch();
         }
       }
     }
 
-    //newParams.delete("compositionName");
-    //newParams.set("play", "false");
-    //newParams.set("today", "true");
     newParams.set("initial", "false");
     router.replace(`${pathname}?${newParams.toString()}`);
   }
