@@ -1,99 +1,99 @@
 "use client";
-//@ts-ignore this is generating require calls, should look into that
-import type { P5CanvasInstance, SketchProps } from "@p5-wrapper/react";
-//@ts-ignore this is generating require calls, should look into that
+
+import { usePd4Web } from "@/app/[locale]/map3/pd4web-context";
 import { NextReactP5Wrapper } from "@p5-wrapper/next";
-import { useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import type { P5CanvasInstance, SketchProps } from "@p5-wrapper/react";
+import { useEffect } from "react";
 
-export type LluviaSketchProps = {
-  rain: number;
+type LluviaSketchProps = SketchProps & {
   play: boolean;
+  pd4web?: pd4web.Pd4Web | null;
 };
-const CRITICAL_RAIN = 10;
 
-const ELLIPSE_MIN = 15;
-const ELLIPSE_MAX = 250;
+type Raindrop = {
+  x: number;
+  y: number;
+  diameter: number;
+  color: [number, number, number, number];
+};
 
-const FPS_MIN = 2;
-const FPS_MAX = 20;
+const MAX_DROPS = 180;
 
-let ellipseSize = 0;
-
-let fps = 0;
-
-// const LluviaSketch = memo(LluviaSketchBase);
-// export default LluviaSketch;
-
-function sketch(p5: P5CanvasInstance<SketchProps & LluviaSketchProps>) {
-  // inspired by: https://openprocessing.org/sketch/386391
-  let rain = 0;
-
+function sketch(p5: P5CanvasInstance<LluviaSketchProps>) {
   let play = false;
+  const drops: Raindrop[] = [];
+  let canvas: any = null;
 
-  let [w, h] = [p5.windowWidth, p5.windowHeight];
-  let canvas: any | null = null;
-  p5.setup = () => {
-    if (!play) p5.noLoop();
-    canvas = p5.createCanvas(w, h, p5.P2D);
-    canvas.style("");
-    ellipseSize = p5.map(rain, 0, CRITICAL_RAIN, ELLIPSE_MIN, ELLIPSE_MAX);
-    fps = p5.map(rain, 0, CRITICAL_RAIN, FPS_MIN, FPS_MAX);
+  const spawnDrop = () => {
+    drops.push({
+      x: p5.random(p5.windowWidth),
+      y: p5.random(p5.windowHeight),
+      diameter: p5.random(18, 72),
+      color: [p5.random(60, 255), p5.random(60, 255), p5.random(60, 255), 220],
+    });
 
-    p5.frameRate(fps);
+    while (drops.length > MAX_DROPS) {
+      drops.shift();
+    }
+
+    p5.redraw();
   };
 
-  p5.updateWithProps = (props: any) => {
-    rain = Number.isNaN(props.rain) ? rain : props.rain;
-    play = props.play;
+  p5.updateWithProps = (props: LluviaSketchProps) => {
+    const nextPlay = Boolean(props.play);
 
-    ellipseSize = p5.map(rain, 0, CRITICAL_RAIN, ELLIPSE_MIN, ELLIPSE_MAX);
-    fps = p5.map(rain, 0, CRITICAL_RAIN, FPS_MIN, FPS_MAX);
+    if (nextPlay === play) {
+      return;
+    }
 
-    p5.frameRate(fps);
-
-    if (props.play) {
-      p5.loop();
-    } else {
-      p5.noLoop();
+    play = nextPlay;
+    if (play) {
+      props.pd4web?.onBangReceived("paint", (name: string) => {
+        console.log(name);
+        spawnDrop();
+      });
     }
   };
 
-  p5.windowResized = () => {
-    w = p5.windowWidth;
-    h = p5.windowHeight;
-    p5.resizeCanvas(w, h);
+  p5.setup = () => {
+    if (!canvas) {
+      const c = p5.createCanvas(p5.windowWidth, p5.windowHeight);
+      canvas = c;
+    }
+
+    p5.noLoop();
+    p5.background(245, 246, 249);
   };
 
   p5.draw = () => {
-    p5.fill(p5.random(255), p5.random(255), p5.random(255), p5.random(255));
+    p5.background(245, 246, 249);
     p5.noStroke();
-    p5.ellipse(
-      p5.random(w),
-      p5.random(h),
-      p5.random(ellipseSize),
-      p5.random(ellipseSize)
-    );
+
+    drops.forEach((drop) => {
+      p5.fill(...drop.color);
+      p5.circle(drop.x, drop.y, drop.diameter);
+    });
+  };
+
+  p5.windowResized = () => {
+    p5.redraw();
   };
 }
 
-export default function LluviaSketch(initialProps: LluviaSketchProps) {
-  const searchParams = useSearchParams();
+export function LluviaSketch({ play }: LluviaSketchProps) {
+  const Pd4webContext = usePd4Web();
 
-  // ler params e converter para número quando existirem
-  const urlRain = searchParams?.get("rain");
-  const urlPlay = searchParams?.get("play");
+  useEffect(() => {
+    Pd4webContext.pd4web?.sendBang("start");
+  }, [Pd4webContext.pd4web]);
 
-  const rain = useMemo(
-    () => (urlRain !== null ? Number(urlRain) : initialProps.rain),
-    [urlRain, initialProps.rain]
+  return (
+    <NextReactP5Wrapper
+      sketch={sketch}
+      play={play}
+      pd4web={Pd4webContext.pd4web}
+    />
   );
-
-  const play =
-    urlPlay !== null
-      ? urlPlay === "true" || urlPlay === "1"
-      : initialProps.play;
-
-  // passa os valores numéricos ao wrapper p5 — NextReactP5Wrapper chamará updateWithProps internamente
-  return <NextReactP5Wrapper sketch={sketch} rain={rain} play={play} />;
 }
+
+export default LluviaSketch;

@@ -3,7 +3,6 @@ import CloudBubbleSketch from "./cloud-bubble-sketch";
 import CompositionControls from "../composition-controls";
 import DebugPanel from "@/components/debug-panel/debug-panel";
 import { getWeather } from "@/components/getData";
-import { usePd4WebInstance } from "@/app/[locale]/map3/pd4web-instance-context";
 
 export type CloudBubbleProps = {
   lat: string;

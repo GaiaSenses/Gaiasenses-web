@@ -19,9 +19,8 @@ import {
 import { cookies } from "next/headers";
 import DataSender from "@/components/dataSender";
 import { Suspense } from "react";
-import { Pd4WebInstanceProvider } from "./pd4web-instance-context";
 import { getCompositionForClima } from "./use-composition-queue";
-import { Pd4WebProvider, usePd4Web } from "./pd4web-context";
+import { Pd4WebProvider } from "./pd4web-context";
 
 function stringToBoolean(value: string | undefined): boolean {
   if (value === undefined) {
@@ -185,16 +184,9 @@ export default async function Page({ params, searchParams }: PageProps) {
               }
             >
               <PopupContent lat={lat} lng={lng} lang={params.locale}>
-                <div className="flex gap-1">
-                  <Link href={{ query: newQuery }} className="w-full">
-                    <Button className="w-full capitalize" variant={"outline"}>
-                      {composition}
-                    </Button>
-                  </Link>
-                  <CompositionDropdown
-                    searchParams={{ ...searchParams, composition }}
-                  ></CompositionDropdown>
-                </div>
+                <CompositionDropdown
+                  searchParams={{ ...searchParams, composition }}
+                ></CompositionDropdown>
               </PopupContent>
             </Suspense>
           </GaiasensesMap>

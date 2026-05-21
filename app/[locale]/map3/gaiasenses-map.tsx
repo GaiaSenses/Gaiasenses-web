@@ -72,7 +72,8 @@ export default function GaiasensesMap({
   const hasSharedPd4WebPatch =
     composition !== null &&
     Boolean(
-      CompositionsInfo[composition as keyof typeof CompositionsInfo]?.pd4web,
+      CompositionsInfo[composition as keyof typeof CompositionsInfo]
+        ?.keepMapPatch,
     );
   const isMapAudioActive = mode === "map" || hasSharedPd4WebPatch;
   const isMapInputActive = mode === "map";

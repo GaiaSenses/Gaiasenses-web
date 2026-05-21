@@ -133,63 +133,18 @@ const DEFAULT_POSITION_EPSILON = 0.0001;
  * Add new patches here following the Map3Pd4WebPatch shape described above.
  */
 export const MAP3_PD4WEB_PATCHES: readonly Map3Pd4WebPatch[] = [
-  // {
-  //   // "gabriel" is the ambient map soundscape patch, active whenever the globe
-  //   // is in view. It receives the current map center so the sound can respond
-  //   // to geographic position.
-  //   id: "gabriel",
-  //   label: "Map sound",
-  //   // Built output lives at /public/gabriel-pd4web/
-  //   bundleFolder: "gabriel-pd4web",
-  //   activation: {
-  //     // Active only in the map view, not inside the composition player.
-  //     moments: ["map"],
-  //   },
-  //   binding: {
-  //     type: "map-center",
-  //     // These receiver names must match [receive x1] and [receive y1] in the .pd file.
-  //     longitudeReceiver: "x1",
-  //     latitudeReceiver: "y1",
-  //     pollMs: DEFAULT_POSITION_POLL_MS,
-  //     epsilon: DEFAULT_POSITION_EPSILON,
-  //     // Uncomment and add a matching [receive speed] in the patch to enable speed input:
-  //     // speedReceiver: "speed",
-  //   },
-  // },
-  // {
-  //   id: "gabriel2",
-  //   label: "Map sound 2",
-  //   bundleFolder: "gabriel2-map",
-  //   activation: {
-  //     moments: ["map"],
-  //   },
-  //   binding: {
-  //     type: "map-center",
-  //     accXReceiver: "aX",
-
-  //     pollMs: DEFAULT_POSITION_POLL_MS,
-  //     epsilon: DEFAULT_POSITION_EPSILON,
-  //   },
-  // },
-  //This one is working
-  // {
-  //   id: "gabriel-paraisoGaia8",
-  //   label: "Map sound 3",
-  //   bundleFolder: "gabriel-paraisoGaia8_2",
-  //   activation: {
-  //     moments: ["map"],
-  //   },
-  //   binding: {
-  //     type: "map-center",
-  //     latitudeReceiver: "x1",
-  //     longitudeReceiver: "y1",
-  //     // accXReceiver: "input_accX",
-  //     // accYReceiver: "input_accY",
-  //     // accZReceiver: "input_accZ",
-  //     // co2Receiver: "input_co2",
-  //     pollMs: DEFAULT_POSITION_POLL_MS,
-  //     epsilon: DEFAULT_POSITION_EPSILON,
-  //   },
+  {
+    id: "bubble1",
+    label: "Bubble 1",
+    bundleFolder: "bubble1",
+    activation: {
+      moments: ["player"],
+      compositions: ["lluvia"],
+    },
+    binding: {
+      type: "none",
+    },
+  },
   {
     id: "paraiso32",
     label: "Map sound 32",
@@ -218,71 +173,4 @@ export function getMap3Pd4WebPatchById(
   patchId: string,
 ): Map3Pd4WebPatch | null {
   return MAP3_PD4WEB_PATCHES.find((patch) => patch.id === patchId) ?? null;
-}
-
-// ---------------------------------------------------------------------------
-// Path helpers
-// These derive the URLs that Pd4WebMapAudio needs to inject the loader script
-// and tell the Emscripten runtime where to fetch its companion files.
-// ---------------------------------------------------------------------------
-
-/** Full URL path to the Emscripten loader script for a given bundle. */
-export function getPd4WebBundleScriptPath(bundleFolder: string): string {
-  return `/${bundleFolder}/pd4web.js`;
-}
-
-/**
- * Base URL passed to Emscripten's `locateFile` so it can resolve relative
- * paths for .wasm and .data files bundled alongside pd4web.js.
- */
-export function getPd4WebBundleBasePath(bundleFolder: string): string {
-  return `/${bundleFolder}/`;
-}
-
-/**
- * Returns the HTML id attribute for the <script> tag that loads a patch's
- * runtime. Using a stable id lets us detect an already-injected script on
- * re-mount (e.g. after a React strict-mode double-effect or hot reload).
- */
-export function getPd4WebScriptId(patchId: string): string {
-  return `map3-pd4web-runtime-${patchId}`;
-}
-
-type ResolveMap3Pd4WebPatchOptions = {
-  moment: Map3Pd4WebMoment;
-  composition: string | null;
-};
-
-/**
- * Returns the first patch from MAP3_PD4WEB_PATCHES whose activation rules
- * match the given moment and composition, or null if no patch is applicable.
- *
- * Called by Pd4WebMapAudioManager on every URL state change to decide which
- * (if any) Pd4WebMapAudio instance should be rendered.
- */
-export function resolveMap3Pd4WebPatch({
-  moment,
-  composition,
-}: ResolveMap3Pd4WebPatchOptions): Map3Pd4WebPatch | null {
-  for (const patch of MAP3_PD4WEB_PATCHES) {
-    if (!patch.activation.moments.includes(moment)) {
-      continue;
-    }
-
-    if (
-      patch.activation.compositions &&
-      composition &&
-      !patch.activation.compositions.includes(composition)
-    ) {
-      continue;
-    }
-
-    if (patch.activation.compositions && !composition) {
-      continue;
-    }
-
-    return patch;
-  }
-
-  return null;
 }

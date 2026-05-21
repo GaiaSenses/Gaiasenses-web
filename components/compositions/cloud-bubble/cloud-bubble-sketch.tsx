@@ -5,7 +5,7 @@ import type { P5CanvasInstance, SketchProps } from "@p5-wrapper/react";
 import { NextReactP5Wrapper } from "@p5-wrapper/next";
 import { useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import { usePd4WebInstance } from "@/app/[locale]/map3/pd4web-instance-context";
+import { usePd4Web } from "@/app/[locale]/map3/pd4web-context";
 
 export type CloudBubbleSketchProps = {
   clouds: number;
@@ -149,7 +149,7 @@ export default function CloudBubbleSketch(
   const urlClouds = searchParams?.get("clouds");
   const urlPlay = searchParams?.get("play");
 
-  const { pdRef } = usePd4WebInstance();
+  const { pd4web } = usePd4Web();
   const clouds = useMemo(
     () => (urlClouds !== null ? Number(urlClouds) : initialProps.clouds),
     [urlClouds, initialProps.clouds],
@@ -166,22 +166,21 @@ export default function CloudBubbleSketch(
     }
 
     const intervalId = setInterval(() => {
-      const pd = pdRef.current;
-      if (!pd) {
+      if (!pd4web) {
         return;
       }
 
       const lat = Math.random() * 180 - 90;
       const lon = Math.random() * 360 - 180;
 
-      pd.sendFloat("lati", lat);
-      pd.sendFloat("rotacaoSite", lon);
+      pd4web.sendFloat("lati", lat);
+      pd4web.sendFloat("rotacaoSite", lon);
     }, 2000);
 
     return () => {
       clearInterval(intervalId);
     };
-  }, [pdRef, play]);
+  }, [pd4web, play]);
 
   // passa os valores numéricos ao wrapper p5 — NextReactP5Wrapper chamará updateWithProps internamente
   return <NextReactP5Wrapper sketch={sketch} clouds={clouds} play={play} />;

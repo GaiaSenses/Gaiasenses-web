@@ -3,6 +3,8 @@ import { PauseIcon, PlayIcon } from "@radix-ui/react-icons";
 import { Button } from "../ui/button";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { MouseEvent } from "react";
+import { usePd4Web } from "@/app/[locale]/map3/pd4web-context";
+import { MAP3_PD4WEB_PATCHES } from "@/app/[locale]/map3/pd4web-patches";
 
 export default function TogglePlayButton({
   play,
@@ -17,8 +19,11 @@ export default function TogglePlayButton({
   const searchParams = useSearchParams();
   const router = useRouter();
 
+  const { stopPatch, activePatch, isInitializing, isStopping, startPatch } =
+    usePd4Web();
+
   async function togglePlay(
-    event: MouseEvent<HTMLDivElement | HTMLButtonElement>
+    event: MouseEvent<HTMLDivElement | HTMLButtonElement>,
   ) {
     event.preventDefault();
     event.stopPropagation();
@@ -38,6 +43,7 @@ export default function TogglePlayButton({
 
     const newPlayStatus = !play;
     newParams.set("play", newPlayStatus.toString());
+
     if (newPlayStatus) {
       if (onPlay) onPlay(newPlayStatus);
       // if (window) {
@@ -45,6 +51,15 @@ export default function TogglePlayButton({
       // }
     } else {
       if (onPause) onPause(newPlayStatus);
+      if (activePatch && !isInitializing && !isStopping) {
+        await stopPatch();
+        const mapPatch = MAP3_PD4WEB_PATCHES.find((patch) =>
+          patch.activation.moments.includes("map"),
+        );
+        if (mapPatch) {
+          startPatch(mapPatch.id);
+        }
+      }
     }
 
     //newParams.delete("compositionName");
@@ -56,7 +71,7 @@ export default function TogglePlayButton({
 
   return (
     <div
-    onClick={togglePlay}
+      onClick={togglePlay}
       className="absolute top-0 h-full w-full flex items-center justify-center"
     >
       <Button

@@ -77,7 +77,8 @@ export type CompositionInfo = {
   thumb: string;
   author?: string;
   openProcessingLink?: string;
-  pd4web?: boolean;
+  keepMapPatch?: boolean;
+  patchId?: string;
 };
 
 export type CompositionsInfoType = {
@@ -92,7 +93,8 @@ const CompositionsInfo: CompositionsInfoType = {
     endpoints: ["rainfall"],
     thumb: "lluvia.png",
     openProcessingLink: "https://openprocessing.org/sketch/386391",
-    author: " AK Stuxnet",
+    author: "AK Stuxnet",
+    patchId: "bubble1",
   },
   zigzag: {
     name: "zigzag",
@@ -129,7 +131,7 @@ const CompositionsInfo: CompositionsInfoType = {
     thumb: "curves.png",
     openProcessingLink: "https://openprocessing.org/sketch/1176431",
     author: "Pedro Alexis Mendoza Llanos ",
-    pd4web: true,
+    keepMapPatch: true,
   },
   chaosTree: {
     name: "chaosTree",
