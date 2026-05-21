@@ -17,12 +17,15 @@ type Raindrop = {
   color: [number, number, number, number];
 };
 
-const MAX_DROPS = 180;
+const MAX_DROPS = 400;
 
 function sketch(p5: P5CanvasInstance<LluviaSketchProps>) {
   let play = false;
   const drops: Raindrop[] = [];
   let canvas: any = null;
+  // Idempotent listener registration state
+  // allows only a single listener to be registered per pd4web instance
+  let paintListenerMap = new WeakMap<pd4web.Pd4Web, boolean>();
 
   const spawnDrop = () => {
     drops.push({
@@ -41,18 +44,22 @@ function sketch(p5: P5CanvasInstance<LluviaSketchProps>) {
 
   p5.updateWithProps = (props: LluviaSketchProps) => {
     const nextPlay = Boolean(props.play);
+    const pd = props.pd4web;
 
-    if (nextPlay === play) {
-      return;
-    }
-
-    play = nextPlay;
-    if (play) {
-      props.pd4web?.onBangReceived("paint", (name: string) => {
-        console.log(name);
+    // Attach listener only once per pd4web instance
+    // This is needed becaue pd4web does not offer an off method to remove listeners,
+    // so every time the sketch re-renders a new listener would be added,
+    // causing multiple drops to be spawned per paint bang.
+    if (nextPlay && pd && !paintListenerMap.get(pd)) {
+      paintListenerMap.set(pd, true);
+      console.log("Attaching paint listener to pd4web instance:", pd);
+      pd.onBangReceived("paint", (name: string) => {
         spawnDrop();
       });
     }
+
+    if (nextPlay === play) return;
+    play = nextPlay;
   };
 
   p5.setup = () => {
@@ -81,19 +88,13 @@ function sketch(p5: P5CanvasInstance<LluviaSketchProps>) {
 }
 
 export function LluviaSketch({ play }: LluviaSketchProps) {
-  const Pd4webContext = usePd4Web();
+  const { pd4web } = usePd4Web();
 
   useEffect(() => {
-    Pd4webContext.pd4web?.sendBang("start");
-  }, [Pd4webContext.pd4web]);
+    pd4web?.sendBang("start");
+  }, [pd4web]);
 
-  return (
-    <NextReactP5Wrapper
-      sketch={sketch}
-      play={play}
-      pd4web={Pd4webContext.pd4web}
-    />
-  );
+  return <NextReactP5Wrapper sketch={sketch} play={play} pd4web={pd4web} />;
 }
 
 export default LluviaSketch;

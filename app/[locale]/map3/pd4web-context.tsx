@@ -100,8 +100,7 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
         renderGui: false,
       });
       await instance.init();
-      // await window.Pd4WebAudioContext?.resume();
-      instance.sendBang("start");
+
       const audioContext = window.Pd4WebAudioContext ?? null;
       const workletNode = window.Pd4WebAudioWorkletNode ?? null;
 
