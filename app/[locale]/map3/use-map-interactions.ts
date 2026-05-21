@@ -69,7 +69,15 @@ export function useMapInteractions({
       setShowPopup(true);
       setIsDataLoading(true);
     },
-    [showPopup, areCoordinatesClose, searchParams, pathname, router],
+    [
+      showPopup,
+      areCoordinatesClose,
+      initialLat,
+      initialLng,
+      searchParams,
+      pathname,
+      router,
+    ],
   );
 
   const handleDrag = useCallback((event: MarkerDragEvent) => {
