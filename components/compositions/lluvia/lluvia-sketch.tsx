@@ -1,7 +1,9 @@
 "use client";
 
 import { usePd4Web } from "@/app/[locale]/map3/pd4web-context";
+//@ts-ignore this is generating require calls, should look into that
 import { NextReactP5Wrapper } from "@p5-wrapper/next";
+//@ts-ignore this is generating require calls, should look into that
 import type { P5CanvasInstance, SketchProps } from "@p5-wrapper/react";
 import { useEffect } from "react";
 
