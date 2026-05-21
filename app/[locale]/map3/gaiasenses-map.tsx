@@ -215,6 +215,7 @@ export default function GaiasensesMap({
     handleControllerDisconnect,
     recalibrateSensor,
     motionDiagnostics,
+    sensorDebug,
   } = useBLESensor({
     mapRef,
     inputModeRef,
@@ -562,6 +563,7 @@ export default function GaiasensesMap({
       <MotionTuningPanel
         settings={motionTuning}
         diagnostics={motionDiagnostics}
+        sensorDebug={sensorDebug}
         co2Threshold={co2Threshold}
         onChange={setMotionTuning}
         onCo2ThresholdChange={setCo2Threshold}

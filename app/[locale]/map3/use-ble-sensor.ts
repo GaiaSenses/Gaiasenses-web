@@ -4,6 +4,7 @@ import type { MapRef } from "react-map-gl";
 import {
   useSensorSmoothing,
   type MotionDiagnostics,
+  type SensorDebugSnapshot,
   type MotionTuningSettings,
 } from "./use-sensor-smoothing";
 import type { espCo2Response } from "./ble-control";
@@ -64,11 +65,8 @@ export function useBLESensor({
     }
   }, [searchParams, inputModeRef, mapRef, pathname, router]);
 
-  const { handleOnSensor, resetCalibration, diagnostics } = useSensorSmoothing(
-    mapRef,
-    handleMotionStop,
-    motionTuning,
-  );
+  const { handleOnSensor, resetCalibration, diagnostics, sensorDebug } =
+    useSensorSmoothing(mapRef, handleMotionStop, motionTuning);
 
   const handleControllerConnect = useCallback(
     (mode: string) => {
@@ -143,5 +141,6 @@ export function useBLESensor({
     handleControllerDisconnect,
     recalibrateSensor: resetCalibration,
     motionDiagnostics: diagnostics as MotionDiagnostics,
+    sensorDebug: sensorDebug as SensorDebugSnapshot,
   };
 }

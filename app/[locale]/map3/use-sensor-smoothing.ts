@@ -9,6 +9,24 @@ type Quaternion = {
   z: number;
 };
 
+export type SignedQuaternionComponent =
+  | "w"
+  | "x"
+  | "y"
+  | "z"
+  | "-w"
+  | "-x"
+  | "-y"
+  | "-z";
+
+export type QuaternionProjectionChannel = "latitude" | "longitude" | "bearing";
+
+type ProjectionAngles = {
+  latitude: number;
+  longitude: number;
+  bearing: number;
+};
+
 type EulerAngles = {
   yaw: number;
   pitch: number;
@@ -18,6 +36,8 @@ type EulerAngles = {
 export type SensorDebugSnapshot = {
   rawEuler: EulerAngles | null;
   relativeEuler: EulerAngles | null;
+  relativeQuaternion: Quaternion | null;
+  quaternionProjection: ProjectionAngles | null;
   smoothedEuler: {
     alpha: number;
     beta: number;
@@ -58,6 +78,13 @@ export type MotionTuningSettings = {
   invertLatitude: boolean;
   invertLongitude: boolean;
   invertBearing: boolean;
+  quaternionRemapW: SignedQuaternionComponent;
+  quaternionRemapX: SignedQuaternionComponent;
+  quaternionRemapY: SignedQuaternionComponent;
+  quaternionRemapZ: SignedQuaternionComponent;
+  quaternionLatitudeFrom: QuaternionProjectionChannel;
+  quaternionLongitudeFrom: QuaternionProjectionChannel;
+  quaternionBearingFrom: QuaternionProjectionChannel;
 };
 
 export const DEFAULT_MOTION_TUNING_SETTINGS: MotionTuningSettings = {
@@ -76,6 +103,13 @@ export const DEFAULT_MOTION_TUNING_SETTINGS: MotionTuningSettings = {
   invertLatitude: false,
   invertLongitude: false,
   invertBearing: false,
+  quaternionRemapW: "w",
+  quaternionRemapX: "y",
+  quaternionRemapY: "-x",
+  quaternionRemapZ: "z",
+  quaternionLatitudeFrom: "latitude",
+  quaternionLongitudeFrom: "longitude",
+  quaternionBearingFrom: "bearing",
 };
 
 const DEFAULT_MOTION_DIAGNOSTICS: MotionDiagnostics = {
@@ -89,6 +123,8 @@ const DEFAULT_MOTION_DIAGNOSTICS: MotionDiagnostics = {
 const DEFAULT_SENSOR_DEBUG_SNAPSHOT: SensorDebugSnapshot = {
   rawEuler: null,
   relativeEuler: null,
+  relativeQuaternion: null,
+  quaternionProjection: null,
   smoothedEuler: {
     alpha: 0,
     beta: 0,
@@ -280,20 +316,75 @@ function getRelativeEuler(
   return null;
 }
 
-function getQuaternionProjection(relativeQuaternion: Quaternion) {
-  const { w, x, y, z } = normalizeQuaternion(relativeQuaternion);
+function getSignedQuaternionComponent(
+  source: SignedQuaternionComponent,
+  q: Quaternion,
+) {
+  const isNegative = source.startsWith("-");
+  const key = (isNegative ? source.slice(1) : source) as keyof Quaternion;
+  const value = q[key];
+  return isNegative ? -value : value;
+}
+
+function remapQuaternion(
+  relativeQuaternion: Quaternion,
+  tuning: MotionTuningSettings,
+) {
+  return normalizeQuaternion({
+    w: getSignedQuaternionComponent(
+      tuning.quaternionRemapW,
+      relativeQuaternion,
+    ),
+    x: getSignedQuaternionComponent(
+      tuning.quaternionRemapX,
+      relativeQuaternion,
+    ),
+    y: getSignedQuaternionComponent(
+      tuning.quaternionRemapY,
+      relativeQuaternion,
+    ),
+    z: getSignedQuaternionComponent(
+      tuning.quaternionRemapZ,
+      relativeQuaternion,
+    ),
+  });
+}
+
+function readProjectionChannel(
+  projection: ProjectionAngles,
+  source: QuaternionProjectionChannel,
+) {
+  return projection[source];
+}
+
+function getQuaternionProjection(
+  relativeQuaternion: Quaternion,
+  tuning: MotionTuningSettings,
+) {
+  const { w, x, y, z } = remapQuaternion(relativeQuaternion, tuning);
   const vx = 2 * (x * z + w * y);
   const vy = 2 * (y * z - w * x);
   const vz = 1 - 2 * (x * x + y * y);
 
-  const longitude = normalizeAngle((Math.atan2(vx, vz) * 180) / Math.PI);
+  const rawProjection: ProjectionAngles = {
+    longitude: normalizeAngle((Math.atan2(vx, vz) * 180) / Math.PI),
+    latitude: clamp((Math.asin(clamp(vy, -1, 1)) * 180) / Math.PI, -85, 85),
+    bearing: normalizeAngle(
+      (Math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z)) * 180) /
+        Math.PI,
+    ),
+  };
+
   const latitude = clamp(
-    (Math.asin(clamp(vy, -1, 1)) * 180) / Math.PI,
+    readProjectionChannel(rawProjection, tuning.quaternionLatitudeFrom),
     -85,
     85,
   );
+  const longitude = normalizeAngle(
+    readProjectionChannel(rawProjection, tuning.quaternionLongitudeFrom),
+  );
   const bearing = normalizeAngle(
-    (Math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z)) * 180) / Math.PI,
+    readProjectionChannel(rawProjection, tuning.quaternionBearingFrom),
   );
 
   return { latitude, longitude, bearing };
@@ -427,6 +518,8 @@ export function useSensorSmoothing(
         setSensorDebug({
           rawEuler: euler,
           relativeEuler: null,
+          relativeQuaternion: null,
+          quaternionProjection: null,
           smoothedEuler: { ...sensorSmoothedRef.current },
           acceleration,
         });
@@ -472,9 +565,18 @@ export function useSensorSmoothing(
       smoothed.beta += (medPitch - smoothed.beta) * currentTuning.emaAlpha;
       smoothed.gamma += (medRoll - smoothed.gamma) * currentTuning.emaAlpha;
 
+      const quaternionProjection = latestRelativeQuaternionRef.current
+        ? getQuaternionProjection(
+            latestRelativeQuaternionRef.current,
+            currentTuning,
+          )
+        : null;
+
       setSensorDebug({
         rawEuler: euler,
         relativeEuler: relative,
+        relativeQuaternion: latestRelativeQuaternionRef.current,
+        quaternionProjection,
         smoothedEuler: { ...smoothed },
         acceleration,
       });
@@ -589,7 +691,10 @@ export function useSensorSmoothing(
               return;
             }
 
-            const projection = getQuaternionProjection(relativeQuaternion);
+            const projection = getQuaternionProjection(
+              relativeQuaternion,
+              currentTuning,
+            );
             latitude = projection.latitude;
             targetLongitude = projection.longitude;
             targetBearing = -projection.bearing;

@@ -496,6 +496,7 @@ function SensorMonitorPageContent() {
       <MotionTuningPanel
         settings={motionTuning}
         diagnostics={diagnostics}
+        sensorDebug={sensorDebug}
         co2Threshold={co2Threshold}
         onChange={setMotionTuning}
         onCo2ThresholdChange={setCo2Threshold}

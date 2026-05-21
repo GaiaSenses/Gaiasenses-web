@@ -10,6 +10,9 @@ import { Input } from "@/components/ui/input";
 import type {
   MotionMappingMethod,
   MotionDiagnostics,
+  QuaternionProjectionChannel,
+  SensorDebugSnapshot,
+  SignedQuaternionComponent,
   MotionTuningSettings,
 } from "./use-sensor-smoothing";
 import { DEFAULT_MOTION_TUNING_SETTINGS } from "./use-sensor-smoothing";
@@ -18,6 +21,7 @@ import { createPortal } from "react-dom";
 type MotionTuningPanelProps = {
   settings: MotionTuningSettings;
   diagnostics: MotionDiagnostics;
+  sensorDebug: SensorDebugSnapshot;
   co2Threshold: number;
   onChange: (settings: MotionTuningSettings) => void;
   onCo2ThresholdChange: (value: number) => void;
@@ -43,7 +47,17 @@ type TuningField = {
 
 type NumericTuningKey = Exclude<
   keyof MotionTuningSettings,
-  "mappingMethod" | "invertLatitude" | "invertLongitude" | "invertBearing"
+  | "mappingMethod"
+  | "invertLatitude"
+  | "invertLongitude"
+  | "invertBearing"
+  | "quaternionRemapW"
+  | "quaternionRemapX"
+  | "quaternionRemapY"
+  | "quaternionRemapZ"
+  | "quaternionLatitudeFrom"
+  | "quaternionLongitudeFrom"
+  | "quaternionBearingFrom"
 >;
 
 type TuningPreset = {
@@ -55,6 +69,29 @@ type TuningPreset = {
 const mappingMethods: { label: string; value: MotionMappingMethod }[] = [
   { label: "Euler", value: "euler" },
   { label: "Quaternion", value: "quaternion" },
+];
+
+const signedQuaternionComponentOptions: {
+  label: string;
+  value: SignedQuaternionComponent;
+}[] = [
+  { label: "w", value: "w" },
+  { label: "x", value: "x" },
+  { label: "y", value: "y" },
+  { label: "z", value: "z" },
+  { label: "-w", value: "-w" },
+  { label: "-x", value: "-x" },
+  { label: "-y", value: "-y" },
+  { label: "-z", value: "-z" },
+];
+
+const projectionChannelOptions: {
+  label: string;
+  value: QuaternionProjectionChannel;
+}[] = [
+  { label: "Latitude", value: "latitude" },
+  { label: "Longitude", value: "longitude" },
+  { label: "Bearing", value: "bearing" },
 ];
 
 const tuningFields: TuningField[] = [
@@ -230,6 +267,7 @@ const CO2_THRESHOLD_STEP = 10;
 export default function MotionTuningPanel({
   settings,
   diagnostics,
+  sensorDebug,
   co2Threshold,
   onChange,
   onCo2ThresholdChange,
@@ -273,6 +311,46 @@ export default function MotionTuningPanel({
     onChange({
       ...settings,
       [key]: value,
+    });
+  }
+
+  function updateQuaternionRemap(
+    key:
+      | "quaternionRemapW"
+      | "quaternionRemapX"
+      | "quaternionRemapY"
+      | "quaternionRemapZ",
+    value: SignedQuaternionComponent,
+  ) {
+    onChange({
+      ...settings,
+      [key]: value,
+    });
+  }
+
+  function updateProjectionChannel(
+    key:
+      | "quaternionLatitudeFrom"
+      | "quaternionLongitudeFrom"
+      | "quaternionBearingFrom",
+    value: QuaternionProjectionChannel,
+  ) {
+    onChange({
+      ...settings,
+      [key]: value,
+    });
+  }
+
+  function resetQuaternionRemap() {
+    onChange({
+      ...settings,
+      quaternionRemapW: "w",
+      quaternionRemapX: "y",
+      quaternionRemapY: "-x",
+      quaternionRemapZ: "z",
+      quaternionLatitudeFrom: "latitude",
+      quaternionLongitudeFrom: "longitude",
+      quaternionBearingFrom: "bearing",
     });
   }
 
@@ -449,6 +527,336 @@ export default function MotionTuningPanel({
                       Quaternion maps orientation directly from IMU quaternions.
                       Euler uses the legacy angle-based transform.
                     </p>
+
+                    {settings.mappingMethod === "quaternion" && (
+                      <div className="space-y-2 rounded-md bg-white border border-sky-100 p-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                            Quaternion Mapping
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={resetQuaternionRemap}
+                              className="h-7 text-xs"
+                            >
+                              Reset Mapping
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={onRecalibrate}
+                              className="h-7 text-xs"
+                            >
+                              Calibrate
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="rounded bg-slate-50 p-2 border border-slate-200 space-y-1.5">
+                          <div className="text-[10px] uppercase tracking-wide text-slate-500 font-medium">
+                            Relative Quaternion (w,x,y,z)
+                          </div>
+                          <div className="grid grid-cols-4 gap-1 text-xs">
+                            {sensorDebug.relativeQuaternion ? (
+                              <>
+                                <div className="bg-white px-1.5 py-1 rounded border border-slate-300 text-center font-mono">
+                                  <div className="text-[9px] text-slate-500">
+                                    w
+                                  </div>
+                                  <div>
+                                    {sensorDebug.relativeQuaternion.w.toFixed(
+                                      3,
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="bg-white px-1.5 py-1 rounded border border-slate-300 text-center font-mono">
+                                  <div className="text-[9px] text-slate-500">
+                                    x
+                                  </div>
+                                  <div>
+                                    {sensorDebug.relativeQuaternion.x.toFixed(
+                                      3,
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="bg-white px-1.5 py-1 rounded border border-slate-300 text-center font-mono">
+                                  <div className="text-[9px] text-slate-500">
+                                    y
+                                  </div>
+                                  <div>
+                                    {sensorDebug.relativeQuaternion.y.toFixed(
+                                      3,
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="bg-white px-1.5 py-1 rounded border border-slate-300 text-center font-mono">
+                                  <div className="text-[9px] text-slate-500">
+                                    z
+                                  </div>
+                                  <div>
+                                    {sensorDebug.relativeQuaternion.z.toFixed(
+                                      3,
+                                    )}
+                                  </div>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="col-span-4 text-[11px] text-slate-400 text-center py-1">
+                                Waiting for quaternion data...
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="rounded bg-slate-50 p-2 border border-slate-200 space-y-2">
+                          <p className="text-[10px] text-slate-500 leading-tight">
+                            Manual remap is enabled. Reset Mapping restores your
+                            mounted baseline: face up, rotated 90 degrees
+                            counter-clockwise.
+                          </p>
+                        </div>
+
+                        <div className="rounded bg-slate-50 p-2 border border-slate-200 space-y-2">
+                          <div className="text-[10px] uppercase tracking-wide text-slate-500 font-medium">
+                            Quaternion Component Remap
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <label className="space-y-1">
+                              <span className="text-slate-600">Output w</span>
+                              <select
+                                className="w-full h-7 rounded border border-slate-300 bg-white px-2"
+                                value={settings.quaternionRemapW}
+                                onChange={(event) =>
+                                  updateQuaternionRemap(
+                                    "quaternionRemapW",
+                                    event.target
+                                      .value as SignedQuaternionComponent,
+                                  )
+                                }
+                              >
+                                {signedQuaternionComponentOptions.map(
+                                  (option) => (
+                                    <option
+                                      key={`qremap-w-${option.value}`}
+                                      value={option.value}
+                                    >
+                                      {option.label}
+                                    </option>
+                                  ),
+                                )}
+                              </select>
+                            </label>
+                            <label className="space-y-1">
+                              <span className="text-slate-600">Output x</span>
+                              <select
+                                className="w-full h-7 rounded border border-slate-300 bg-white px-2"
+                                value={settings.quaternionRemapX}
+                                onChange={(event) =>
+                                  updateQuaternionRemap(
+                                    "quaternionRemapX",
+                                    event.target
+                                      .value as SignedQuaternionComponent,
+                                  )
+                                }
+                              >
+                                {signedQuaternionComponentOptions.map(
+                                  (option) => (
+                                    <option
+                                      key={`qremap-x-${option.value}`}
+                                      value={option.value}
+                                    >
+                                      {option.label}
+                                    </option>
+                                  ),
+                                )}
+                              </select>
+                            </label>
+                            <label className="space-y-1">
+                              <span className="text-slate-600">Output y</span>
+                              <select
+                                className="w-full h-7 rounded border border-slate-300 bg-white px-2"
+                                value={settings.quaternionRemapY}
+                                onChange={(event) =>
+                                  updateQuaternionRemap(
+                                    "quaternionRemapY",
+                                    event.target
+                                      .value as SignedQuaternionComponent,
+                                  )
+                                }
+                              >
+                                {signedQuaternionComponentOptions.map(
+                                  (option) => (
+                                    <option
+                                      key={`qremap-y-${option.value}`}
+                                      value={option.value}
+                                    >
+                                      {option.label}
+                                    </option>
+                                  ),
+                                )}
+                              </select>
+                            </label>
+                            <label className="space-y-1">
+                              <span className="text-slate-600">Output z</span>
+                              <select
+                                className="w-full h-7 rounded border border-slate-300 bg-white px-2"
+                                value={settings.quaternionRemapZ}
+                                onChange={(event) =>
+                                  updateQuaternionRemap(
+                                    "quaternionRemapZ",
+                                    event.target
+                                      .value as SignedQuaternionComponent,
+                                  )
+                                }
+                              >
+                                {signedQuaternionComponentOptions.map(
+                                  (option) => (
+                                    <option
+                                      key={`qremap-z-${option.value}`}
+                                      value={option.value}
+                                    >
+                                      {option.label}
+                                    </option>
+                                  ),
+                                )}
+                              </select>
+                            </label>
+                          </div>
+                        </div>
+
+                        <div className="rounded bg-slate-50 p-2 border border-slate-200 space-y-2">
+                          <div className="text-[10px] uppercase tracking-wide text-slate-500 font-medium">
+                            Map Axis Remap
+                          </div>
+                          <div className="grid grid-cols-1 gap-2 text-xs">
+                            <label className="space-y-1">
+                              <span className="text-slate-600">
+                                Latitude comes from
+                              </span>
+                              <select
+                                className="w-full h-7 rounded border border-slate-300 bg-white px-2"
+                                value={settings.quaternionLatitudeFrom}
+                                onChange={(event) =>
+                                  updateProjectionChannel(
+                                    "quaternionLatitudeFrom",
+                                    event.target
+                                      .value as QuaternionProjectionChannel,
+                                  )
+                                }
+                              >
+                                {projectionChannelOptions.map((option) => (
+                                  <option
+                                    key={`qproj-lat-${option.value}`}
+                                    value={option.value}
+                                  >
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <label className="space-y-1">
+                              <span className="text-slate-600">
+                                Longitude comes from
+                              </span>
+                              <select
+                                className="w-full h-7 rounded border border-slate-300 bg-white px-2"
+                                value={settings.quaternionLongitudeFrom}
+                                onChange={(event) =>
+                                  updateProjectionChannel(
+                                    "quaternionLongitudeFrom",
+                                    event.target
+                                      .value as QuaternionProjectionChannel,
+                                  )
+                                }
+                              >
+                                {projectionChannelOptions.map((option) => (
+                                  <option
+                                    key={`qproj-lng-${option.value}`}
+                                    value={option.value}
+                                  >
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <label className="space-y-1">
+                              <span className="text-slate-600">
+                                Bearing comes from
+                              </span>
+                              <select
+                                className="w-full h-7 rounded border border-slate-300 bg-white px-2"
+                                value={settings.quaternionBearingFrom}
+                                onChange={(event) =>
+                                  updateProjectionChannel(
+                                    "quaternionBearingFrom",
+                                    event.target
+                                      .value as QuaternionProjectionChannel,
+                                  )
+                                }
+                              >
+                                {projectionChannelOptions.map((option) => (
+                                  <option
+                                    key={`qproj-bearing-${option.value}`}
+                                    value={option.value}
+                                  >
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          </div>
+                        </div>
+
+                        <div className="rounded bg-slate-50 p-2 border border-slate-200 space-y-1.5">
+                          <div className="text-[10px] uppercase tracking-wide text-slate-500 font-medium">
+                            Current Projection
+                          </div>
+                          <div className="grid grid-cols-3 gap-1.5 text-xs">
+                            <div className="bg-white px-2 py-1 rounded border border-slate-300">
+                              <div className="text-[9px] text-slate-500">
+                                Latitude
+                              </div>
+                              <div className="font-mono">
+                                {sensorDebug.quaternionProjection
+                                  ? `${sensorDebug.quaternionProjection.latitude.toFixed(1)}°`
+                                  : "--"}
+                              </div>
+                            </div>
+                            <div className="bg-white px-2 py-1 rounded border border-slate-300">
+                              <div className="text-[9px] text-slate-500">
+                                Longitude
+                              </div>
+                              <div className="font-mono">
+                                {sensorDebug.quaternionProjection
+                                  ? `${sensorDebug.quaternionProjection.longitude.toFixed(1)}°`
+                                  : "--"}
+                              </div>
+                            </div>
+                            <div className="bg-white px-2 py-1 rounded border border-slate-300">
+                              <div className="text-[9px] text-slate-500">
+                                Bearing
+                              </div>
+                              <div className="font-mono">
+                                {sensorDebug.quaternionProjection
+                                  ? `${sensorDebug.quaternionProjection.bearing.toFixed(1)}°`
+                                  : "--"}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {!diagnostics.calibrated && (
+                          <div className="text-[11px] text-slate-500 text-center py-1">
+                            Connect Bluetooth and calibration will establish on
+                            first sensor packet.
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     <div className="space-y-2 pt-1">
                       <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
