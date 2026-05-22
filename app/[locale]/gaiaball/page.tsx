@@ -99,6 +99,8 @@ function SensorMonitorPageContent() {
   const [motionTuning, setMotionTuning] = useState<MotionTuningSettings>(
     DEFAULT_MOTION_TUNING_SETTINGS,
   );
+  const [showCompositionInfoPanel, setShowCompositionInfoPanel] =
+    useState(true);
   const [co2Threshold, setCo2Threshold] = useState(DEFAULT_CO2_LEVEL_THRESHOLD);
   const [lastPublishedAt, setLastPublishedAt] = useState<string | null>(null);
   // Frequency state (Hz)
@@ -497,6 +499,8 @@ function SensorMonitorPageContent() {
         diagnostics={diagnostics}
         sensorDebug={sensorDebug}
         co2Threshold={co2Threshold}
+        showCompositionInfoPanel={showCompositionInfoPanel}
+        onToggleCompositionInfoPanel={setShowCompositionInfoPanel}
         onChange={setMotionTuning}
         onCo2ThresholdChange={setCo2Threshold}
         onReset={() => setMotionTuning(DEFAULT_MOTION_TUNING_SETTINGS)}
