@@ -74,16 +74,16 @@ type TuningPreset = {
 const mappingMethods: { label: string; value: MotionMappingMethod }[] = [
   { label: "Euler", value: "euler" },
   { label: "Quaternion", value: "quaternion" },
-  { label: "Basic", value: "basic" },
+  { label: "Basico", value: "basic" },
 ];
 
 const basicEulerChannelOptions: {
   label: string;
   value: BasicEulerChannel;
 }[] = [
-  { label: "Yaw", value: "yaw" },
-  { label: "Pitch", value: "pitch" },
-  { label: "Roll", value: "roll" },
+  { label: "Guinada (Yaw)", value: "yaw" },
+  { label: "Arfagem (Pitch)", value: "pitch" },
+  { label: "Rolagem (Roll)", value: "roll" },
 ];
 
 const signedQuaternionComponentOptions: {
@@ -106,42 +106,42 @@ const projectionChannelOptions: {
 }[] = [
   { label: "Latitude", value: "latitude" },
   { label: "Longitude", value: "longitude" },
-  { label: "Bearing", value: "bearing" },
+  { label: "Rumo", value: "bearing" },
 ];
 
 const tuningFields: TuningField[] = [
   {
     key: "bufferSize",
-    label: "Median buffer",
+    label: "Buffer de mediana",
     description:
-      "How many recent sensor samples are used for the median filter. Higher values reject spikes better but add more lag.",
+      "Quantas amostras recentes do sensor sao usadas no filtro de mediana. Valores maiores rejeitam melhor os picos, mas adicionam mais atraso.",
     min: 1,
     max: 15,
     step: 1,
   },
   {
     key: "calibrationSampleCount",
-    label: "Calibration samples",
+    label: "Amostras de calibracao",
     description:
-      "How many samples are averaged when you calibrate. Higher values give a steadier zero point, but calibration takes a bit longer.",
+      "Quantas amostras entram na media ao calibrar. Valores maiores geram um ponto zero mais estavel, mas a calibracao leva um pouco mais de tempo.",
     min: 1,
     max: 20,
     step: 1,
   },
   {
     key: "emaAlpha",
-    label: "EMA alpha",
+    label: "Alpha da EMA",
     description:
-      "How quickly the filtered motion follows new sensor values. Higher values feel faster and more responsive; lower values feel smoother and more damped.",
+      "Quao rapido o movimento filtrado acompanha novos valores do sensor. Valores maiores deixam a resposta mais rapida; valores menores deixam mais suave e amortecido.",
     min: 0.01,
     max: 1,
     step: 0.01,
   },
   {
     key: "mapUpdateHz",
-    label: "Map update rate",
+    label: "Taxa de atualizacao do mapa",
     description:
-      "How often the digital globe is updated. Higher rates can feel more immediate, but may expose more sensor noise.",
+      "Com que frequencia o globo digital e atualizado. Taxas maiores podem parecer mais imediatas, mas podem expor mais ruido do sensor.",
     min: 5,
     max: 60,
     step: 1,
@@ -149,9 +149,9 @@ const tuningFields: TuningField[] = [
   },
   {
     key: "maxDeltaPerUpdate",
-    label: "Max angle step",
+    label: "Passo angular maximo",
     description:
-      "Maximum map movement allowed per update. Lower values prevent sudden jumps; higher values let the map catch up faster after quick motion.",
+      "Movimento maximo permitido no mapa por atualizacao. Valores menores evitam saltos bruscos; valores maiores fazem o mapa acompanhar mais rapido apos movimentos rapidos.",
     min: 0.1,
     max: 10,
     step: 0.1,
@@ -159,9 +159,9 @@ const tuningFields: TuningField[] = [
   },
   {
     key: "motionStartThreshold",
-    label: "Motion start threshold",
+    label: "Limiar de inicio do movimento",
     description:
-      "How much movement is required before the system treats the globe as intentionally moving. Raise it to ignore tiny nudges and drift.",
+      "Quanto movimento e necessario para o sistema considerar que o globo esta sendo movido intencionalmente. Aumente para ignorar pequenos toques e deriva.",
     min: 0.01,
     max: 4,
     step: 0.01,
@@ -169,9 +169,9 @@ const tuningFields: TuningField[] = [
   },
   {
     key: "motionStopThreshold",
-    label: "Motion stop threshold",
+    label: "Limiar de parada do movimento",
     description:
-      "How quiet the sensor must become before the stop detector starts timing a stop. Lower values demand a cleaner stop; higher values stop sooner.",
+      "Quao estavel o sensor precisa ficar para o detector de parada comecar a contar. Valores menores exigem uma parada mais limpa; valores maiores param mais cedo.",
     min: 0.01,
     max: 2,
     step: 0.01,
@@ -179,9 +179,9 @@ const tuningFields: TuningField[] = [
   },
   {
     key: "motionSettleDuration",
-    label: "Settle duration",
+    label: "Duracao de assentamento",
     description:
-      "How long low motion must continue before entering the settling phase. Longer values are better for wobble and residual motion.",
+      "Por quanto tempo o baixo movimento deve continuar antes de entrar na fase de assentamento. Valores maiores ajudam com oscilacao e movimento residual.",
     min: 0,
     max: 1500,
     step: 10,
@@ -189,9 +189,9 @@ const tuningFields: TuningField[] = [
   },
   {
     key: "motionStopDuration",
-    label: "Stop duration",
+    label: "Duracao de parada",
     description:
-      "How long low motion must continue before the weather popup can open. Longer values reduce false stops, shorter values feel faster.",
+      "Por quanto tempo o baixo movimento deve continuar antes de o popup de clima poder abrir. Valores maiores reduzem paradas falsas; valores menores parecem mais rapidos.",
     min: 50,
     max: 3000,
     step: 10,
@@ -199,9 +199,9 @@ const tuningFields: TuningField[] = [
   },
   {
     key: "popupHardLockDuration",
-    label: "Popup hard lock",
+    label: "Bloqueio rigido do popup",
     description:
-      "How long sensor input is fully ignored right after the popup opens. Increase it if accidental bumps move the globe too easily.",
+      "Por quanto tempo a entrada do sensor e totalmente ignorada logo apos o popup abrir. Aumente se toques acidentais moverem o globo com muita facilidade.",
     min: 0,
     max: 3000,
     step: 10,
@@ -209,9 +209,9 @@ const tuningFields: TuningField[] = [
   },
   {
     key: "popupUnlockThreshold",
-    label: "Popup unlock threshold",
+    label: "Limiar de desbloqueio do popup",
     description:
-      "How strong the next motion must be after popup lock before control resumes. Higher values require a more deliberate gesture.",
+      "Quao forte deve ser o proximo movimento apos o bloqueio do popup para retomar o controle. Valores maiores exigem um gesto mais deliberado.",
     min: 0.01,
     max: 4,
     step: 0.01,
@@ -222,9 +222,9 @@ const tuningFields: TuningField[] = [
 const quaternionOffsetFields: TuningField[] = [
   {
     key: "quaternionLatitudeOffset",
-    label: "Latitude offset",
+    label: "Offset de latitude",
     description:
-      "Applies a fixed offset to the quaternion latitude result before the map is moved. Use it to correct a vertical motion that drifts diagonally on the globe.",
+      "Aplica um offset fixo ao resultado de latitude do quaternion antes de mover o mapa. Use para corrigir movimento vertical que esteja desviando na diagonal no globo.",
     min: -45,
     max: 45,
     step: 0.1,
@@ -232,9 +232,9 @@ const quaternionOffsetFields: TuningField[] = [
   },
   {
     key: "quaternionLongitudeOffset",
-    label: "Longitude offset",
+    label: "Offset de longitude",
     description:
-      "Applies a fixed offset to the quaternion longitude result before the map is moved. Use it to push the movement back onto the intended horizontal axis.",
+      "Aplica um offset fixo ao resultado de longitude do quaternion antes de mover o mapa. Use para trazer o movimento de volta ao eixo horizontal esperado.",
     min: -45,
     max: 45,
     step: 0.1,
@@ -242,9 +242,9 @@ const quaternionOffsetFields: TuningField[] = [
   },
   {
     key: "quaternionBearingOffset",
-    label: "Bearing offset",
+    label: "Offset de rumo",
     description:
-      "Applies a fixed offset to the quaternion bearing result before the map is moved. Use it to counter a residual rotation that makes the globe feel skewed.",
+      "Aplica um offset fixo ao resultado de rumo do quaternion antes de mover o mapa. Use para compensar uma rotacao residual que deixa o globo desalinhado.",
     min: -180,
     max: 180,
     step: 0.1,
@@ -254,9 +254,9 @@ const quaternionOffsetFields: TuningField[] = [
 
 const tuningPresets: TuningPreset[] = [
   {
-    name: "Super Stable",
+    name: "Super estavel",
     description:
-      "Maximum damping and stronger stop protection for noisy sensors.",
+      "Amortecimento maximo e protecao de parada mais forte para sensores com ruido.",
     settings: {
       bufferSize: 9,
       calibrationSampleCount: 10,
@@ -272,15 +272,14 @@ const tuningPresets: TuningPreset[] = [
     },
   },
   {
-    name: "Balanced",
-    description:
-      "The default profile for general tuning and first-pass testing.",
+    name: "Equilibrado",
+    description: "Perfil padrao para ajuste geral e primeiros testes.",
     settings: DEFAULT_MOTION_TUNING_SETTINGS,
   },
   {
-    name: "Sensitive",
+    name: "Sensivel",
     description:
-      "Faster response with lighter filtering for deliberate, agile control.",
+      "Resposta mais rapida com filtragem mais leve para um controle agil e deliberado.",
     settings: {
       bufferSize: 3,
       calibrationSampleCount: 4,
@@ -326,6 +325,14 @@ export default function MotionTuningPanel({
   simulatedCo2Ppm = null,
 }: MotionTuningPanelProps) {
   const [isOpen, setIsOpen] = useState(false);
+
+  const phaseLabel: Record<MotionDiagnostics["phase"], string> = {
+    calibrating: "calibrando",
+    idle: "parado",
+    moving: "em movimento",
+    settling: "assentando",
+    stopped: "parado",
+  };
 
   const fieldLookup = useMemo(
     () => Object.fromEntries(tuningFields.map((field) => [field.key, field])),
@@ -462,10 +469,13 @@ export default function MotionTuningPanel({
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <CardTitle className="text-base">Motion Tuning</CardTitle>
+                      <CardTitle className="text-base">
+                        Ajuste de movimento
+                      </CardTitle>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Values apply live. Use recalibrate to zero the current
-                        globe pose without reconnecting Bluetooth.
+                        Os valores sao aplicados em tempo real. Use recalibrar
+                        para zerar a pose atual do globo sem reconectar o
+                        Bluetooth.
                       </p>
                     </div>
                     <Button
@@ -474,14 +484,14 @@ export default function MotionTuningPanel({
                       size="sm"
                       onClick={() => setIsOpen(false)}
                     >
-                      Close
+                      Fechar
                     </Button>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4 overflow-y-auto max-h-[calc(70vh-88px)]">
                   <div className="rounded-md border bg-slate-50 p-3 space-y-2">
                     <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                      CO2 Trigger
+                      Gatilho de CO2
                     </div>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between gap-3">
@@ -489,7 +499,7 @@ export default function MotionTuningPanel({
                           className="text-sm font-medium"
                           htmlFor="co2Threshold"
                         >
-                          CO2 threshold
+                          Limiar de CO2
                         </label>
                         <div className="flex items-center gap-2 w-[124px]">
                           <Input
@@ -521,8 +531,8 @@ export default function MotionTuningPanel({
                         className="w-full accent-emerald-600"
                       />
                       <p className="text-xs text-slate-500 leading-relaxed">
-                        The composition opens when CO2 is above this value, and
-                        returns to the map when CO2 drops below it.
+                        A composicao abre quando o CO2 fica acima deste valor e
+                        retorna ao mapa quando o CO2 cai abaixo dele.
                       </p>
                       {onSimulateCo2 && (
                         <div className="flex items-center gap-2 pt-1">
@@ -535,8 +545,8 @@ export default function MotionTuningPanel({
                             className="flex"
                           >
                             {isCo2Simulating
-                              ? `Simulating… ${simulatedCo2Ppm != null ? `${simulatedCo2Ppm} ppm` : ""}`
-                              : `Simulate CO2 spike (${co2Threshold + 500} → ${co2Threshold} / 30 s)`}
+                              ? `Simulando... ${simulatedCo2Ppm != null ? `${simulatedCo2Ppm} ppm` : ""}`
+                              : `Simular pico de CO2 (${co2Threshold + 500} -> ${co2Threshold} / 30 s)`}
                           </Button>
                         </div>
                       )}
@@ -545,7 +555,7 @@ export default function MotionTuningPanel({
 
                   <div className="rounded-md border bg-slate-50 p-3 space-y-2">
                     <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                      Presets
+                      Predefinicoes
                     </div>
                     <div className="grid grid-cols-1 gap-2">
                       {tuningPresets.map((preset) => {
@@ -572,7 +582,7 @@ export default function MotionTuningPanel({
                               </span>
                               {isActive && (
                                 <span className="text-[11px] font-medium uppercase tracking-wide text-sky-700">
-                                  Active
+                                  Ativo
                                 </span>
                               )}
                             </div>
@@ -587,7 +597,7 @@ export default function MotionTuningPanel({
 
                   <div className="rounded-md border bg-slate-50 p-3 space-y-3">
                     <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                      Mapping Method
+                      Metodo de mapeamento
                     </div>
                     <div className="grid grid-cols-3 gap-2">
                       {mappingMethods.map((method) => {
@@ -610,15 +620,15 @@ export default function MotionTuningPanel({
                       })}
                     </div>
                     <p className="text-xs text-slate-500 leading-relaxed">
-                      Quaternion maps orientation directly from IMU quaternions.
-                      Euler uses the legacy angle-based transform. Basic maps
-                      yaw/pitch/roll directly to map channels with configurable
-                      routing.
+                      Quaternion mapeia a orientacao diretamente dos quaternions
+                      da IMU. Euler usa a transformacao legada por angulos.
+                      Basico mapeia yaw/pitch/roll diretamente para os canais do
+                      mapa com roteamento configuravel.
                     </p>
 
                     <div className="space-y-2 pt-1">
                       <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                        North Orientation
+                        Orientacao do norte
                       </div>
                       <button
                         type="button"
@@ -630,12 +640,12 @@ export default function MotionTuningPanel({
                         }`}
                       >
                         {settings.lockBearing
-                          ? "Bearing Locked (North Fixed)"
-                          : "Bearing Unlocked (Follows Motion)"}
+                          ? "Rumo travado (norte fixo)"
+                          : "Rumo destravado (acompanha o movimento)"}
                       </button>
                       <p className="text-[11px] text-slate-500 leading-tight">
-                        Keep this enabled to avoid rotating north while moving
-                        the globe.
+                        Mantenha habilitado para evitar rotacionar o norte ao
+                        mover o globo.
                       </p>
                     </div>
 
@@ -643,7 +653,7 @@ export default function MotionTuningPanel({
                       <div className="space-y-2 rounded-md bg-white border border-sky-100 p-2.5">
                         <div className="flex items-center justify-between gap-2">
                           <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                            Quaternion Mapping
+                            Mapeamento por quaternion
                           </div>
                           <div className="flex items-center gap-1.5">
                             <Button
@@ -653,7 +663,7 @@ export default function MotionTuningPanel({
                               onClick={resetQuaternionRemap}
                               className="h-7 text-xs"
                             >
-                              Reset Mapping
+                              Redefinir mapeamento
                             </Button>
                             <Button
                               type="button"
@@ -662,14 +672,14 @@ export default function MotionTuningPanel({
                               onClick={onRecalibrate}
                               className="h-7 text-xs"
                             >
-                              Calibrate
+                              Calibrar
                             </Button>
                           </div>
                         </div>
 
                         <div className="rounded bg-slate-50 p-2 border border-slate-200 space-y-1.5">
                           <div className="text-[10px] uppercase tracking-wide text-slate-500 font-medium">
-                            Relative Quaternion (w,x,y,z)
+                            Quaternion relativo (w,x,y,z)
                           </div>
                           <div className="grid grid-cols-4 gap-1 text-xs">
                             {sensorDebug.relativeQuaternion ? (
@@ -717,7 +727,7 @@ export default function MotionTuningPanel({
                               </>
                             ) : (
                               <div className="col-span-4 text-[11px] text-slate-400 text-center py-1">
-                                Waiting for quaternion data...
+                                Aguardando dados de quaternion...
                               </div>
                             )}
                           </div>
@@ -725,15 +735,15 @@ export default function MotionTuningPanel({
 
                         <div className="rounded bg-slate-50 p-2 border border-slate-200 space-y-2">
                           <p className="text-[10px] text-slate-500 leading-tight">
-                            Manual remap is enabled. Reset Mapping restores your
-                            mounted baseline: face up, rotated 90 degrees
-                            counter-clockwise.
+                            O remapeamento manual esta habilitado. Redefinir
+                            mapeamento restaura sua referencia de montagem: face
+                            para cima, girado 90 graus no sentido anti-horario.
                           </p>
                         </div>
 
                         <div className="rounded bg-slate-50 p-2 border border-slate-200 space-y-2">
                           <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500 font-medium">
-                            <span>Quaternion Remap</span>
+                            <span>Remapeamento do quaternion</span>
                             <div className="group relative inline-flex items-center">
                               <button
                                 type="button"
@@ -755,7 +765,7 @@ export default function MotionTuningPanel({
                           </div>
                           <div className="grid grid-cols-2 gap-2 text-xs">
                             <label className="space-y-1">
-                              <span className="text-slate-600">Output w</span>
+                              <span className="text-slate-600">Saida w</span>
                               <select
                                 className="w-full h-7 rounded border border-slate-300 bg-white px-2"
                                 value={settings.quaternionRemapW}
@@ -780,7 +790,7 @@ export default function MotionTuningPanel({
                               </select>
                             </label>
                             <label className="space-y-1">
-                              <span className="text-slate-600">Output x</span>
+                              <span className="text-slate-600">Saida x</span>
                               <select
                                 className="w-full h-7 rounded border border-slate-300 bg-white px-2"
                                 value={settings.quaternionRemapX}
@@ -805,7 +815,7 @@ export default function MotionTuningPanel({
                               </select>
                             </label>
                             <label className="space-y-1">
-                              <span className="text-slate-600">Output y</span>
+                              <span className="text-slate-600">Saida y</span>
                               <select
                                 className="w-full h-7 rounded border border-slate-300 bg-white px-2"
                                 value={settings.quaternionRemapY}
@@ -830,7 +840,7 @@ export default function MotionTuningPanel({
                               </select>
                             </label>
                             <label className="space-y-1">
-                              <span className="text-slate-600">Output z</span>
+                              <span className="text-slate-600">Saida z</span>
                               <select
                                 className="w-full h-7 rounded border border-slate-300 bg-white px-2"
                                 value={settings.quaternionRemapZ}
@@ -859,7 +869,7 @@ export default function MotionTuningPanel({
 
                         <div className="rounded bg-slate-50 p-2 border border-slate-200 space-y-2">
                           <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500 font-medium">
-                            <span>Map Axis Remap</span>
+                            <span>Remapeamento dos eixos do mapa</span>
                             <div className="group relative inline-flex items-center">
                               <button
                                 type="button"
@@ -872,17 +882,17 @@ export default function MotionTuningPanel({
                               </button>
                               <div className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 w-64 -translate-x-1/2 rounded-md border bg-white p-2 text-[11px] normal-case leading-relaxed text-slate-600 opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                                 Aqui voce define qual resultado do quaternion
-                                controla Latitude, Longitude e Bearing no
-                                Mapbox. Se yaw estiver mexendo no eixo errado,
-                                troque os campos ate cada movimento fisico
-                                responder no eixo esperado.
+                                controla Latitude, Longitude e Rumo no Mapbox.
+                                Se yaw estiver mexendo no eixo errado, troque os
+                                campos ate cada movimento fisico responder no
+                                eixo esperado.
                               </div>
                             </div>
                           </div>
                           <div className="grid grid-cols-1 gap-2 text-xs">
                             <label className="space-y-1">
                               <span className="text-slate-600">
-                                Latitude comes from
+                                Latitude vem de
                               </span>
                               <select
                                 className="w-full h-7 rounded border border-slate-300 bg-white px-2"
@@ -907,7 +917,7 @@ export default function MotionTuningPanel({
                             </label>
                             <label className="space-y-1">
                               <span className="text-slate-600">
-                                Longitude comes from
+                                Longitude vem de
                               </span>
                               <select
                                 className="w-full h-7 rounded border border-slate-300 bg-white px-2"
@@ -932,7 +942,7 @@ export default function MotionTuningPanel({
                             </label>
                             <label className="space-y-1">
                               <span className="text-slate-600">
-                                Bearing comes from
+                                Rumo vem de
                               </span>
                               <select
                                 className="w-full h-7 rounded border border-slate-300 bg-white px-2"
@@ -960,7 +970,7 @@ export default function MotionTuningPanel({
 
                         <div className="rounded bg-slate-50 p-2 border border-slate-200 space-y-1.5">
                           <div className="text-[10px] uppercase tracking-wide text-slate-500 font-medium">
-                            Current Projection
+                            Projecao atual
                           </div>
                           <div className="grid grid-cols-3 gap-1.5 text-xs">
                             <div className="bg-white px-2 py-1 rounded border border-slate-300">
@@ -985,7 +995,7 @@ export default function MotionTuningPanel({
                             </div>
                             <div className="bg-white px-2 py-1 rounded border border-slate-300">
                               <div className="text-[9px] text-slate-500">
-                                Bearing
+                                Rumo
                               </div>
                               <div className="font-mono">
                                 {sensorDebug.quaternionProjection
@@ -999,7 +1009,7 @@ export default function MotionTuningPanel({
                         <div className="rounded bg-slate-50 p-2 border border-slate-200 space-y-2">
                           <div className="flex items-center justify-between gap-2">
                             <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500 font-medium">
-                              <span>Axis Offset</span>
+                              <span>Offset de eixo</span>
                               <div className="group relative inline-flex items-center">
                                 <button
                                   type="button"
@@ -1029,7 +1039,7 @@ export default function MotionTuningPanel({
                               onClick={resetQuaternionOffsets}
                               className="h-7 text-xs"
                             >
-                              Reset Offsets
+                              Redefinir offsets
                             </Button>
                           </div>
                           <div className="grid grid-cols-1 gap-2 text-xs">
@@ -1081,8 +1091,8 @@ export default function MotionTuningPanel({
 
                         {!diagnostics.calibrated && (
                           <div className="text-[11px] text-slate-500 text-center py-1">
-                            Connect Bluetooth and calibration will establish on
-                            first sensor packet.
+                            Conecte o Bluetooth e a calibracao sera estabelecida
+                            no primeiro pacote de sensor.
                           </div>
                         )}
                       </div>
@@ -1092,7 +1102,7 @@ export default function MotionTuningPanel({
                       <div className="space-y-2 rounded-md bg-white border border-sky-100 p-2.5">
                         <div className="flex items-center justify-between gap-2">
                           <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                            Basic Mapping
+                            Mapeamento basico
                           </div>
                           <div className="flex items-center gap-1.5">
                             <Button
@@ -1102,7 +1112,7 @@ export default function MotionTuningPanel({
                               onClick={resetBasicMapping}
                               className="h-7 text-xs"
                             >
-                              Reset Basic
+                              Redefinir basico
                             </Button>
                             <Button
                               type="button"
@@ -1111,19 +1121,19 @@ export default function MotionTuningPanel({
                               onClick={onRecalibrate}
                               className="h-7 text-xs"
                             >
-                              Calibrate
+                              Calibrar
                             </Button>
                           </div>
                         </div>
 
                         <div className="rounded bg-slate-50 p-2 border border-slate-200 space-y-2">
                           <div className="text-[10px] uppercase tracking-wide text-slate-500 font-medium">
-                            Axis Routing
+                            Roteamento dos eixos
                           </div>
                           <div className="grid grid-cols-1 gap-2 text-xs">
                             <label className="space-y-1">
                               <span className="text-slate-600">
-                                Latitude comes from
+                                Latitude vem de
                               </span>
                               <select
                                 className="w-full h-7 rounded border border-slate-300 bg-white px-2"
@@ -1147,7 +1157,7 @@ export default function MotionTuningPanel({
                             </label>
                             <label className="space-y-1">
                               <span className="text-slate-600">
-                                Longitude comes from
+                                Longitude vem de
                               </span>
                               <select
                                 className="w-full h-7 rounded border border-slate-300 bg-white px-2"
@@ -1171,7 +1181,7 @@ export default function MotionTuningPanel({
                             </label>
                             <label className="space-y-1">
                               <span className="text-slate-600">
-                                Bearing comes from
+                                Rumo vem de
                               </span>
                               <select
                                 className="w-full h-7 rounded border border-slate-300 bg-white px-2"
@@ -1198,7 +1208,7 @@ export default function MotionTuningPanel({
 
                         <div className="space-y-2 pt-1">
                           <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                            Axis Inversion
+                            Inversao dos eixos
                           </div>
                           <div className="grid grid-cols-3 gap-2">
                             <button
@@ -1247,7 +1257,7 @@ export default function MotionTuningPanel({
                                   : "bg-white hover:bg-slate-50"
                               }`}
                             >
-                              Bearing
+                              Rumo
                             </button>
                           </div>
                         </div>
@@ -1258,7 +1268,7 @@ export default function MotionTuningPanel({
                   <div className="rounded-md border bg-slate-50 p-3 space-y-2">
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                        Motion Diagnostics
+                        Diagnostico de movimento
                       </span>
                       <span
                         className={`rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -1268,38 +1278,38 @@ export default function MotionTuningPanel({
                         }`}
                       >
                         {diagnostics.popupLocked
-                          ? "Popup Locked"
-                          : "Popup Free"}
+                          ? "Popup bloqueado"
+                          : "Popup livre"}
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div className="rounded bg-white px-2 py-1.5 border">
                         <div className="text-[11px] uppercase tracking-wide text-slate-500">
-                          Phase
+                          Fase
                         </div>
                         <div className="font-medium capitalize">
-                          {diagnostics.phase}
+                          {phaseLabel[diagnostics.phase]}
                         </div>
                       </div>
                       <div className="rounded bg-white px-2 py-1.5 border">
                         <div className="text-[11px] uppercase tracking-wide text-slate-500">
-                          Motion
+                          Movimento
                         </div>
                         <div className="font-medium">
-                          {diagnostics.motionMagnitude.toFixed(3)} deg
+                          {diagnostics.motionMagnitude.toFixed(3)} graus
                         </div>
                       </div>
                       <div className="rounded bg-white px-2 py-1.5 border">
                         <div className="text-[11px] uppercase tracking-wide text-slate-500">
-                          Calibrated
+                          Calibrado
                         </div>
                         <div className="font-medium">
-                          {diagnostics.calibrated ? "Yes" : "No"}
+                          {diagnostics.calibrated ? "Sim" : "Nao"}
                         </div>
                       </div>
                       <div className="rounded bg-white px-2 py-1.5 border">
                         <div className="text-[11px] uppercase tracking-wide text-slate-500">
-                          Lock Remaining
+                          Bloqueio restante
                         </div>
                         <div className="font-medium">
                           {Math.round(diagnostics.popupLockRemainingMs)} ms
@@ -1322,7 +1332,7 @@ export default function MotionTuningPanel({
                             <button
                               type="button"
                               className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-500 hover:text-slate-700"
-                              aria-label={`More information about ${field.label}`}
+                              aria-label={`Mais informacoes sobre ${field.label}`}
                             >
                               <span className="text-[11px] font-bold leading-none">
                                 ?
@@ -1375,14 +1385,14 @@ export default function MotionTuningPanel({
                       onClick={onReset}
                       className="flex-1"
                     >
-                      Reset Defaults
+                      Restaurar padroes
                     </Button>
                     <Button
                       type="button"
                       onClick={onRecalibrate}
                       className="flex-1"
                     >
-                      Recalibrate
+                      Recalibrar
                     </Button>
                   </div>
                 </CardContent>
@@ -1398,7 +1408,7 @@ export default function MotionTuningPanel({
             onClick={() => setIsOpen(true)}
           >
             <SlidersHorizontal className="mr-2 h-4 w-4" />
-            Tune Motion
+            Ajustar movimento
           </Button>
         )}
       </div>
