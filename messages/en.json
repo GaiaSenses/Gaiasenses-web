@@ -17,13 +17,28 @@
     "development": "Platform Development:",
     "sound": "Sound Development:",
     "compositionCredits": "Composition Credits:",
+    "compositionInfo": {
+      "labels": {
+        "temperature": "Temp",
+        "humidity": "Hum",
+        "clouds": "Clouds",
+        "wind": "Winds",
+        "direction": "Dir",
+        "gust": "Gust",
+        "rain": "Rain",
+        "co2": "CO2",
+        "lightnings": "Lightnings",
+        "firesSingular": "Fire",
+        "firesPlural": "Fires"
+      }
+    },
     "acknowledgement": "Acknowledgement:",
     "acknowledgementText": "This work wouldn't have been possible without the support of the researchers from CEPAGRI, Dr. Priscila Coltri, Dr. Renata Gonçalves, and Dr. Jurandir Zullo Jr., M.Sc. Bruno Bainy, and Engineer Bruno Veloso. The GaiaSenses project also received support from Prof. Dr. Amílcar Cardoso and Dr. Pedro Martins from the University of Coimbra, Prof. Dr. Jônatas Manzolli (IA-NICS) and Prof. Dr. José Fornari (NICS) from the University of Campinas (UNICAMP), Dr. Josué Ramos from DISCF/CTI Renato Archer, and Ph.D. Anésio Azevedo Costa Neto from IFSP. Students from various departments at UNICAMP have been contributing to the development of GaiaSenses, including Cássio Dezotti, Gabriel Kuae, Tauane Cardoso, and Ru Yi Shen from the Control and Automation Engineering Faculty; Elton do Nascimento, Thiago Lacerda, Isabella Rigue, and Felipe Santana from the Computer Engineering Institute."
   },
   "Notification": {
-    "notificationTitle":"Push Notifications",
-    "notificationSubtitle1":"You are subscribed to receive push notifications.",
-    "notificationSubtitle2":"Subscribe by selecting the frequency below:",
+    "notificationTitle": "Push Notifications",
+    "notificationSubtitle1": "You are subscribed to receive push notifications.",
+    "notificationSubtitle2": "Subscribe by selecting the frequency below:",
     "notificationSelect": "Select frequency",
     "notificationDaily": "Daily",
     "notificationWeekly": "Weekly",
@@ -31,8 +46,7 @@
     "notificationSubscribe": "Subscribe",
     "notificationUnsubscribe": "Unsubscribe",
     "notificationNotSuported": "Push notifications are not supported in this browser.",
-    "notificationAlert": "Please, select the frequency"
-    ,
+    "notificationAlert": "Please, select the frequency",
     "notificationName": "Name",
     "notificationNamePlaceholder": "Enter your name",
     "notificationEmail": "Email",

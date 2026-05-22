@@ -15,6 +15,7 @@ import {
   getFireSpots,
   getLightning,
   getWeather,
+  reverseGeocode,
 } from "@/components/getData";
 import { cookies } from "next/headers";
 import DataSender from "@/components/dataSender";
@@ -114,6 +115,8 @@ export default async function Page({ params, searchParams }: PageProps) {
     getFireSpots(lat.toString(), lng.toString(), 100),
   ]);
 
+  const rainData = weatherData.rain as { "1h"?: number } | undefined;
+
   const temp = weatherData.main.temp;
   const speed = weatherData.wind.speed;
   const humidity = weatherData.main.humidity;
@@ -163,7 +166,21 @@ export default async function Page({ params, searchParams }: PageProps) {
     lat: lat,
     lng: lng,
   };
-
+  let lang = params.locale;
+  const reverseGeocodeData = await reverseGeocode(lat, lng);
+  if (lang === "en") lang = "en-us";
+  if (lang === "pt") lang = "pt-br";
+  const regionNames = new Intl.DisplayNames([lang], {
+    type: "region",
+  });
+  const locationInfo = {
+    name: reverseGeocodeData?.name || " ",
+    state: reverseGeocodeData?.state || "",
+    country:
+      (reverseGeocodeData?.country
+        ? regionNames.of(reverseGeocodeData.country)
+        : " ") || "",
+  };
   return (
     <Pd4WebProvider>
       <div className="grid grid-cols-1 grid-rows-1">
@@ -171,10 +188,35 @@ export default async function Page({ params, searchParams }: PageProps) {
           <GaiasensesMap
             initialLat={lat}
             initialLng={lng}
+            locationInfo={locationInfo}
+            weatherLabels={{
+              temperature: t("compositionInfo.labels.temperature"),
+              humidity: t("compositionInfo.labels.humidity"),
+              clouds: t("compositionInfo.labels.clouds"),
+              wind: t("compositionInfo.labels.wind"),
+              direction: t("compositionInfo.labels.direction"),
+              gust: t("compositionInfo.labels.gust"),
+              rain: t("compositionInfo.labels.rain"),
+              co2: t("compositionInfo.labels.co2"),
+              lightnings: t("compositionInfo.labels.lightnings"),
+              firesSingular: t("compositionInfo.labels.firesSingular"),
+              firesPlural: t("compositionInfo.labels.firesPlural"),
+            }}
             mode={searchParams.mode === "player" ? "player" : "map"}
             composition={composition}
             InfoButtonText={t("infoButtonText")}
             clima={clima}
+            weatherSummary={{
+              description:
+                weatherData.weather[0]?.description ?? "indisponivel",
+              temperature: weatherData.main.temp,
+              humidity: weatherData.main.humidity,
+              clouds: weatherData.clouds,
+              windSpeed: weatherData.wind.speed,
+              windDeg: weatherData.wind.deg,
+              windGust: weatherData.wind.gust ?? weatherData.wind.speed,
+              rain1h: rainData?.["1h"] ?? 0,
+            }}
           >
             <Suspense
               fallback={

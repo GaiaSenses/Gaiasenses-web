@@ -26,6 +26,7 @@ import BLEControl from "./ble-control";
 import AutoMove from "./auto-move";
 import CoordinateDisplay from "./coordinate-display";
 import MotionTuningPanel from "./motion-tuning-panel";
+import CompositionInfoPanel from "./composition-info-panel";
 import Pd4WebPatchLog, {
   type Pd4WebPatchLogControls,
   type Pd4WebPatchLogEntry,
@@ -102,12 +103,36 @@ function clampPatchEpsilon(value: number) {
 
 type GaiasensesMapProps = {
   children: ReactNode;
+  locationInfo: { name: string; state: string; country: string };
+  weatherLabels: {
+    temperature: string;
+    humidity: string;
+    clouds: string;
+    wind: string;
+    direction: string;
+    gust: string;
+    rain: string;
+    co2: string;
+    lightnings: string;
+    firesSingular: string;
+    firesPlural: string;
+  };
   initialLat: number;
   initialLng: number;
   mode: Map3Pd4WebMoment;
   composition: string | null;
   InfoButtonText: string;
   clima: ClimaData;
+  weatherSummary: {
+    description: string;
+    temperature: number;
+    humidity: number;
+    clouds: number;
+    windSpeed: number;
+    windDeg: number;
+    windGust: number;
+    rain1h: number;
+  };
 };
 
 export default function GaiasensesMap({
@@ -118,6 +143,9 @@ export default function GaiasensesMap({
   composition,
   InfoButtonText,
   clima,
+  weatherSummary,
+  locationInfo,
+  weatherLabels,
 }: GaiasensesMapProps) {
   const hasSharedPd4WebPatch =
     composition !== null &&
@@ -137,6 +165,9 @@ export default function GaiasensesMap({
   const [motionTuning, setMotionTuning] = useState<MotionTuningSettings>(
     DEFAULT_MOTION_TUNING_SETTINGS,
   );
+  const [showCompositionInfoPanel, setShowCompositionInfoPanel] =
+    useState(true);
+  const [currentCo2Ppm, setCurrentCo2Ppm] = useState<number | null>(null);
   const [co2Threshold, setCo2Threshold] = useState(DEFAULT_CO2_LEVEL_THRESHOLD);
   const [isPatchLogOpen, setIsPatchLogOpen] = useState(false);
   const [patchLogControls, setPatchLogControls] =
@@ -263,12 +294,25 @@ export default function GaiasensesMap({
     currentComposition: composition ?? "attractor",
   });
 
+  const compositionInfo = composition
+    ? CompositionsInfo[composition as keyof typeof CompositionsInfo]
+    : null;
+
+  const handleCo2Sample = useCallback(
+    (data: espCo2Response) => {
+      latestCo2DataRef.current = data;
+      setCurrentCo2Ppm(data.co2.ppm);
+      handleOnCO2Sensor(data);
+    },
+    [handleOnCO2Sensor],
+  );
+
   const {
     startSimulation: startCo2Simulation,
     isSimulating: isCo2Simulating,
     simulatedPpm: simulatedCo2Ppm,
   } = useCo2Simulation({
-    onCo2Sample: handleOnCO2Sensor,
+    onCo2Sample: handleCo2Sample,
     startPpm: co2Threshold + 500,
     endPpm: co2Threshold,
     durationMs: 30_000,
@@ -602,6 +646,8 @@ export default function GaiasensesMap({
         diagnostics={motionDiagnostics}
         sensorDebug={sensorDebug}
         co2Threshold={co2Threshold}
+        showCompositionInfoPanel={showCompositionInfoPanel}
+        onToggleCompositionInfoPanel={setShowCompositionInfoPanel}
         onChange={setMotionTuning}
         onCo2ThresholdChange={setCo2Threshold}
         onReset={() => setMotionTuning(DEFAULT_MOTION_TUNING_SETTINGS)}
@@ -610,6 +656,21 @@ export default function GaiasensesMap({
         isCo2Simulating={isCo2Simulating}
         simulatedCo2Ppm={simulatedCo2Ppm}
       />
+      {mode === "player" && compositionInfo && showCompositionInfoPanel && (
+        <CompositionInfoPanel
+          lat={latlng[0]}
+          lng={latlng[1]}
+          locationInfo={locationInfo}
+          weatherLabels={weatherLabels}
+          compositionName={compositionInfo.name}
+          compositionAuthor={compositionInfo.author}
+          compositionAttributes={compositionInfo.attributes}
+          weather={weatherSummary}
+          lightningCount={clima.lightnings}
+          fireSpotsCount={clima.fireSpots}
+          co2Ppm={currentCo2Ppm}
+        />
+      )}
       <div>
         <AnimatePresence>
           {false && (
@@ -660,10 +721,7 @@ export default function GaiasensesMap({
             latestSensorDataRef.current = data;
             handleOnSensor(data);
           }}
-          onCo2Sensor={(data) => {
-            latestCo2DataRef.current = data;
-            handleOnCO2Sensor(data);
-          }}
+          onCo2Sensor={handleCo2Sample}
           onConnect={handleControllerConnect}
           onDisconnect={handleControllerDisconnect}
         />

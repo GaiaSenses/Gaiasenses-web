@@ -24,6 +24,8 @@ type MotionTuningPanelProps = {
   diagnostics: MotionDiagnostics;
   sensorDebug: SensorDebugSnapshot;
   co2Threshold: number;
+  showCompositionInfoPanel: boolean;
+  onToggleCompositionInfoPanel: (value: boolean) => void;
   onChange: (settings: MotionTuningSettings) => void;
   onCo2ThresholdChange: (value: number) => void;
   onReset: () => void;
@@ -316,6 +318,8 @@ export default function MotionTuningPanel({
   diagnostics,
   sensorDebug,
   co2Threshold,
+  showCompositionInfoPanel,
+  onToggleCompositionInfoPanel,
   onChange,
   onCo2ThresholdChange,
   onReset,
@@ -551,6 +555,31 @@ export default function MotionTuningPanel({
                         </div>
                       )}
                     </div>
+                  </div>
+
+                  <div className="rounded-md border bg-slate-50 p-3 space-y-2">
+                    <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                      Painel de composicao
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onToggleCompositionInfoPanel(!showCompositionInfoPanel)
+                      }
+                      className={`w-full rounded-md border px-3 py-2 text-left text-sm font-medium transition-colors ${
+                        showCompositionInfoPanel
+                          ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                          : "bg-white hover:bg-slate-50"
+                      }`}
+                    >
+                      {showCompositionInfoPanel
+                        ? "Painel visivel durante composicao"
+                        : "Painel oculto durante composicao"}
+                    </button>
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      Exibe nome, autor, clima e CO2 no canto inferior direito
+                      enquanto a composicao toca.
+                    </p>
                   </div>
 
                   <div className="rounded-md border bg-slate-50 p-3 space-y-2">

@@ -17,13 +17,28 @@
     "development": "Desenvolvimento:",
     "sound": "Produção Sonora:",
     "compositionCredits": "Composições:",
+    "compositionInfo": {
+      "labels": {
+        "temperature": "Temperatura",
+        "humidity": "Umidade",
+        "clouds": "Nuvens",
+        "wind": "Vento",
+        "direction": "Direção",
+        "gust": "Rajada",
+        "rain": "Chuva",
+        "co2": "CO2",
+        "lightnings": "Raios",
+        "firesSingular": "foco de fogo",
+        "firesPlural": "focos de fogo"
+      }
+    },
     "acknowledgement": "Agradecimentos:",
     "acknowledgementText": "Este trabalho não teria sido possível sem o apoio dos pesquisadores do CEPAGRI, Dr.ª Priscila Coltri, Dr.ª Renata Gonçalves e Dr. Jurandir Zullo Jr., M.Sc. Bruno Bainy. O projeto GaiaSenses também contou com o apoio do Prof. Dr. Amílcar Cardoso, da Universidade de Coimbra, do Prof. Dr. Jônatas Manzolli (IA-NICS) e Prof. Dr. José Fornari (NICS), da Universidade Estadual de Campinas (UNICAMP), do Dr. Josué Ramos e do Dr. Hélio Azevedo, do DISCF/CTI Renato Archer, Dr. Anésio Azevedo Costa Neto, do IFSP e M.Sc. Guilherme Zanchetta (NICS/UNICAMP. Estudantes de diversos departamentos da UNICAMP têm contribuído para o desenvolvimento do GaiaSenses, incluindo Cássio Dezotti, Gabriel Kuae, Tauane Cardoso e Ru Yi Shen, da Faculdade de Engenharia de Controle e Automação; Elton do Nascimento, Thiago Lacerda, Isabella Rigue e Felipe Santana, do Instituto de Engenharia de Computação."
   },
   "Notification": {
-    "notificationTitle":"Notificações",
-    "notificationSubtitle1":"Você está inscrito para receber notificações.",
-    "notificationSubtitle2":"Selecione a frequência desejada e inscreva-se:",
+    "notificationTitle": "Notificações",
+    "notificationSubtitle1": "Você está inscrito para receber notificações.",
+    "notificationSubtitle2": "Selecione a frequência desejada e inscreva-se:",
     "notificationSelect": "Selecione a frequência",
     "notificationDaily": "Diária",
     "notificationWeekly": "Semanal",
@@ -31,8 +46,7 @@
     "notificationSubscribe": "Inscrever-se",
     "notificationUnsubscribe": "Cancelar inscrição",
     "notificationNotSuported": "Notificações não são suportadas neste navegador.",
-    "notificationAlert": "Por favor, selecione a frequência desejada"
-    ,
+    "notificationAlert": "Por favor, selecione a frequência desejada",
     "notificationName": "Nome",
     "notificationNamePlaceholder": "Digite seu nome",
     "notificationEmail": "Email",
