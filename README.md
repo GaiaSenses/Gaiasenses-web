@@ -22,6 +22,7 @@ NEXT_PUBLIC_MAPBOX_API_ACCESS_TOKEN= MapBox API public access token
 
 ## Getting Started
 
+
 First, run the development server:
 
 ```bash
