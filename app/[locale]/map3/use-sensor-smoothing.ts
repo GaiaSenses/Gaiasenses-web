@@ -63,7 +63,13 @@ export type MotionDiagnostics = {
   calibrated: boolean;
 };
 
-export type MotionMappingMethod = "euler" | "quaternion" | "basic";
+export type MotionMappingMethod = "euler" | "quaternion" | "basic" | "pd";
+
+export type PdMapTarget = {
+  latitude: number;
+  longitude: number;
+  timestamp: number;
+};
 
 export type MotionTuningSettings = {
   bufferSize: number;
@@ -109,7 +115,7 @@ export const DEFAULT_MOTION_TUNING_SETTINGS: MotionTuningSettings = {
   motionStopDuration: 420,
   popupHardLockDuration: 850,
   popupUnlockThreshold: 0.85,
-  mappingMethod: "quaternion",
+  mappingMethod: "pd",
   basicLatitudeFrom: "pitch",
   basicLongitudeFrom: "roll",
   basicBearingFrom: "yaw",
@@ -149,6 +155,8 @@ const DEFAULT_SENSOR_DEBUG_SNAPSHOT: SensorDebugSnapshot = {
   },
   acceleration: null,
 };
+
+const PD_TARGET_STALE_MS = 500;
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -419,6 +427,7 @@ export function useSensorSmoothing(
   mapRef: React.RefObject<MapRef>,
   onMotionStop?: () => void,
   tuning: MotionTuningSettings = DEFAULT_MOTION_TUNING_SETTINGS,
+  pdMapTargetRef?: React.MutableRefObject<PdMapTarget | null>,
 ) {
   const searchParams = useSearchParams();
   const tuningRef = useRef(tuning);
@@ -688,12 +697,18 @@ export function useSensorSmoothing(
       const sensorBuffer = sensorBufferRef.current;
       const currentTuning = tuningRef.current;
       const mapUpdateMs = 1000 / Math.max(currentTuning.mapUpdateHz, 1);
+      const isPdProjection = currentTuning.mappingMethod === "pd";
+      const pdTarget = pdMapTargetRef?.current ?? null;
+      const hasFreshPdTarget = Boolean(
+        pdTarget && now - pdTarget.timestamp <= PD_TARGET_STALE_MS,
+      );
 
       syncDiagnostics(now, lastMotionMagnitudeRef.current);
 
       if (
-        sensorBuffer.length > 0 &&
-        motionPhaseRef.current === "moving" &&
+        (isPdProjection
+          ? hasFreshPdTarget
+          : sensorBuffer.length > 0 && motionPhaseRef.current === "moving") &&
         searchParams.get("mode") === "map" &&
         mapRef.current
       ) {
@@ -710,62 +725,75 @@ export function useSensorSmoothing(
           let targetLongitude: number;
           let targetBearing: number | null = null;
 
-          const relativeQuaternion = latestRelativeQuaternionRef.current;
-          if (useQuaternionProjection) {
-            if (!relativeQuaternion) {
-              raf = requestAnimationFrame(step);
-              return;
-            }
-
-            const projection = getQuaternionProjection(
-              relativeQuaternion,
-              currentTuning,
-            );
-            latitude = projection.latitude;
-            targetLongitude = projection.longitude;
-            targetBearing = -projection.bearing;
-          } else if (useBasicProjection) {
-            const smoothedEuler: EulerAngles = {
-              yaw: smoothed.alpha,
-              pitch: smoothed.beta,
-              roll: smoothed.gamma,
-            };
-            latitude = clamp(
-              readBasicChannel(smoothedEuler, currentTuning.basicLatitudeFrom),
-              -85,
-              85,
-            );
-            targetLongitude = normalizeAngle(
-              readBasicChannel(smoothedEuler, currentTuning.basicLongitudeFrom),
-            );
-            targetBearing = normalizeAngle(
-              readBasicChannel(smoothedEuler, currentTuning.basicBearingFrom),
-            );
-
-            if (currentTuning.basicInvertLatitude) {
-              latitude = -latitude;
-            }
-            if (currentTuning.basicInvertLongitude) {
-              targetLongitude = normalizeAngle(-targetLongitude);
-            }
-            if (targetBearing !== null && currentTuning.basicInvertBearing) {
-              targetBearing = normalizeAngle(-targetBearing);
-            }
+          if (isPdProjection) {
+            latitude = pdTarget?.latitude ?? mapRef.current.getCenter().lat;
+            targetLongitude =
+              pdTarget?.longitude ?? mapRef.current.getCenter().lng;
           } else {
-            const yawRad = (smoothed.alpha * Math.PI) / 180;
-            latitude = clamp(
-              -(
-                smoothed.beta * Math.cos(yawRad) -
-                smoothed.gamma * Math.sin(yawRad)
-              ),
-              -85,
-              85,
-            );
-            targetLongitude = normalizeAngle(-smoothed.alpha);
+            const relativeQuaternion = latestRelativeQuaternionRef.current;
+            if (useQuaternionProjection) {
+              if (!relativeQuaternion) {
+                raf = requestAnimationFrame(step);
+                return;
+              }
+
+              const projection = getQuaternionProjection(
+                relativeQuaternion,
+                currentTuning,
+              );
+              latitude = projection.latitude;
+              targetLongitude = projection.longitude;
+              targetBearing = -projection.bearing;
+            } else if (useBasicProjection) {
+              const smoothedEuler: EulerAngles = {
+                yaw: smoothed.alpha,
+                pitch: smoothed.beta,
+                roll: smoothed.gamma,
+              };
+              latitude = clamp(
+                readBasicChannel(
+                  smoothedEuler,
+                  currentTuning.basicLatitudeFrom,
+                ),
+                -85,
+                85,
+              );
+              targetLongitude = normalizeAngle(
+                readBasicChannel(
+                  smoothedEuler,
+                  currentTuning.basicLongitudeFrom,
+                ),
+              );
+              targetBearing = normalizeAngle(
+                readBasicChannel(smoothedEuler, currentTuning.basicBearingFrom),
+              );
+
+              if (currentTuning.basicInvertLatitude) {
+                latitude = -latitude;
+              }
+              if (currentTuning.basicInvertLongitude) {
+                targetLongitude = normalizeAngle(-targetLongitude);
+              }
+              if (targetBearing !== null && currentTuning.basicInvertBearing) {
+                targetBearing = normalizeAngle(-targetBearing);
+              }
+            } else {
+              const yawRad = (smoothed.alpha * Math.PI) / 180;
+              latitude = clamp(
+                -(
+                  smoothed.beta * Math.cos(yawRad) -
+                  smoothed.gamma * Math.sin(yawRad)
+                ),
+                -85,
+                85,
+              );
+              targetLongitude = normalizeAngle(-smoothed.alpha);
+            }
           }
           latitude = clamp(latitude, -85, 85);
+          targetLongitude = normalizeAngle(targetLongitude);
 
-          if (currentTuning.lockBearing) {
+          if (currentTuning.lockBearing || isPdProjection) {
             targetBearing = null;
           }
 
@@ -820,7 +848,7 @@ export function useSensorSmoothing(
 
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
-  }, [mapRef, searchParams, syncDiagnostics]);
+  }, [mapRef, pdMapTargetRef, searchParams, syncDiagnostics]);
 
   return { handleOnSensor, resetCalibration, diagnostics, sensorDebug };
 }

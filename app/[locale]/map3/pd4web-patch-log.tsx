@@ -7,7 +7,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-type PatchLogSource = "lat" | "lng" | "accX" | "accY" | "accZ" | "system";
+type PatchLogSource =
+  | "lat"
+  | "lng"
+  | "accX"
+  | "accY"
+  | "accZ"
+  | "co2"
+  | "sensorList"
+  | "system";
 
 export type Pd4WebPatchLogEntry = {
   id: number;
