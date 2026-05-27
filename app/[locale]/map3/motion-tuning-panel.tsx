@@ -74,6 +74,7 @@ type TuningPreset = {
 };
 
 const mappingMethods: { label: string; value: MotionMappingMethod }[] = [
+  { label: "PD", value: "pd" },
   { label: "Euler", value: "euler" },
   { label: "Quaternion", value: "quaternion" },
   { label: "Basico", value: "basic" },
@@ -628,7 +629,7 @@ export default function MotionTuningPanel({
                     <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
                       Metodo de mapeamento
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-4 gap-2">
                       {mappingMethods.map((method) => {
                         const isActive =
                           settings.mappingMethod === method.value;
@@ -649,10 +650,16 @@ export default function MotionTuningPanel({
                       })}
                     </div>
                     <p className="text-xs text-slate-500 leading-relaxed">
-                      Quaternion mapeia a orientacao diretamente dos quaternions
-                      da IMU. Euler usa a transformacao legada por angulos.
-                      Basico mapeia yaw/pitch/roll diretamente para os canais do
-                      mapa com roteamento configuravel.
+                      PD manda a lista de valores dos sensores para o r_input no
+                      patch como list padrao do PD (valores separados por
+                      espaco), na ordem: [gyroX, gyroY, gyroZ, accX, accY, accZ,
+                      co2]. Depois recebe latitude e longitude pelo r_output do
+                      patch tambem como list (valores separados por espaco), na
+                      ordem: [latitude, longitude]. Quaternion mapeia a
+                      orientacao diretamente dos quaternions da IMU. Euler usa a
+                      transformacao legada por angulos. Basico mapeia
+                      yaw/pitch/roll diretamente para os canais do mapa com
+                      roteamento configuravel.
                     </p>
 
                     <div className="space-y-2 pt-1">

@@ -39,6 +39,7 @@ import { useCo2Simulation } from "./use-co2-simulation";
 import {
   DEFAULT_MOTION_TUNING_SETTINGS,
   type MotionMappingMethod,
+  type PdMapTarget,
   type MotionTuningSettings,
 } from "./use-sensor-smoothing";
 import {
@@ -57,10 +58,19 @@ const MOTION_TUNING_STORAGE_KEY = "map3-motion-tuning-settings";
 const CO2_THRESHOLD_STORAGE_KEY = "map3-co2-threshold";
 const MAP_PATCH_LOG_MAX_ENTRIES = 250;
 const VALID_MOTION_MAPPING_METHODS: MotionMappingMethod[] = [
+  "pd",
   "euler",
   "quaternion",
   "basic",
 ];
+
+function clampLatitude(value: number) {
+  return Math.max(-85, Math.min(85, value));
+}
+
+function normalizeLongitude(value: number) {
+  return ((((value + 180) % 360) + 360) % 360) - 180;
+}
 
 function normalizeMotionTuningSettings(
   settings: Partial<MotionTuningSettings>,
@@ -157,6 +167,7 @@ export default function GaiasensesMap({
   const isMapInputActive = mode === "map";
 
   const mapRef = useRef<MapRef>(null);
+  const pdMapTargetRef = useRef<PdMapTarget | null>(null);
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -180,6 +191,9 @@ export default function GaiasensesMap({
   const [patchLogs, setPatchLogs] = useState<Pd4WebPatchLogEntry[]>([]);
   const nextPatchLogIdRef = useRef(0);
   const previousPatchIdRef = useRef<string | null>(null);
+  const pdListListenerMapRef = useRef<WeakMap<pd4web.Pd4Web, Set<string>>>(
+    new WeakMap(),
+  );
 
   useEffect(() => {
     const saved = window.localStorage.getItem(MOTION_TUNING_STORAGE_KEY);
@@ -290,6 +304,7 @@ export default function GaiasensesMap({
     initialLat,
     initialLng,
     motionTuning,
+    pdMapTargetRef,
     co2LevelThreshold: co2Threshold,
     currentComposition: composition ?? "attractor",
   });
@@ -374,6 +389,7 @@ export default function GaiasensesMap({
     }
 
     previousPatchIdRef.current = currentPatchId;
+    pdMapTargetRef.current = null;
 
     if (previousPatchId && currentPatchId === null) {
       appendPatchSystemLog(`Patch stopped: ${previousPatchId}`);
@@ -423,12 +439,42 @@ export default function GaiasensesMap({
     const epsilon = clampPatchEpsilon(patchLogControls.epsilon);
     const accEpsilon = clampPatchEpsilon(patchLogControls.accEpsilon);
     const alwaysSendMovement = patchLogControls.alwaysSendMovement;
+    const isPdMapping = motionTuning.mappingMethod === "pd";
+
+    const outputListReceiver = binding.outputListReceiver;
+    if (outputListReceiver) {
+      const listenerMap = pdListListenerMapRef.current;
+      const knownReceivers = listenerMap.get(pd4web) ?? new Set<string>();
+      if (!knownReceivers.has(outputListReceiver)) {
+        knownReceivers.add(outputListReceiver);
+        listenerMap.set(pd4web, knownReceivers);
+
+        pd4web.onListReceived(outputListReceiver, (_name, list) => {
+          if (!Array.isArray(list) || list.length < 2) {
+            return;
+          }
+
+          const rawLatitude = Number(list[0]);
+          const rawLongitude = Number(list[1]);
+          if (!Number.isFinite(rawLatitude) || !Number.isFinite(rawLongitude)) {
+            return;
+          }
+
+          pdMapTargetRef.current = {
+            latitude: clampLatitude(rawLatitude),
+            longitude: normalizeLongitude(rawLongitude),
+            timestamp: performance.now(),
+          };
+        });
+      }
+    }
 
     let prevLat: number | null = null;
     let prevLng: number | null = null;
     let prevAccX: number | null = null;
     let prevAccY: number | null = null;
     let prevAccZ: number | null = null;
+    let prevCo2: number | null = null;
 
     const intervalId = window.setInterval(() => {
       const tickLogs: Omit<Pd4WebPatchLogEntry, "id">[] = [];
@@ -446,6 +492,34 @@ export default function GaiasensesMap({
       const center = map.getCenter();
       const lat = center.lat;
       const lng = center.lng;
+
+      if (isPdMapping && binding.sensorListReceiver) {
+        const euler = latestSensorDataRef.current?.euler;
+        const acc = latestSensorDataRef.current?.acc;
+        const co2 = latestCo2DataRef.current?.co2.ppm;
+
+        const gyroX = Number.isFinite(euler?.roll) ? Number(euler?.roll) : 0;
+        const gyroY = Number.isFinite(euler?.pitch) ? Number(euler?.pitch) : 0;
+        const gyroZ = Number.isFinite(euler?.yaw) ? Number(euler?.yaw) : 0;
+        const accX = Number.isFinite(acc?.x) ? Number(acc?.x) : 0;
+        const accY = Number.isFinite(acc?.y) ? Number(acc?.y) : 0;
+        const accZ = Number.isFinite(acc?.z) ? Number(acc?.z) : 0;
+        const co2Value = Number.isFinite(co2) ? Number(co2) : 0;
+
+        const packet = [gyroX, gyroY, gyroZ, accX, accY, accZ, co2Value];
+        pd4web.sendList(binding.sensorListReceiver, packet);
+        tickLogs.push({
+          timestamp: Date.now(),
+          source: "sensorList",
+          receiver: binding.sensorListReceiver,
+          value: null,
+          delta: null,
+          threshold: null,
+          message: `[${packet.join(", ")}]`,
+        });
+        flushTickLogs();
+        return;
+      }
 
       const latChanged = prevLat === null || Math.abs(lat - prevLat) >= epsilon;
       const lngChanged = prevLng === null || Math.abs(lng - prevLng) >= epsilon;
@@ -559,6 +633,29 @@ export default function GaiasensesMap({
         });
       }
 
+      if (binding.co2Receiver) {
+        const co2 = latestCo2DataRef.current?.co2.ppm;
+        if (Number.isFinite(co2)) {
+          const numericCo2 = Number(co2);
+          const co2Changed =
+            prevCo2 === null || Math.abs(numericCo2 - prevCo2) >= accEpsilon;
+          if (co2Changed) {
+            const co2Delta =
+              prevCo2 === null ? null : Math.abs(numericCo2 - prevCo2);
+            prevCo2 = numericCo2;
+            pd4web.sendFloat(binding.co2Receiver, numericCo2);
+            tickLogs.push({
+              timestamp: Date.now(),
+              source: "co2",
+              receiver: binding.co2Receiver,
+              value: numericCo2,
+              delta: co2Delta,
+              threshold: accEpsilon,
+            });
+          }
+        }
+      }
+
       flushTickLogs();
     }, pollMs);
 
@@ -573,7 +670,10 @@ export default function GaiasensesMap({
     patchLogControls.alwaysSendMovement,
     patchLogControls.epsilon,
     patchLogControls.pollMs,
+    pdListListenerMapRef,
     pd4web,
+    pdMapTargetRef,
+    motionTuning.mappingMethod,
   ]);
 
   const handleUnmuteClick = () => {

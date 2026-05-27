@@ -4,6 +4,7 @@ import type { MapRef } from "react-map-gl/mapbox";
 import {
   useSensorSmoothing,
   type MotionDiagnostics,
+  type PdMapTarget,
   type SensorDebugSnapshot,
   type MotionTuningSettings,
 } from "./use-sensor-smoothing";
@@ -15,6 +16,7 @@ type UseBLESensorOptions = {
   initialLat: number;
   initialLng: number;
   motionTuning: MotionTuningSettings;
+  pdMapTargetRef?: React.MutableRefObject<PdMapTarget | null>;
   co2LevelThreshold: number;
   currentComposition: string;
 };
@@ -25,6 +27,7 @@ export function useBLESensor({
   initialLat,
   initialLng,
   motionTuning,
+  pdMapTargetRef,
   co2LevelThreshold,
   currentComposition,
 }: UseBLESensorOptions) {
@@ -66,7 +69,7 @@ export function useBLESensor({
   }, [searchParams, inputModeRef, mapRef, pathname, router]);
 
   const { handleOnSensor, resetCalibration, diagnostics, sensorDebug } =
-    useSensorSmoothing(mapRef, handleMotionStop, motionTuning);
+    useSensorSmoothing(mapRef, handleMotionStop, motionTuning, pdMapTargetRef);
 
   const handleControllerConnect = useCallback(
     (mode: string) => {

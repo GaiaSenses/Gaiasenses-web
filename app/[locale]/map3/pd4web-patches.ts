@@ -57,6 +57,10 @@ export type Map3Pd4WebBinding =
       accYReceiver?: string;
       accZReceiver?: string;
       co2Receiver?: string;
+      /** Receiver that accepts app->Pd sensor packets as a list. */
+      sensorListReceiver?: string;
+      /** Symbol name used by Pd->app list output callbacks. */
+      outputListReceiver?: string;
       /**
        * Optional receiver name for globe rotation speed in degrees/second.
        * The value is a cos-corrected angular speed computed from successive map
@@ -173,9 +177,11 @@ export const MAP3_PD4WEB_PATCHES: readonly Map3Pd4WebPatch[] = [
       accXReceiver: "aceX",
       accYReceiver: "aceY",
       accZReceiver: "aceZ",
-      // co2Receiver: "input_co2",
+      co2Receiver: "input_co2",
+      sensorListReceiver: "r_input",
+      outputListReceiver: "r_output",
       pollMs: 64,
-      epsilon: 1,
+      epsilon: 0.5,
       accEpsilon: 0.05,
     },
   },
