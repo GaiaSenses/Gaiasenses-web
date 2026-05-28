@@ -470,11 +470,13 @@ export default function GaiasensesMap({
             return;
           }
 
-          pdMapTargetRef.current = {
-            latitude: clampLatitude(rawLatitude),
-            longitude: normalizeLongitude(rawLongitude),
-            timestamp: performance.now(),
-          };
+          if (inputModeRef.current !== "mouse") {
+            pdMapTargetRef.current = {
+              latitude: clampLatitude(rawLatitude),
+              longitude: normalizeLongitude(rawLongitude),
+              timestamp: performance.now(),
+            };
+          }
 
           appendPatchLogs([
             {
@@ -515,7 +517,9 @@ export default function GaiasensesMap({
       const lat = center.lat;
       const lng = center.lng;
 
-      if (isPdMapping && binding.sensorListReceiver) {
+      const isSensorConnected = inputModeRef.current !== "mouse";
+
+      if (isPdMapping && binding.sensorListReceiver && isSensorConnected) {
         const euler = latestSensorDataRef.current?.euler;
         const acc = latestSensorDataRef.current?.acc;
         const co2 = latestCo2DataRef.current?.co2.ppm;
@@ -696,6 +700,7 @@ export default function GaiasensesMap({
     pd4web,
     pdMapTargetRef,
     motionTuning.mappingMethod,
+    inputModeRef,
   ]);
 
   const handleUnmuteClick = () => {
