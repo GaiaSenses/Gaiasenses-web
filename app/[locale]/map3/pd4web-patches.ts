@@ -176,8 +176,8 @@ export const MAP3_PD4WEB_PATCHES: readonly Map3Pd4WebPatch[] = [
     },
     binding: {
       type: "map-center",
-      latitudeReceiver: "lati",
-      longitudeReceiver: "rotacaoSite",
+      latitudeReceiver: "latitude",
+      longitudeReceiver: "longitude",
       accXReceiver: "aceX",
       accYReceiver: "aceY",
       accZReceiver: "aceZ",
