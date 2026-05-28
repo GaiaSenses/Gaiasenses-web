@@ -15,6 +15,7 @@ type PatchLogSource =
   | "accZ"
   | "co2"
   | "sensorList"
+  | "outputList"
   | "system";
 
 export type Pd4WebPatchLogEntry = {
