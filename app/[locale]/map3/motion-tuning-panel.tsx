@@ -156,7 +156,7 @@ const tuningFields: TuningField[] = [
     description:
       "Movimento maximo permitido no mapa por atualizacao. Valores menores evitam saltos bruscos; valores maiores fazem o mapa acompanhar mais rapido apos movimentos rapidos.",
     min: 0.1,
-    max: 10,
+    max: 360,
     step: 0.1,
     unit: "deg",
   },

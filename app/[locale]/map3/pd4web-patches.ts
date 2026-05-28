@@ -57,9 +57,13 @@ export type Map3Pd4WebBinding =
       accYReceiver?: string;
       accZReceiver?: string;
       co2Receiver?: string;
-      /** Receiver that accepts app->Pd sensor packets as a list. */
+      /** Receiver that accepts app->Pd sensor packets as a list.
+       * should be a list of 7 values: [gyroX gyroY gyroZ accX accY accZ co2]
+       */
       sensorListReceiver?: string;
-      /** Symbol name used by Pd->app list output callbacks. */
+      /** Symbol name used by Pd->app list output callbacks.
+       * should be a list of 2 values: [latitude longitude]
+       */
       outputListReceiver?: string;
       /**
        * Optional receiver name for globe rotation speed in degrees/second.
@@ -162,9 +166,9 @@ export const MAP3_PD4WEB_PATCHES: readonly Map3Pd4WebPatch[] = [
     },
   },
   {
-    id: "paraiso32",
-    label: "Map sound 32",
-    bundleFolder: "paraiso32",
+    id: "paraisoGaia41",
+    label: "Map sound 41",
+    bundleFolder: "paraisoGaia41",
     activation: {
       // Keep this patch addressable in player mode too. Gating pause/resume is
       // handled in GaiasensesMap via the composition's `pd4web` flag.
@@ -178,8 +182,8 @@ export const MAP3_PD4WEB_PATCHES: readonly Map3Pd4WebPatch[] = [
       accYReceiver: "aceY",
       accZReceiver: "aceZ",
       co2Receiver: "input_co2",
-      sensorListReceiver: "r_input",
-      outputListReceiver: "r_output",
+      sensorListReceiver: "input",
+      outputListReceiver: "output",
       pollMs: 64,
       epsilon: 0.5,
       accEpsilon: 0.05,
