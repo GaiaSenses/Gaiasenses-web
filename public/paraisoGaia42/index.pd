@@ -2506,7 +2506,7 @@
 #X obj -2946 -746 metro 10; 
 #X obj -2961 -808 * 4; 
 #X obj -3132 -536 cpu; 
-#X obj -1170 -94 s latitude; 
+#X obj -1107 -45 s latitude; 
 #X floatatom -2893 -501 5 0 0 0 - - - 0; 
 #X floatatom -2827 -493 5 0 0 0 - - - 0; 
 #X floatatom -2728 -466 5 0 0 0 - - - 0; 
@@ -2631,6 +2631,10 @@
 #X obj -2473 -950 line; 
 #X msg -2005 -882 \$1 1000; 
 #X obj -2005 -857 line; 
+#X msg -3019 -298 \$1 1000; 
+#X obj -3019 -273 line; 
+#X msg -1105 -95 \$1 300; 
+#X obj -1105 -70 line; 
 #X connect 0 0 5 0; 
 #X connect 2 0 11 0; 
 #X connect 3 0 4 1; 
@@ -4718,8 +4722,8 @@
 #X connect 2035 0 798 0; 
 #X connect 2036 0 2037 0; 
 #X connect 2037 0 2039 0; 
-#X connect 2038 0 2077 0; 
 #X connect 2038 0 2105 0; 
+#X connect 2038 0 2201 0; 
 #X connect 2039 0 2043 0; 
 #X connect 2040 0 2041 0; 
 #X connect 2041 0 2042 0; 
@@ -4770,7 +4774,7 @@
 #X connect 2087 0 2083 1; 
 #X connect 2088 0 2092 0; 
 #X connect 2089 0 2093 0; 
-#X connect 2090 0 2091 0; 
+#X connect 2090 0 2199 0; 
 #X connect 2091 0 2094 0; 
 #X connect 2092 0 2086 0; 
 #X connect 2093 0 2090 0; 
@@ -4873,4 +4877,8 @@
 #X connect 2196 0 2050 0; 
 #X connect 2197 0 2198 0; 
 #X connect 2198 0 1553 0; 
+#X connect 2199 0 2200 0; 
+#X connect 2200 0 2091 0; 
+#X connect 2201 0 2202 0; 
+#X connect 2202 0 2077 0; 
 #X coords 0 847 1 846 85 60 0; 
