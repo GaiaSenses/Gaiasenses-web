@@ -108,7 +108,7 @@ export const DEFAULT_MOTION_TUNING_SETTINGS: MotionTuningSettings = {
   calibrationSampleCount: 6,
   emaAlpha: 0.24,
   mapUpdateHz: 30,
-  maxDeltaPerUpdate: 3,
+  maxDeltaPerUpdate: 5,
   motionStartThreshold: 0.45,
   motionStopThreshold: 0.12,
   motionSettleDuration: 160,

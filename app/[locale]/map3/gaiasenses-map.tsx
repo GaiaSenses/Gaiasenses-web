@@ -409,6 +409,16 @@ export default function GaiasensesMap({
     nextPatchLogIdRef.current = 0;
     setPatchLogs([]);
     appendPatchSystemLog(`Patch started: ${activePatch.id}`);
+    if (activePatch.binding.sensorListReceiver) {
+      appendPatchSystemLog(
+        `sensorListReceiver (list): ${activePatch.binding.sensorListReceiver} [gyroX gyroY gyroZ accX accY accZ co2]`,
+      );
+    }
+    if (activePatch.binding.outputListReceiver) {
+      appendPatchSystemLog(
+        `outputListReceiver (list): ${activePatch.binding.outputListReceiver} [latitude longitude]`,
+      );
+    }
   }, [activePatch, appendPatchSystemLog]);
 
   const isMapPatchDebugEnabled =
@@ -465,6 +475,18 @@ export default function GaiasensesMap({
             longitude: normalizeLongitude(rawLongitude),
             timestamp: performance.now(),
           };
+
+          appendPatchLogs([
+            {
+              timestamp: Date.now(),
+              source: "outputList",
+              receiver: outputListReceiver,
+              value: null,
+              delta: null,
+              threshold: null,
+              message: `[${list.join(" ")}]`,
+            },
+          ]);
         });
       }
     }

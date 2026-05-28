@@ -288,7 +288,7 @@ const tuningPresets: TuningPreset[] = [
       calibrationSampleCount: 4,
       emaAlpha: 0.42,
       mapUpdateHz: 45,
-      maxDeltaPerUpdate: 5,
+      maxDeltaPerUpdate: 180,
       motionStartThreshold: 0.18,
       motionStopThreshold: 0.08,
       motionSettleDuration: 90,
