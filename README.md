@@ -1,268 +1,353 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# GaiaSenses Web - Teammate Handoff Guide
 
-test
+This document is a direct maintenance guide for the next developer.
+It explains where each core behavior lives, how BLE sensor input is handled, how Pd4Web patches are integrated, and how to add new visual compositions.
 
-## Installing
+## 1) What This Project Is
 
-Install dependencies:
+GaiaSenses Web is a Next.js app with a map-first experience in map3:
+
+- Map mode: interactive globe + weather data + BLE sensor input + map audio patch.
+- Player mode: fullscreen visual composition selected from a composition catalog.
+- Pd4Web is used for audio patches compiled from Pure Data and loaded from public folders.
+
+Main route:
+
+- app/[locale]/map3/page.tsx
+
+## 2) Quick Start
+
+Install and run:
 
 ```bash
 npm install
-# or
-pnpm install
-```
-
-Then, create the enviornmental variables for OpenWeather API and MapBox API.
-On your root folder, create the file `.env.local`:
-
-```
-OPEN_WEATHER_API_KEY= open weather API key
-NEXT_PUBLIC_MAPBOX_API_ACCESS_TOKEN= MapBox API public access token
-```
-
-## Getting Started
-
-
-First, run the development server:
-
-```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Required env vars in .env.local:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```env
+OPEN_WEATHER_API_KEY=your_api_key
+NEXT_PUBLIC_MAPBOX_API_ACCESS_TOKEN=
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
 
-## Learn More
+MONGODB_URI=
 
-To learn more about Next.js, take a look at the following resources:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+NEXT_PUBLIC_SUPABASE_URL=
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
-
-## Pd4Web in map3
-
-`map3` now has a reusable Pd4Web structure so patches are added by configuration instead of by creating another hardcoded player component.
-
-### Current structure
-
-- Patch registry: [app/[locale]/map3/pd4web-patches.ts](app/[locale]/map3/pd4web-patches.ts)
-- Route manager: [app/[locale]/map3/pd4web-map-audio-manager.tsx](app/[locale]/map3/pd4web-map-audio-manager.tsx)
-- Reusable player/controller: [app/[locale]/map3/pd4web-map-audio.tsx](app/[locale]/map3/pd4web-map-audio.tsx)
-
-The route manager decides which patch is active for the current map3 moment. The player/controller loads the bundle, initializes Pd4Web on first user gesture, handles play/pause, and applies the patch binding. The first binding type is `map-center`, which feeds live `mapRef.current.getCenter().wrap()` coordinates into a patch.
-
-Each patch now lives entirely inside `public/<patch-name>/`. The map3 loader forces Pd4Web runtime files to resolve from that bundle folder, so localized routes do not require mirrored `public/en` or `public/pt` copies.
-
-### Add a compiled Pure Data patch to Gaiasenses-web
-
-Use this flow when you already have a Pure Data patch compiled with Pd4Web and want to make it available inside `map3`.
-
-#### 1. Put the compiled bundle in `public`
-
-Take the full generated `WebPatch` output from Pd4Web and copy it into a dedicated folder inside `public`.
-
-Example:
-
-```text
-public/
-  my-rain-patch/
-    pd4web.js
-    pd4web.data
-    pd4web.wasm
-    pd4web.aw.js
-    pd4web.ww.js
-    pd4web.gui.js
-    pd4web.style.css
-    pd4web.midi.js
-    pd4web.threads.js
-    index.pd
+SUPABASE_SERVICE_ROLE_KEY=
 ```
 
-The important rule is: copy the whole generated bundle, not only `pd4web.data`.
+Useful scripts:
 
-#### 2. Normalize the generated runtime if needed
+- npm run dev
+- npm run build
+- npm run lint
+- npm run sensor:ws
 
-Some Pd4Web builds hardcode the audio worklet path instead of resolving it through the patch folder. Run this after copying a new bundle:
+## 3) Project Structure You Will Touch Most
 
-```bash
-npm run normalize:pd4web -- public/my-rain-patch
-```
+### Map3 core
 
-That rewrites known `pd4web.aw.js` path issues so the patch works correctly under localized routes such as `/en/map3` and `/pt/map3`.
+- app/[locale]/map3/page.tsx
+  - Server route entry. Loads weather/fire/lightning data, resolves composition, renders map + player modal.
+- app/[locale]/map3/gaiasenses-map.tsx
+  - Main runtime orchestrator in the browser (map events, BLE callbacks, Pd4Web data forwarding, patch log, motion panel).
+- app/[locale]/map3/use-map-interactions.ts
+  - Map pointer/geolocate/input mode handling.
 
-#### 3. Register the patch in map3
+### Sensor pipeline
 
-Open [app/[locale]/map3/pd4web-patches.ts](app/[locale]/map3/pd4web-patches.ts) and add a new entry to `MAP3_PD4WEB_PATCHES`.
+- app/[locale]/map3/ble-control.tsx
+  - Web Bluetooth connection UI and packet parsing from device characteristics.
+- app/[locale]/map3/use-ble-sensor.ts
+  - Connects BLE packets to smoothing logic, composition side effects, and calibration lifecycle.
+- app/[locale]/map3/use-sensor-smoothing.ts
+  - Core math and smoothing engine. Supports mapping methods: pd, euler, quaternion, basic.
 
-Example:
+### Pd4Web audio pipeline
+
+- app/[locale]/map3/pd4web-context.tsx
+  - Starts/stops compiled patches, loads /<bundleFolder>/pd4web.js, fetches wasm, owns active patch state.
+- app/[locale]/map3/pd4web-patches.ts
+  - Central patch registry and binding metadata.
+- app/[locale]/map3/pd4web-patch-log.tsx
+  - Runtime log panel for patch I/O debugging.
+
+### Composition catalog
+
+- components/compositions/compositions-info.tsx
+  - Source of truth for compositions, their components, optional patchId, and keepMapPatch behavior.
+- app/[locale]/map3/composition-dropdown.tsx
+  - Composition selection flow and patch switching when entering player mode.
+- components/compositions/toggle-play-button.tsx
+  - Return from player to map and restoration/stopping of patches.
+- app/[locale]/map3/use-composition-queue.ts
+  - Climate-based composition recommendation logic.
+
+### Static assets
+
+- public/
+  - Compiled Pd4Web bundles (one folder per patch).
+  - Compoled Pd4Web shared threads logic on public/pd4webShared/pd4web.threads.js. Should only be changed if pd4web lounches a new version.
+  - Composition static assets if needed.
+
+## 4) How Sensor Handling Works End-to-End
+
+### 4.1 BLE connection and incoming packets
+
+File: app/[locale]/map3/ble-control.tsx
+
+- Connects to BLE service/characteristics.
+- Parses JSON payloads from notifications.
+- Calls:
+  - onSensor(data) for orientation/acceleration packets.
+  - onCo2Sensor(data) for CO2 packets.
+  - onConnect("controller") and onDisconnect("mouse") to update input mode.
+
+### 4.2 Sensor orchestration
+
+File: app/[locale]/map3/use-ble-sensor.ts
+
+- Receives packets from BLEControl and passes sensor packets to use-sensor-smoothing.
+- Resets calibration on connect/disconnect.
+- Handles composition side effects for CO2 threshold logic.
+
+### 4.3 Smoothing and map motion
+
+File: app/[locale]/map3/use-sensor-smoothing.ts
+
+- Maintains baseline calibration.
+- Computes relative angles/quaternion projection.
+- Applies median + EMA smoothing.
+- Updates map movement via requestAnimationFrame loop.
+
+Mapping methods:
+
+- pd: map movement is driven by pdMapTargetRef values produced by Pure Data output list (The pd patch running on the Map calculates the resulting latitude and longitude based on acelerometer data).
+- euler/quaternion/basic: map movement is computed locally from sensor math.
+
+Important PD safety behavior:
+
+- In gaiasenses-map.tsx, PD output list updates map target only when sensor is connected (input mode not mouse).
+
+## 5) How Pd4Web Integration Works
+
+## 5.1 Runtime loading
+
+File: app/[locale]/map3/pd4web-context.tsx
+
+When startPatch(patchId) is called:
+
+1. Looks up patch metadata in pd4web-patches.ts.
+2. Dynamically imports /<bundleFolder>/pd4web.js.
+3. Fetches /<bundleFolder>/pd4web.wasm.
+4. Initializes patch via Pd4Web class.
+5. Stores activePatch and pd4web instance in context.
+
+When stopPatch() is called:
+
+- Applies a fade and closes audio resources.
+- Clears active patch context state.
+
+## 5.2 Patch registry and binding contract
+
+File: app/[locale]/map3/pd4web-patches.ts
+
+Patch metadata controls:
+
+- activation.moments: map and/or player.
+- activation.compositions: optional composition filter.
+- binding:
+  - type: map-center or none.
+  - Receiver names for lat/lng, accel, co2, list I/O.
+  - poll and threshold settings.
+
+Current PD mapping list contract:
+
+App -> Pd (sensor input list):
+
+- Receiver: sensorListReceiver
+- Payload order: [gyroX gyroY gyroZ accX accY accZ co2]
+- Sent as list values separated by space (PD list standard)
+
+Pd -> App (target output list):
+
+- Receiver callback symbol: outputListReceiver
+- Payload order: [latitude longitude]
+- Expected as list values separated by space (PD list standard)
+
+Fallback behavior currently implemented in map-center loop:
+
+- If sensor is connected and mappingMethod is pd, app sends sensor list to sensorListReceiver.
+- If sensor is not connected, app sends current globe latitude/longitude floats to latitudeReceiver/longitudeReceiver.
+- When sensor is not connected, incoming PD output list does not update the globe target.
+
+## 6) Add a Compiled Pd4Web Patch for Map Mode
+
+Goal: add a new map patch driven by map-center/PD bindings.
+
+**Important**
+Pre-process: Compile your pd patch using `pd4web` with flags `--export-es6-module` and `--nogui`. You can also change available memory for the patch with `-m 64`, for giving the patch 64mb, for example.
+
+1. Copy compiled patch bundle to public/<your-bundle-folder>/.
+2. Confirm bundle contains at least:
+   - pd4web.js
+   - pd4web.wasm
+   - index.pd
+   - pd4web.data
+3. Add patch entry in app/[locale]/map3/pd4web-patches.ts:
+   - unique id
+   - label
+   - bundleFolder matching public folder
+   - activation.moments includes map
+   - binding configured with correct PD receiver names
+4. Start map patch using the map audio button in map UI.
+5. Open patch log panel and validate send/receive behavior.
+
+Example shape:
 
 ```ts
 {
-	id: "my-rain-patch",
-	label: "Rain texture",
-	bundleFolder: "my-rain-patch",
-	activation: {
-		moments: ["map"],
-		compositions: ["nightRain"],
-	},
-	binding: {
-		type: "map-center",
-		longitudeReceiver: "x1",
-		latitudeReceiver: "y1",
-		pollMs: 100,
-		epsilon: 0.0001,
-	},
+  id: "myMapPatch",
+  label: "My Map Patch",
+  bundleFolder: "my-map-patch",
+  activation: {
+    moments: ["map"],
+  },
+  binding: {
+    type: "map-center",
+    latitudeReceiver: "latitude",
+    longitudeReceiver: "longitude",
+    sensorListReceiver: "input",
+    outputListReceiver: "output",
+    accXReceiver: "aceX",
+    accYReceiver: "aceY",
+    accZReceiver: "aceZ",
+    co2Receiver: "input_co2",
+    pollMs: 64,
+    epsilon: 0.5,
+    accEpsilon: 0.05,
+  },
 }
 ```
 
-What each field means:
+## 7) Add Pd4Web Patches for Specific Compositions
 
-- `id`: internal identifier for the patch
-- `label`: UI label shown by the player
-- `bundleFolder`: folder name inside `public`
-- `activation.moments`: where the patch is allowed to run, currently `"map"` or `"player"`
-- `activation.compositions`: optional composition filter
-- `binding`: how Gaiasenses-web sends data into the Pure Data patch
+There are two valid patterns.
 
-#### 4. Match the binding to your Pure Data receivers
+### Pattern A: Dedicated player patch per composition
 
-The current map3 integration supports the `map-center` binding. It reads the live map center and sends:
+Use this when the composition should run its own patch in player mode.
 
-- longitude to `longitudeReceiver`
-- latitude to `latitudeReceiver`
+Files to edit:
 
-So your `.pd` patch must expose matching receivers. If your patch expects `x1` and `y1`, use those names in the registry entry. If it expects different receiver names, change the registry entry to match the patch.
+1. app/[locale]/map3/pd4web-patches.ts
+   - Add patch with:
+     - activation.moments: ["player"]
+     - activation.compositions: ["compositionKey"] (recommended for clarity)
+2. components/compositions/compositions-info.tsx
+   - In that composition entry, set patchId to your patch id.
+   - Set keepMapPatch to false or leave undefined.
 
-#### 5. Choose when the patch should run
+Runtime behavior:
 
-You can control patch activation in two ways:
+- In app/[locale]/map3/composition-dropdown.tsx, selecting composition and entering player mode will:
+  - stop current map patch (if active and keepMapPatch is false)
+  - start the patch referenced by compositionInfo.patchId
 
-- by `moment`
-- by `composition`
+Sending and receiving data from Patch with pd4web:
+pd4web has several methods for receiving and sending data to patch depending on the data type: `sendBang`, `sendFloat`, `sendList`, `sendSymbol` and `onReceivdBang`, `onReceivedFloat`, `onReceivedList`, `onReceivedSymbol`. Use the appropriat one depending on your case.
 
-Examples:
+- You can send data from the patch in your p5.js sketches usind pd4web dedicated methods `pd4web.sendFloat(receive_name, value)`.
+  - **Lighningbolts** sketch has an example on how to send data from sketch to patch.
 
-- `moments: ["map"]`: active during normal map mode
-- `moments: ["player"]`: active during player mode
-- `compositions: ["nightRain"]`: only active for a specific composition
+- You can receive data form the patch in you p5.js sketch using pd4web dedicated listener `pd4web.onRecevedFloat(receive_name, (name: string)=>{ your_code })`.
+  - **Lluvia** sketch has an example on how to send a bang to start a patch and how to periodically receive event from the patch and draw on the screen based on the timming of this event.
 
-The current map3 system resolves one active Pd4Web patch at a time.
+### Pattern B: Keep map patch while composition is open
 
-#### 6. Validate the integration
+Use this when a composition should continue using map patch audio.
 
-After registering the patch, verify all of the following:
+Files to edit:
 
-1. The route loads in both `/en/map3` and `/pt/map3`.
-2. The `Play` button initializes the patch.
-3. `Pause` and resume still work.
-4. The expected Pure Data receivers actually respond to longitude and latitude.
-5. The browser does not request assets from `/en/...` or `/pt/...`; it should load them from `/<patch-folder>/...`.
+- components/compositions/compositions-info.tsx
+  - Set keepMapPatch: true on that composition.
 
-#### 7. If the patch needs a different input source
+Runtime behavior:
 
-If a future patch should use something other than map center, extend the binding system instead of hardcoding the patch logic.
+- gaiasenses-map.tsx computes hasSharedPd4WebPatch from keepMapPatch.
+- Map patch is allowed to remain active while player composition is displayed.
 
-That means:
+## 8) How to Add a New Composition
 
-1. Add a new binding type in [app/[locale]/map3/pd4web-patches.ts](app/[locale]/map3/pd4web-patches.ts).
-2. Implement the sender logic in [app/[locale]/map3/pd4web-map-audio.tsx](app/[locale]/map3/pd4web-map-audio.tsx).
+This is the minimum complete checklist.
 
-Keep the patch registry declarative and keep patch-specific runtime logic out of the map container.
+1. Create composition component
 
-### How to add a new patch
+- Add component under components/compositions/<new-composition>/<new-composition>.tsx.
 
-1. Compile the patch with the Pd4Web CLI.
-2. Copy the generated `WebPatch` output into its own folder under `public`, for example `public/my-patch/`.
-3. Make sure the folder contains the generated runtime files. The patch folder should contain the full generated bundle, not only `pd4web.data`. At minimum, expect:
+2. Register in composition catalog
 
-```text
-pd4web.js
-pd4web.data
-pd4web.gui.js
-pd4web.midi.js
-pd4web.style.css
-```
+File: components/compositions/compositions-info.tsx
 
-Some patches also require:
+- Add import for component.
+- Add key to AvailableCompositionNames union.
+- Add component type to AvailableCompositionComponents union if needed.
+- Add object entry in CompositionsInfo with:
+  - name
+  - attributes
+  - Component
+  - endpoints
+  - thumb
+  - optional author/openProcessingLink
+  - optional patchId
+  - optional keepMapPatch
 
-```text
-pd4web.wasm
-pd4web.aw.js
-pd4web.ww.js
-pd4web.threads.js
-index.pd
-```
+3. Make it available in selectors
 
-4. Run `npm run normalize:pd4web -- public/my-patch` if the generated bundle hardcodes the audio worklet path.
-5. Add a registry entry in [app/[locale]/map3/pd4web-patches.ts](app/[locale]/map3/pd4web-patches.ts).
-6. Set the activation rule for when the patch should be active in map3.
-7. Set the binding rule for how the patch receives data.
+- CompositionDropdown reads Object.entries(CompositionsInfo), so new entry appears automatically.
 
-Example registry entry:
+4. Optional: include in climate auto-selection
 
-```ts
-{
-	id: "my-patch",
-	label: "Rain texture",
-	bundleFolder: "my-patch",
-	activation: {
-		moments: ["map"],
-		compositions: ["nightRain"],
-	},
-	binding: {
-		type: "map-center",
-		longitudeReceiver: "x1",
-		latitudeReceiver: "y1",
-	},
-}
-```
+File: app/[locale]/map3/use-composition-queue.ts
 
-### How activation works
+- Add the composition key in the category arrays where it should be eligible.
 
-- `moments: ["map"]`: patch is available while map3 is in normal map mode
-- `moments: ["player"]`: patch is available while map3 is in player mode
-- `compositions`: optional extra filter if a patch should only run for specific compositions
+5. Optional: add preset map location
 
-The current setup keeps one active Pd4Web patch at a time in `map3`.
+File: app/[locale]/map3/map-constants.ts
 
-### How bindings work
+- Add a location entry if you want auto mode or preset navigation to target it.
 
-The first supported binding is `map-center`:
+6. Optional: add dedicated audio patch
 
-- reads the live center of the map from `mapRef`
-- sends longitude and latitude to the Pd receivers you configure
-- follows BLE-smoothed movement automatically because it consumes the map result, not the sensor pipeline directly
+- If composition needs its own Pd4Web patch, follow Section 7 Pattern A.
 
-If you need a different type of input later, add a new binding type to [app/[locale]/map3/pd4web-patches.ts](app/[locale]/map3/pd4web-patches.ts) and implement the sender logic in [app/[locale]/map3/pd4web-map-audio.tsx](app/[locale]/map3/pd4web-map-audio.tsx).
+## 9) Practical Maintenance Notes
 
-### Maintenance notes
+- Patch list I/O debug is visible in app/[locale]/map3/pd4web-patch-log.tsx UI panel.
+- For PD mode mapping, always keep receiver names synchronized with Pure Data receive symbols.
+- If patch starts but audio is silent, verify bundleFolder and that pd4web.wasm exists in the same public subfolder as pd4web.js.
+- If composition switches but wrong patch stays active, inspect:
+  - components/compositions/compositions-info.tsx (patchId and keepMapPatch)
+  - app/[locale]/map3/composition-dropdown.tsx
+  - components/compositions/toggle-play-button.tsx
 
-The map3 loader now passes a bundle-scoped `locateFile(...)` so `pd4web.data`, `pd4web.wasm`, workers, and related runtime files resolve from the active patch folder instead of from the current route.
+## 10) First Files to Open for Any Future Change
 
-The remaining generated-runtime edge case is the audio worklet path. Some Pd4Web bundles hardcode `pd4web.aw.js` or `/pd4web/pd4web.aw.js` instead of routing that request through `locateFile(...)`. Run `npm run normalize:pd4web -- public/<patch-folder>` after copying a new bundle to normalize that case.
+If you only have 10 minutes to understand a bug, open in this order:
 
-### Recommended workflow for a new patch
+1. app/[locale]/map3/gaiasenses-map.tsx
+2. app/[locale]/map3/use-ble-sensor.ts
+3. app/[locale]/map3/use-sensor-smoothing.ts
+4. app/[locale]/map3/pd4web-context.tsx
+5. app/[locale]/map3/pd4web-patches.ts
+6. components/compositions/compositions-info.tsx
 
-1. Compile with Pd4Web.
-2. Copy the bundle into `public/<patch-folder>/`.
-3. Run `npm run normalize:pd4web -- public/<patch-folder>`.
-4. Register it in [app/[locale]/map3/pd4web-patches.ts](app/[locale]/map3/pd4web-patches.ts).
-5. Verify `Play` works in `/en/map3` and `/pt/map3`.
-6. Verify the expected receivers are actually present in the `.pd` patch.
+This path covers almost all behavior coupling in map3.
