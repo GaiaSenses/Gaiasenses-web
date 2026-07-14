@@ -32,6 +32,8 @@ type Pd4WebContextValue = {
   status: string;
   isInitializing: boolean;
   isStopping: boolean;
+  isMuted: boolean;
+  toggleMute: () => void;
   startPatch: (patchId: string) => Promise<Map3Pd4WebPatch | null>;
   stopPatch: () => Promise<void>;
 };
@@ -48,6 +50,8 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
   const [status, setStatus] = useState("Ready.");
   const [isInitializing, setIsInitializing] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+  const isMutedRef = useRef(true); // ref espelhando isMuted para uso em callbacks assíncronos
   const fadeGainRef = useRef<GainNode | null>(null);
   const pd4webRef = useRef<pd4web.Pd4Web | null>(null);
   const pd4webAudioContextRef = useRef<AudioContext | null>(null);
@@ -106,7 +110,7 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
 
       if (audioContext && workletNode) {
         const fadeGain = audioContext.createGain();
-        fadeGain.gain.value = 1;
+        fadeGain.gain.value = isMutedRef.current ? 0 : 1;
         workletNode.disconnect();
         workletNode.connect(fadeGain);
         fadeGain.connect(audioContext.destination);
@@ -172,8 +176,25 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
       setActivePatch(null);
       setStatus("Stopped.");
       setIsStopping(false);
+      isMutedRef.current = true;
+      setIsMuted(true);
     }
   }, []);
+
+ const toggleMute = useCallback(() => {
+   const nextMuted = !isMutedRef.current;
+   isMutedRef.current = nextMuted;
+   setIsMuted(nextMuted);
+
+   const fadeGain = fadeGainRef.current;
+   const audioContext = pd4webAudioContextRef.current;
+   if (!fadeGain || !audioContext || audioContext.state !== "running") return;
+
+   const now = audioContext.currentTime;
+   fadeGain.gain.cancelScheduledValues(now);
+   fadeGain.gain.setValueAtTime(fadeGain.gain.value, now);
+   fadeGain.gain.linearRampToValueAtTime(nextMuted ? 0 : 1, now + 0.15);
+ }, []);
 
   const value = useMemo<Pd4WebContextValue>(
     () => ({
@@ -185,6 +206,8 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
       isStopping,
       startPatch,
       stopPatch,
+      isMuted,
+      toggleMute,
     }),
     [
       pd4web,
@@ -195,6 +218,8 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
       isStopping,
       startPatch,
       stopPatch,
+      isMuted,
+      toggleMute,
     ],
   );
 
