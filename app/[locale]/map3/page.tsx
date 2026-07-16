@@ -22,6 +22,7 @@ import DataSender from "@/components/dataSender";
 import { Suspense } from "react";
 import { getCompositionForClima } from "./use-composition-queue";
 import { Pd4WebProvider } from "./pd4web-context";
+import MuteButton from "./mute-button";
 
 function stringToBoolean(value: string | undefined): boolean {
   if (value === undefined) {
@@ -129,6 +130,7 @@ export default async function Page({ params, searchParams }: PageProps) {
     temperature: temp,
     lightnings: lightningcount,
     fireSpots: firecount,
+    rain: rainData?.["1h"] ?? 0,
   };
 
   const requestedComposition = searchParams.composition;
@@ -260,6 +262,7 @@ export default async function Page({ params, searchParams }: PageProps) {
               <Button>Back</Button>
             </Link>
           }
+          MuteButton={<MuteButton />}
         >
           {compositionComponent}
         </CompositionModal>

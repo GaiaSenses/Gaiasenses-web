@@ -9,6 +9,7 @@ export type ClimaData = {
   temperature: number;
   lightnings: number;
   fireSpots: number;
+  rain: number;
 };
 
 type CompositionScores = {
@@ -19,6 +20,7 @@ type CompositionScores = {
   ethereal: number;
   infernus: number;
   thermal: number;
+  downpour: number;
 };
 
 export type CompositionDecisionTrace = {
@@ -40,33 +42,41 @@ export function getCompositionDecisionTrace(
     ethereal: 0,
     infernus: 0,
     thermal: 0,
+    downpour: 0,
   };
 
   const regras = {
+    //raios
     spark: () => {
       if (clima.lightnings > 0) {
         scores.spark += 85;
         scores.void = 0;
       }
     },
-
+    //vento
     aeolus: () => {
       scores.aeolus += clima.windSpeed * 2.5;
       if (clima.windSpeed > 8) scores.void = 0;
     },
-
+    //humidade
     flow: () => {
       scores.flow += clima.humidity * 0.5;
       if (clima.humidity > 80) scores.void = 0;
     },
-
+    //visibilidade
     ethereal: () => {
       if (clima.clouds > 70) {
         scores.ethereal += 45;
       }
     },
-
-    temperatura: () => {
+    //chuva
+    downpour: () => {
+    if (clima.rain > 0) {
+      scores.downpour += 75;
+      }
+    },
+    //temperatura
+    thermal: () => {
       if (clima.fireSpots > 0) {
         scores.infernus += 100;
         scores.void = 0;
@@ -97,6 +107,7 @@ export function getCompositionDecisionTrace(
       ethereal: after.ethereal - before.ethereal,
       infernus: after.infernus - before.infernus,
       thermal: after.thermal - before.thermal,
+      downpour: after.downpour - before.downpour,
     };
   };
 
@@ -105,8 +116,8 @@ export function getCompositionDecisionTrace(
   applyRuleWithDelta("aeolus", regras.aeolus);
   applyRuleWithDelta("flow", regras.flow);
   applyRuleWithDelta("ethereal", regras.ethereal);
-  applyRuleWithDelta("temperatura", regras.temperatura);
-
+  applyRuleWithDelta("thermal", regras.thermal);
+  applyRuleWithDelta("downpour", regras.downpour);
   const composicoes: Record<string, string[]> = {
     void: [CompositionsInfo.zigzag.name, CompositionsInfo.attractor.name],
     aeolus: [
@@ -119,6 +130,7 @@ export function getCompositionDecisionTrace(
       CompositionsInfo.attractor.name,
       CompositionsInfo.zigzag.name,
       CompositionsInfo.stormEye.name,
+      CompositionsInfo.lightningTrees.name,
     ],
     flow: [
       CompositionsInfo.lluvia.name,
@@ -126,6 +138,7 @@ export function getCompositionDecisionTrace(
       CompositionsInfo.riverLines.name,
       CompositionsInfo.zigzag.name,
       CompositionsInfo.curves.name,
+      CompositionsInfo.paintBrush.name,
     ],
     ethereal: [CompositionsInfo.cloudBubble.name],
     infernus: [
@@ -138,6 +151,10 @@ export function getCompositionDecisionTrace(
       CompositionsInfo.curves.name,
       CompositionsInfo.riverLines.name,
       CompositionsInfo.mudflatScatter.name,
+    ],
+    downpour: [
+      CompositionsInfo.nightRain.name,
+      CompositionsInfo.rectangles.name,
     ],
   };
 
