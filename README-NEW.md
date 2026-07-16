@@ -261,6 +261,7 @@ sequenceDiagram
 2. **Register it** in `compositions-info.tsx`:
    - import the component;
    - add the key to the `AvailableCompositionNames` union;
+   - add the component type to the `AvailableCompositionComponents` union if needed;
    - add the entry to the `CompositionsInfo` object.
 3. **Selectors update automatically** — `CompositionDropdown` iterates `Object.entries(CompositionsInfo)`.
 4. *(Optional)* add the key to the category arrays in `use-composition-queue.ts` for climate auto-selection.
@@ -288,8 +289,56 @@ public/<bundleFolder>/
 
 ### Lifecycle (`app/[locale]/map3/pd4web-context.tsx`)
 
-- `startPatch(patchId)` → resolves metadata from `pd4web-patches.ts`, dynamically imports the loader, fetches the `.wasm`, opens `index.pd`, inserts a fade GainNode. **One patch active at a time.**
-- `stopPatch()` → 0.5 s fade-out, closes the AudioContext, clears state.
+`startPatch(patchId)` performs, in order:
+
+1. Looks up the patch metadata in `pd4web-patches.ts`;
+2. Dynamically imports `/<bundleFolder>/pd4web.js` (the Emscripten loader);
+3. Fetches `/<bundleFolder>/pd4web.wasm`;
+4. Initializes the patch via the `Pd4Web` class (`openPatch("index.pd")` + `init()`, which starts Web Audio);
+5. Stores `activePatch` and the `pd4web` instance in the React context and inserts a fade GainNode between the worklet and the destination.
+
+**One patch is active at a time** — `startPatch` rejects if another patch is running or a start/stop is in flight.
+
+`stopPatch()` → applies a 0.5 s fade-out, closes the AudioContext and audio resources, clears the active-patch state.
+
+### Patch registry & binding metadata (`app/[locale]/map3/pd4web-patches.ts`)
+
+Every patch entry declares **when** it activates and **how** it binds to the app:
+
+| Field | Values | Purpose |
+|---|---|---|
+| `activation.moments` | `["map"]`, `["player"]`, or both | In which mode(s) the patch may run |
+| `activation.compositions` | optional list of composition keys | Restricts a player patch to specific compositions |
+| `binding.type` | `"map-center"` \| `"none"` | `map-center` wires the patch to globe position + sensor data |
+| `binding.…Receiver` | Pd receive-symbol names | `latitudeReceiver`, `longitudeReceiver`, `sensorListReceiver`, `outputListReceiver`, `accXReceiver`/`accYReceiver`/`accZReceiver`, `co2Receiver` |
+| `binding.pollMs` / `epsilon` / `accEpsilon` | numbers | Send interval (ms) and change thresholds — values are only re-sent when the delta exceeds the epsilon |
+
+Complete example of a map-mode patch registration:
+
+```ts
+{
+  id: "myMapPatch",
+  label: "My Map Patch",
+  bundleFolder: "my-map-patch", // must match the folder name under public/
+  activation: {
+    moments: ["map"],
+  },
+  binding: {
+    type: "map-center",
+    latitudeReceiver: "latitude",
+    longitudeReceiver: "longitude",
+    sensorListReceiver: "input",
+    outputListReceiver: "output",
+    accXReceiver: "aceX",
+    accYReceiver: "aceY",
+    accZReceiver: "aceZ",
+    co2Receiver: "input_co2",
+    pollMs: 64,
+    epsilon: 0.5,
+    accEpsilon: 0.05,
+  },
+}
+```
 
 ### App ⇄ Pd message contract
 
@@ -305,15 +354,21 @@ The map patch is **part of the control loop**, not just an audio sink: with the 
 
 Available Pd4Web methods: `sendBang`, `sendFloat`, `sendList`, `sendSymbol` and listeners `onBangReceived`, `onFloatReceived`, `onListReceived`, `onSymbolReceived`. Reference sketches: **lightningBolts** (sketch → patch), **lluvia** (start bang + periodic events from patch → drawing).
 
+> ⚠️ **Always keep receiver names synchronized.** Receiver names are plain strings shared between TypeScript (`pd4web-patches.ts`) and the `[receive]` objects inside the Pure Data patch — nothing type-checks them across that boundary. A mismatch fails **silently**: the patch runs, but no data arrives. Whenever a patch is recompiled or edited, re-check its receive symbols against the registry entry (the patch log panel is the fastest way to verify).
+
 ### Binding patterns
 
 #### Pattern A — dedicated player patch
 Patch runs only for one composition in player mode.
-1. Add the patch to `pd4web-patches.ts` with `activation.moments: ["player"]` and `activation.compositions: ["<compositionKey>"]`.
-2. Set `patchId` on the composition entry in `compositions-info.tsx`.
+1. Add the patch to `pd4web-patches.ts` with `activation.moments: ["player"]` and `activation.compositions: ["<compositionKey>"]` (recommended for clarity).
+2. Set `patchId` on the composition entry in `compositions-info.tsx`; leave `keepMapPatch` unset (or `false`).
+
+*Runtime behavior:* when the composition is selected and player mode opens, `composition-dropdown.tsx` **stops the current map patch** (if active and `keepMapPatch` is false) and **starts the patch referenced by `patchId`**. `toggle-play-button.tsx` handles restoring/stopping patches when returning from the player to the map.
 
 #### Pattern B — keep the map patch
 Composition keeps the map's audio running: set `keepMapPatch: true` on the composition entry.
+
+*Runtime behavior:* `gaiasenses-map.tsx` computes `hasSharedPd4WebPatch` from `keepMapPatch`, which allows the map patch to remain active while the player composition is displayed.
 
 ### ➕ Adding a map-mode patch (checklist)
 
