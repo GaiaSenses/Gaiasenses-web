@@ -14,15 +14,31 @@ Dashboard → **SQL Editor** → **New query** → cole o arquivo → **Run**.
 
 ## Ordem recomendada
 
-| # | Arquivo | O que faz | Risco |
+Todas as migrações abaixo **já foram aplicadas em 2026-08-04** e verificadas
+contra o banco real. Estão aqui como registro do que foi feito e por quê.
+
+| # | Arquivo | O que faz |
+|---|---|---|
+| 1 | `migrations/2026-08-04-gaiasubs-fechar-acesso-anonimo.sql` | Fecha leitura/escrita anônima de PII no `GaiaSubs` |
+| 2 | `migrations/2026-08-04-gaialogs-origin.sql` | Coluna `origin` no `GaiaLogs` |
+| 3 | `migrations/2026-08-04-gaialogs-restringir-concessoes.sql` | `anon` no `GaiaLogs` fica só com INSERT |
+| — | `auditoria-rls.sql` | Diagnóstico de RLS e permissões (somente leitura) |
+
+## Estado verificado após as migrações
+
+| Tabela | RLS | Políticas | O que `anon` pode |
 |---|---|---|---|
-| 1 | `migrations/2026-08-04-gaialogs-origin.sql` | Coluna `origin` no `GaiaLogs` | Nenhum — idempotente e retrocompatível |
-| 2 | `auditoria-rls.sql` | Diagnóstico de RLS e permissões | Nenhum — somente leitura |
+| `GaiaLogs` | ligado | 1 (INSERT) | apenas `INSERT` |
+| `GaiaSubs` | ligado | 0 | **nada** |
 
 **Não altere políticas de RLS com base em suposição.** `GaiaLogs` recebe
-inserções direto do navegador com a chave anônima; ligar RLS sem a política de
-INSERT correspondente derruba a telemetria em produção silenciosamente. Rode a
-auditoria, leve o resultado para a discussão do SEC-04, e só então decida.
+inserções direto do navegador com a chave anônima: remover a política ou a
+concessão de INSERT derruba a telemetria em produção silenciosamente, porque o
+erro só aparece no console do visitante. Rode `auditoria-rls.sql` antes de mexer.
+
+**O advisor de segurança do Supabase não pega este tipo de problema.** Antes da
+correção ele reportava apenas a versão do Postgres: para ele, RLS ligado com
+políticas parecia saudável, mesmo com as políticas liberando tudo para `anon`.
 
 ## Tabelas em uso
 
