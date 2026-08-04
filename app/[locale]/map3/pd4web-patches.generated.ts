@@ -25,6 +25,22 @@ export const GENERATED_MAP3_PD4WEB_PATCHES = [
     tuning: { pollMs: 100, epsilon: 0.0001, accEpsilon: 0.05 },
   },
   {
+    id: "exemplo-clima",
+    label: "Exemplo: temperatura",
+    bundleFolder: "patches/exemplo-clima",
+    runtime: "12f0e8fb286e",
+    activation: {
+      moments: ["player"],
+    },
+    channels: {
+      receivers: {
+        "gaia.temp": "gaia.temp",
+      },
+      senders: {},
+    },
+    tuning: { pollMs: 100, epsilon: 0.0001, accEpsilon: 0.05 },
+  },
+  {
     id: "paraisoGaia43",
     label: "Map sound 43",
     bundleFolder: "patches/paraisoGaia43",

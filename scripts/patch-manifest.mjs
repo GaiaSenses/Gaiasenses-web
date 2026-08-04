@@ -223,6 +223,47 @@ function resolveCompositionEvents(manifest, introspection) {
   return { consumes, produces };
 }
 
+/**
+ * Catch a misspelled vocabulary name.
+ *
+ * `[r gaia.temperatura]` is unambiguously an attempt to use the vocabulary, and
+ * left alone it would do nothing at all — the exact silent failure this pipeline
+ * exists to prevent. Anything in the `gaia.` namespace must therefore be a real
+ * channel; names outside it are the musician's own and are none of our business.
+ */
+function validateVocabularyNames(introspection, slug, errors) {
+  const known = [...CHANNEL_BY_NAME.keys()];
+
+  for (const [direction, names] of [
+    ["r", introspection.receives],
+    ["s", introspection.sends],
+  ]) {
+    for (const name of names) {
+      if (!name.startsWith("gaia.") || CHANNEL_BY_NAME.has(name)) continue;
+
+      const vocabulary = known.filter((candidate) => candidate.startsWith("gaia."));
+
+      // Edit distance alone misses the most common mistake, which is writing the
+      // word out in full: "gaia.temperatura" is seven edits from "gaia.temp" but
+      // obviously means it. Prefer a prefix match, longest first.
+      const byPrefix = vocabulary
+        .filter(
+          (candidate) =>
+            name.startsWith(candidate) || candidate.startsWith(name),
+        )
+        .sort((a, b) => b.length - a.length)[0];
+
+      const suggestion = byPrefix ?? closestName(name, vocabulary);
+      errors.push(
+        `patches/${slug}: o objeto [${direction} ${name}] usa um nome do vocabulário que não existe, ` +
+          `então nunca receberia nada.` +
+          (suggestion ? ` Você quis dizer "${suggestion}"?` : "") +
+          ` A lista completa está em docs/musico/vocabulario.md.`,
+      );
+    }
+  }
+}
+
 function validatePatchStructure(introspection, slug, errors, warnings) {
   const fail = (message) => errors.push(`patches/${slug}: ${message}`);
   const warn = (message) => warnings.push(`patches/${slug}: ${message}`);
@@ -294,6 +335,7 @@ export function loadPatches({ slugs } = {}) {
     }
 
     validatePatchStructure(introspection, slug, errors, warnings);
+    validateVocabularyNames(introspection, slug, errors);
 
     const { receivers, senders, legacyAliases, ambiguous } = resolveChannels(introspection);
 

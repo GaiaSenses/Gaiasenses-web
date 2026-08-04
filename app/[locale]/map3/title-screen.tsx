@@ -2,9 +2,9 @@
 import { Button } from "@/components/ui/button";
 
 import { ReactNode, useState, AnimationEvent } from "react";
+import { useSearchParams } from "next/navigation";
 import { usePd4Web } from "./pd4web-context";
-import { start } from "repl";
-import { MAP3_PD4WEB_PATCHES } from "./pd4web-patches";
+import { getMap3Pd4WebPatchById, MAP3_PD4WEB_PATCHES } from "./pd4web-patches";
 
 export default function TitleScreen({
   children,
@@ -23,15 +23,27 @@ export default function TitleScreen({
     show === false ? "ended" : "idle",
   );
 
-  const { startPatch, isInitializing } = usePd4Web();
+  const { startPatch } = usePd4Web();
+  const searchParams = useSearchParams();
 
   function onClick() {
     if (state == "idle") setState("animating");
-    const mapPatch = MAP3_PD4WEB_PATCHES.find((patch) =>
-      patch.activation.moments.includes("map"),
-    );
-    if (mapPatch) {
-      const patch = startPatch(mapPatch.id);
+
+    // `?patch=<id>` forces a specific patch instead of the map soundscape. This
+    // is how a musician auditions their own work: the bot comment on their pull
+    // request links straight to the preview with their patch id, so one click
+    // plays it in the real map, with live data — no dev involved.
+    const requestedId = searchParams?.get("patch");
+    const requested = requestedId ? getMap3Pd4WebPatchById(requestedId) : null;
+
+    const patch =
+      requested ??
+      MAP3_PD4WEB_PATCHES.find((entry) =>
+        entry.activation.moments.includes("map"),
+      );
+
+    if (patch) {
+      startPatch(patch.id);
     }
   }
 
