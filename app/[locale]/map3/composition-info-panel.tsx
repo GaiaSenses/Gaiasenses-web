@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 type PlaybackWeatherSummary = {
@@ -76,6 +77,13 @@ export default function CompositionInfoPanel({
   lat,
   lng,
 }: CompositionInfoPanelProps) {
+  // The panel renders into document.body, which does not exist while Next is
+  // server-rendering. Opening the player straight from a URL — which is exactly
+  // what a preview link for a composition patch does — used to return HTTP 500
+  // here. Waiting for the client mount keeps the portal but drops the crash.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const locationLabel = formatLocation(locationInfo, lat, lng);
   const normalizedAttributes = new Set(
     compositionAttributes
@@ -92,6 +100,10 @@ export default function CompositionInfoPanel({
     Math.round(fireSpotsCount) > 1
       ? weatherLabels.firesPlural
       : weatherLabels.firesSingular;
+
+  if (!mounted) {
+    return null;
+  }
 
   return createPortal(
     <aside className="pointer-events-none absolute right-2 bottom-2 z-20 w-full max-w-[calc(100vw-0.75rem)] select-none md:w-[330px] mix-blend-exclusion">

@@ -2,7 +2,7 @@
 import { Button } from "@/components/ui/button";
 
 import { ReactNode, useState, AnimationEvent } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { usePd4Web } from "./pd4web-context";
 import { getMap3Pd4WebPatchById, MAP3_PD4WEB_PATCHES } from "./pd4web-patches";
 
@@ -25,8 +25,10 @@ export default function TitleScreen({
 
   const { startPatch } = usePd4Web();
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
 
-  function onClick() {
+  async function onClick() {
     if (state == "idle") setState("animating");
 
     // `?patch=<id>` forces a specific patch instead of the map soundscape. This
@@ -42,8 +44,23 @@ export default function TitleScreen({
         entry.activation.moments.includes("map"),
       );
 
-    if (patch) {
-      startPatch(patch.id);
+    if (!patch) return;
+
+    await startPatch(patch.id);
+
+    // A patch paired with an animation is driven by that animation's events —
+    // thunder4 only sounds when lightningBolts draws a bolt. Starting it on the
+    // globe alone would be silence, so send the visitor into the player too.
+    // The link cannot simply point at the player: the composition modal renders
+    // over this screen and swallows the click that browsers require before any
+    // audio may start.
+    const composition = requested?.activation.compositions?.[0];
+    if (composition) {
+      const params = new URLSearchParams(searchParams?.toString() ?? "");
+      params.set("composition", composition);
+      params.set("mode", "player");
+      params.set("play", "true");
+      router.replace(`${pathname}?${params.toString()}`);
     }
   }
 

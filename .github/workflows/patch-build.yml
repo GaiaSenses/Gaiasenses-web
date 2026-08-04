@@ -189,37 +189,17 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const fs = require("fs");
+            const { execFileSync } = require("child_process");
             const slugs = ${{ needs.detect.outputs.slugs }};
 
-            const rows = slugs.map((slug) => {
-              const infoPath = `public/patches/${slug}/build-info.json`;
-              if (!fs.existsSync(infoPath)) return `| \`${slug}\` | não compilou | — |`;
-              const info = JSON.parse(fs.readFileSync(infoPath, "utf8"));
-              const kb = Math.round(info.dataBytes / 1024);
-              return `| \`${slug}\` | ${kb} KB | \`${info.runtime}\` |`;
-            });
-
-            const links = slugs
-              .map((slug) => `- **[▶ Ouvir \`${slug}\`](PREVIEW_URL/pt/map3?patch=${slug})**`)
-              .join("\n");
-
-            const body = [
-              "<!-- gaia-patch-bot -->",
-              "## 🎧 Patches compilados",
-              "",
-              "A Vercel publica o preview deste pull request logo abaixo. Assim que o link dela aparecer, acrescente `/pt/map3?patch=<id>` para ouvir o seu patch:",
-              "",
-              links,
-              "",
-              "> O navegador só libera o som depois de um clique seu — ao abrir, aperte **Iniciar**. Use fone de ouvido.",
-              "",
-              "| Patch | Tamanho | Runtime |",
-              "|---|---|---|",
-              ...rows,
-              "",
-              "Quer ajustar? Suba o arquivo corrigido **nesta mesma branch** e eu recompilo sozinho.",
-            ].join("\n");
+            // The Vercel preview URL is not known yet at this point; the
+            // patch-preview workflow rewrites this comment with real links as
+            // soon as the deployment reports success.
+            const body = execFileSync(
+              "node",
+              ["scripts/render-preview-comment.mjs", "", ...slugs],
+              { encoding: "utf8" },
+            );
 
             const { data: comments } = await github.rest.issues.listComments({
               ...context.repo,
