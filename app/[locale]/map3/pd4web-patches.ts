@@ -181,7 +181,7 @@ export const MAP3_PD4WEB_PATCHES: readonly Map3Pd4WebPatch[] = [
       accXReceiver: "aceX",
       accYReceiver: "aceY",
       accZReceiver: "aceZ",
-      co2Receiver: "input_co2",
+      co2Receiver: "co2",
       sensorListReceiver: "input",
       outputListReceiver: "output",
       pollMs: 64,

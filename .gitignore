@@ -39,3 +39,8 @@ next-env.d.ts
 /pure_data
 
 /public/leaflet
+
+# pd4web local toolchain (see docs/musico)
+/.pd4web-venv
+/.pd4web-root
+/.pd4web-build
