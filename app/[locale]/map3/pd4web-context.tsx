@@ -9,7 +9,11 @@ import {
   useState,
   type PropsWithChildren,
 } from "react";
-import { getMap3Pd4WebPatchById, type Map3Pd4WebPatch } from "./pd4web-patches";
+import {
+  getMap3Pd4WebPatchById,
+  getPatchRuntimeUrl,
+  type Map3Pd4WebPatch,
+} from "./pd4web-patches";
 
 const P4DWEB_CANVAS_ID = "pd4web-canvas";
 
@@ -87,9 +91,13 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
       )) as unknown as { default: GeneratedPd4WebModule };
       const Pd4WebModule = moduleNamespace.default;
 
-      const wasmResponse = await fetch(`/${bundleFolder}/pd4web.wasm`);
+      // The runtime is shared: patches built from the same externals resolve to
+      // the same hashed URL, so switching patches reuses a warm browser cache
+      // and only the ~0.5 MB data package is fetched again.
+      const wasmUrl = getPatchRuntimeUrl(patch);
+      const wasmResponse = await fetch(wasmUrl);
       if (!wasmResponse.ok) {
-        throw new Error(`Could not fetch /${bundleFolder}/pd4web.wasm`);
+        throw new Error(`Could not fetch ${wasmUrl}`);
       }
 
       const wasmBinary = await wasmResponse.arrayBuffer();

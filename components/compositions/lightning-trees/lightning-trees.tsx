@@ -33,9 +33,6 @@ export default async function LightningTrees(props: LightningTreesProps) {
         key={refreshKey}
         lightningCount={lightningCount}
         play={props.play}
-        latitudeReceiver="lati"
-        longitudeReceiver="rotacaoSite"
-        pollFrequencyMs={100}
       />
       <CompositionControls play={props.play} />
       {<DebugPanel data={[{ lightningCount }]} />}

@@ -18,7 +18,12 @@ import { AnimatePresence, motion } from "framer-motion";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import type { espCo2Response, espResponse } from "./ble-control";
-import { MAP3_PD4WEB_PATCHES, type Map3Pd4WebMoment } from "./pd4web-patches";
+import {
+  MAP3_PD4WEB_PATCHES,
+  patchReceivesLiveData,
+  type Map3Pd4WebMoment,
+} from "./pd4web-patches";
+import { GAIA } from "@/lib/gaia-vocabulary";
 
 import InfoButton from "./info-button";
 import NotificationDialog from "./notifications-dialog";
@@ -395,29 +400,34 @@ export default function GaiasensesMap({
       appendPatchSystemLog(`Patch stopped: ${previousPatchId}`);
     }
 
-    if (!activePatch || activePatch.binding.type !== "map-center") {
+    if (!activePatch || !patchReceivesLiveData(activePatch)) {
       setIsPatchLogOpen(false);
       return;
     }
 
     setPatchLogControls({
-      pollMs: clampPatchPollMs(activePatch.binding.pollMs ?? 100),
-      epsilon: clampPatchEpsilon(activePatch.binding.epsilon ?? 0.0001),
-      accEpsilon: clampPatchEpsilon(activePatch.binding.accEpsilon ?? 0.05),
+      pollMs: clampPatchPollMs(activePatch.tuning.pollMs),
+      epsilon: clampPatchEpsilon(activePatch.tuning.epsilon),
+      accEpsilon: clampPatchEpsilon(activePatch.tuning.accEpsilon),
       alwaysSendMovement: false,
     });
     nextPatchLogIdRef.current = 0;
     setPatchLogs([]);
     appendPatchSystemLog(`Patch started: ${activePatch.id}`);
-    if (activePatch.binding.sensorListReceiver) {
+
+    // Report the resolved vocabulary so the panel shows what this patch will
+    // actually receive, including the legacy receiver names it uses.
+    for (const [channel, receiver] of Object.entries(
+      activePatch.channels.receivers,
+    )) {
       appendPatchSystemLog(
-        `sensorListReceiver (list): ${activePatch.binding.sensorListReceiver} [gyroX gyroY gyroZ accX accY accZ co2]`,
+        channel === receiver ? `${channel}` : `${channel} -> [r ${receiver}]`,
       );
     }
-    if (activePatch.binding.outputListReceiver) {
-      appendPatchSystemLog(
-        `outputListReceiver (list): ${activePatch.binding.outputListReceiver} [latitude longitude]`,
-      );
+    for (const [channel, sender] of Object.entries(
+      activePatch.channels.senders,
+    )) {
+      appendPatchSystemLog(`${channel} <- [s ${sender}]`);
     }
   }, [activePatch, appendPatchSystemLog]);
 
@@ -427,7 +437,7 @@ export default function GaiasensesMap({
       MAP3_PD4WEB_PATCHES.find((patch) =>
         patch.activation.moments.includes("map"),
       )?.id &&
-    activePatch?.binding.type === "map-center";
+    Boolean(activePatch && patchReceivesLiveData(activePatch));
 
   useEffect(() => {
     if (!isMapPatchDebugEnabled) {
@@ -440,18 +450,19 @@ export default function GaiasensesMap({
       return;
     }
 
-    if (activePatch.binding.type !== "map-center") {
+    if (!patchReceivesLiveData(activePatch)) {
       return;
     }
 
-    const binding = activePatch.binding;
+    const receivers = activePatch.channels.receivers;
+    const senders = activePatch.channels.senders;
     const pollMs = clampPatchPollMs(patchLogControls.pollMs);
     const epsilon = clampPatchEpsilon(patchLogControls.epsilon);
     const accEpsilon = clampPatchEpsilon(patchLogControls.accEpsilon);
     const alwaysSendMovement = patchLogControls.alwaysSendMovement;
     const isPdMapping = motionTuning.mappingMethod === "pd";
 
-    const outputListReceiver = binding.outputListReceiver;
+    const outputListReceiver = senders[GAIA.OUT];
     if (outputListReceiver) {
       const listenerMap = pdListListenerMapRef.current;
       const knownReceivers = listenerMap.get(pd4web) ?? new Set<string>();
@@ -519,7 +530,7 @@ export default function GaiasensesMap({
 
       const isSensorConnected = inputModeRef.current !== "mouse";
 
-      if (isPdMapping && binding.sensorListReceiver && isSensorConnected) {
+      if (isPdMapping && receivers[GAIA.SENSORS] && isSensorConnected) {
         const euler = latestSensorDataRef.current?.euler;
         const acc = latestSensorDataRef.current?.acc;
         const co2 = latestCo2DataRef.current?.co2.ppm;
@@ -533,11 +544,11 @@ export default function GaiasensesMap({
         const co2Value = Number.isFinite(co2) ? Number(co2) : 0;
 
         const packet = [gyroX, gyroY, gyroZ, accX, accY, accZ, co2Value];
-        pd4web.sendList(binding.sensorListReceiver, packet);
+        pd4web.sendList(receivers[GAIA.SENSORS], packet);
         tickLogs.push({
           timestamp: Date.now(),
           source: "sensorList",
-          receiver: binding.sensorListReceiver,
+          receiver: receivers[GAIA.SENSORS],
           value: null,
           delta: null,
           threshold: null,
@@ -559,23 +570,23 @@ export default function GaiasensesMap({
         prevLat = lat;
         prevLng = lng;
 
-        if (binding.latitudeReceiver) {
-          pd4web.sendFloat(binding.latitudeReceiver, lat);
+        if (receivers[GAIA.LAT]) {
+          pd4web.sendFloat(receivers[GAIA.LAT], lat);
           tickLogs.push({
             timestamp: Date.now(),
             source: "lat",
-            receiver: binding.latitudeReceiver,
+            receiver: receivers[GAIA.LAT],
             value: lat,
             delta: latDelta,
             threshold: alwaysSendMovement ? null : epsilon,
           });
         }
-        if (binding.longitudeReceiver) {
-          pd4web.sendFloat(binding.longitudeReceiver, lng);
+        if (receivers[GAIA.LON]) {
+          pd4web.sendFloat(receivers[GAIA.LON], lng);
           tickLogs.push({
             timestamp: Date.now(),
             source: "lng",
-            receiver: binding.longitudeReceiver,
+            receiver: receivers[GAIA.LON],
             value: lng,
             delta: lngDelta,
             threshold: alwaysSendMovement ? null : epsilon,
@@ -625,41 +636,41 @@ export default function GaiasensesMap({
       prevAccY = accY;
       prevAccZ = accZ;
 
-      if (binding.accXReceiver) {
-        pd4web.sendFloat(binding.accXReceiver, accX);
+      if (receivers[GAIA.ACC_X]) {
+        pd4web.sendFloat(receivers[GAIA.ACC_X], accX);
         tickLogs.push({
           timestamp: Date.now(),
           source: "accX",
-          receiver: binding.accXReceiver,
+          receiver: receivers[GAIA.ACC_X],
           value: accX,
           delta: accXDelta,
           threshold: accEpsilon,
         });
       }
-      if (binding.accYReceiver) {
-        pd4web.sendFloat(binding.accYReceiver, accY);
+      if (receivers[GAIA.ACC_Y]) {
+        pd4web.sendFloat(receivers[GAIA.ACC_Y], accY);
         tickLogs.push({
           timestamp: Date.now(),
           source: "accY",
-          receiver: binding.accYReceiver,
+          receiver: receivers[GAIA.ACC_Y],
           value: accY,
           delta: accYDelta,
           threshold: accEpsilon,
         });
       }
-      if (binding.accZReceiver) {
-        pd4web.sendFloat(binding.accZReceiver, accZ);
+      if (receivers[GAIA.ACC_Z]) {
+        pd4web.sendFloat(receivers[GAIA.ACC_Z], accZ);
         tickLogs.push({
           timestamp: Date.now(),
           source: "accZ",
-          receiver: binding.accZReceiver,
+          receiver: receivers[GAIA.ACC_Z],
           value: accZ,
           delta: accZDelta,
           threshold: accEpsilon,
         });
       }
 
-      if (binding.co2Receiver) {
+      if (receivers[GAIA.CO2]) {
         const co2 = latestCo2DataRef.current?.co2.ppm;
         if (Number.isFinite(co2)) {
           const numericCo2 = Number(co2);
@@ -669,11 +680,11 @@ export default function GaiasensesMap({
             const co2Delta =
               prevCo2 === null ? null : Math.abs(numericCo2 - prevCo2);
             prevCo2 = numericCo2;
-            pd4web.sendFloat(binding.co2Receiver, numericCo2);
+            pd4web.sendFloat(receivers[GAIA.CO2], numericCo2);
             tickLogs.push({
               timestamp: Date.now(),
               source: "co2",
-              receiver: binding.co2Receiver,
+              receiver: receivers[GAIA.CO2],
               value: numericCo2,
               delta: co2Delta,
               threshold: accEpsilon,
@@ -702,6 +713,63 @@ export default function GaiasensesMap({
     motionTuning.mappingMethod,
     inputModeRef,
   ]);
+
+  /**
+   * Deliver the weather snapshot to the patch.
+   *
+   * This is deliberately its own effect rather than another branch inside the
+   * polling interval above. That interval returns early on the sensor-list path
+   * and is gated on a live accelerometer reading, so anything appended to it
+   * would only ever fire with a BLE sensor attached and moving.
+   *
+   * It is also not gated on `isMapInputActive`: a patch paired with a
+   * composition runs in player mode, where the map stops sending, and it should
+   * still be able to hear the weather of the place the globe is pointing at.
+   *
+   * Weather arrives as a server-component prop and only changes when the
+   * location does, so sending once per change is the whole job — no polling.
+   */
+  useEffect(() => {
+    if (!pd4web || !activePatch) {
+      return;
+    }
+
+    const receivers = activePatch.channels.receivers;
+    const values: [channel: string, value: number | undefined][] = [
+      [GAIA.TEMP, clima.temperature],
+      [GAIA.HUMIDITY, clima.humidity],
+      [GAIA.CLOUDS, clima.clouds],
+      [GAIA.WIND_SPEED, clima.windSpeed],
+      [GAIA.LIGHTNING, clima.lightnings],
+      [GAIA.FIRE, clima.fireSpots],
+      [GAIA.WIND_DEG, weatherSummary.windDeg],
+      [GAIA.RAIN, weatherSummary.rain1h],
+    ];
+
+    const logs: Omit<Pd4WebPatchLogEntry, "id">[] = [];
+
+    for (const [channel, value] of values) {
+      const receiver = receivers[channel];
+      if (!receiver || !Number.isFinite(value)) {
+        continue;
+      }
+
+      pd4web.sendFloat(receiver, value as number);
+      logs.push({
+        timestamp: Date.now(),
+        source: "weather",
+        receiver,
+        value: value as number,
+        delta: null,
+        threshold: null,
+        message: channel,
+      });
+    }
+
+    if (logs.length > 0) {
+      appendPatchLogs(logs);
+    }
+  }, [pd4web, activePatch, clima, weatherSummary, appendPatchLogs]);
 
   const handleUnmuteClick = () => {
     const mapPatch = MAP3_PD4WEB_PATCHES.find((patch) =>

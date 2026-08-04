@@ -1,34 +1,41 @@
 /**
  * pd4web-patches.ts
  *
- * Central registry of all Pd4Web patches used by the Gaiasenses map.
+ * Types and public accessors for the Pd4Web patch registry.
+ *
+ * --- Where the data comes from ---
+ * The registry itself is NOT written by hand. `pd4web-patches.generated.ts` is
+ * produced by `scripts/gen-patch-registry.mjs` from two sources:
+ *
+ *   1. `patches/<slug>/patch.json` — authorship, label, when the patch is active
+ *   2. the patch's own `.pd` files — scanned for `[r gaia.*]` / `[s gaia.*]`
+ *
+ * That second source is why adding a composition no longer requires editing
+ * TypeScript. A musician who writes `[r gaia.temp]` in their patch gets
+ * temperature delivered; nobody has to declare it anywhere.
  *
  * --- How Pd4Web works in this project ---
- * Pd4Web compiles a Pure Data (.pd) patch to WebAssembly via Emscripten.
- * The build output lives under /public/<bundleFolder>/ and contains:
- *   - pd4web.js      — the Emscripten module loader (sets window.Pd4WebModule)
- *   - pd4web.wasm    — the compiled patch + libpd runtime
- *   - pd4web.data    — any embedded audio files / abstractions
+ * Pd4Web compiles a Pure Data patch to WebAssembly via Emscripten. The build
+ * output lives under `/public/<bundleFolder>/` and contains:
+ *   - pd4web.js    — the Emscripten module loader (an ES module, default export)
+ *   - pd4web.data  — the patch itself plus its Libs/ abstractions and audio
  *
- * At runtime the loader script is injected into <body> as a <script> tag by
- * Pd4WebMapAudio. Once loaded it exposes window.Pd4WebModule(), a factory that
- * instantiates the Pd4Web class. Calling pd.init() starts the Web Audio context
- * and begins processing the patch.
+ * The `.wasm` is *not* in that folder. Identical runtimes are shared, so it
+ * lives at `/pd4web-runtime/<hash>/pd4web.wasm` and `runtime` points at it.
+ * `pd4web.threads.js` is served once, globally, from `/pd4webShared/`.
  *
  * --- How to add a new patch ---
- * 1. Build the patch with Pd4Web and copy the output folder to /public/.
- * 2. Add an entry to MAP3_PD4WEB_PATCHES below.
- * 3. Set `activation.moments` to control when the patch is loaded:
- *      "map"    — active while the globe is visible (no composition playing)
- *      "player" — active while a visual composition is open
- *    Optionally restrict to specific compositions via `activation.compositions`.
- * 4. Set `binding` to describe what live data Pd4WebMapAudio should forward into
- *    the patch via pd.sendFloat(). Use "none" if the patch needs no live data.
- *
- * --- Receiver names ---
- * A "receiver" is a named inlet in the Pure Data patch (e.g. [receive x1]).
- * The names in the binding object must exactly match those declared in the .pd file.
+ * Drop the project in `patches/<slug>/` (main.pd at the root, abstractions in
+ * `Libs/`, a `patch.json` beside them) and open a pull request. CI compiles,
+ * validates and registers it. See `docs/musico/README.md`.
  */
+
+import {
+  COMPOSITION_PATCH_ID,
+  GENERATED_MAP3_PD4WEB_PATCHES,
+} from "./pd4web-patches.generated";
+
+export { COMPOSITION_EVENTS, COMPOSITION_PATCH_ID } from "./pd4web-patches.generated";
 
 /**
  * The app-level context in which a patch can be active.
@@ -38,161 +45,98 @@
 export type Map3Pd4WebMoment = "map" | "player";
 
 /**
- * Describes how Pd4WebMapAudio should feed live data into the patch.
+ * Maps a vocabulary channel to the receiver name that actually exists in the
+ * patch. The two differ for patches written before the vocabulary existed:
+ * `paraisoGaia43` listens on `[r latitude]`, so its entry is
+ * `{ "gaia.lat": "latitude" }` and the app sends latitude to `"latitude"`.
  *
- * "map-center" — polls the Mapbox map center on an interval and forwards
- *   lat/lng (and optionally rotation speed) as floats to named pd receivers.
- *
- * "none" — the patch manages its own audio without any live data input from
- *   the map. Use this for patches that only react to user gestures or BLE.
+ * See `lib/gaia-vocabulary.json` for the channel list and their aliases.
  */
-export type Map3Pd4WebBinding =
-  | {
-      type: "map-center";
-      /** Name of the [receive] object in the .pd patch that accepts longitude (−180 … 180). */
-      longitudeReceiver?: string;
-      /** Name of the [receive] object in the .pd patch that accepts latitude (−90 … 90). */
-      latitudeReceiver?: string;
-      accXReceiver?: string;
-      accYReceiver?: string;
-      accZReceiver?: string;
-      co2Receiver?: string;
-      /** Receiver that accepts app->Pd sensor packets as a list.
-       * should be a list of 7 values: [gyroX gyroY gyroZ accX accY accZ co2]
-       */
-      sensorListReceiver?: string;
-      /** Symbol name used by Pd->app list output callbacks.
-       * should be a list of 2 values: [latitude longitude]
-       */
-      outputListReceiver?: string;
-      /**
-       * Optional receiver name for globe rotation speed in degrees/second.
-       * The value is a cos-corrected angular speed computed from successive map
-       * center positions, so it is scale-invariant regardless of zoom level.
-       * Leave undefined if the patch does not need speed data.
-       */
-      speedReceiver?: string;
-      /**
-       * How often (in ms) to poll the map center and push values to the patch.
-       * Defaults to 100 ms (10 Hz). Increase for less CPU usage; decrease for
-       * smoother parameter modulation inside pd (not usually necessary since
-       * most pd objects interpolate internally).
-       */
-      pollMs?: number;
-      /**
-       * Minimum positional change (in degrees) required before a new sendFloat
-       * is dispatched. Prevents unnecessary messages when the map is stationary.
-       * Defaults to 0.0001° (≈ 10 m at the equator).
-       */
-      epsilon?: number;
-
-      /**
-       * Minimun acceleration change required before a new sendFloat is dispatched.
-       * Prevents unnecessary messages when the device is stationary.
-       * Defaults to 0.5.
-       */
-      accEpsilon?: number;
-    }
-  | {
-      type: "none";
-    };
-
-/**
- * Full descriptor for a single Pd4Web patch registered with Gaiasenses.
- *
- * At most one patch is active at any moment; Pd4WebMapAudioManager picks the
- * first entry in MAP3_PD4WEB_PATCHES whose activation rules match the current
- * URL state (mode + composition query params).
- */
-export type Map3Pd4WebPatch = {
-  /** Stable unique identifier. Used to key the React component and derive the <script> tag id. */
-  id: string;
-  /** Human-readable label shown on the Play/Pause button in the UI. */
-  label: string;
-  /** Name of the output folder produced by the Pd4Web build, relative to /public/. */
-  bundleFolder: string;
-  activation: {
-    /** App moments in which this patch should be loaded and played. */
-    moments: Map3Pd4WebMoment[];
-    /**
-     * If provided, the patch is only active when one of these composition keys
-     * is present in the URL's `composition` query param.
-     * Omit to activate for all compositions within the listed moments.
-     */
-    compositions?: string[];
-  };
-  /** Specifies what live map data (if any) is forwarded into the patch. */
-  binding: Map3Pd4WebBinding;
+export type Map3Pd4WebChannels = {
+  /** Channels the app sends into the patch. */
+  readonly receivers: Readonly<Record<string, string>>;
+  /** Channels the patch sends back to the app. */
+  readonly senders: Readonly<Record<string, string>>;
 };
 
-/** Interval between position polls in milliseconds. 32 ms = 30 Hz. */
-const DEFAULT_POSITION_POLL_MS = 300;
+/** How aggressively live values are pushed into the patch. */
+export type Map3Pd4WebTuning = {
+  /**
+   * How often (ms) to poll the map centre and sensor. Lower is smoother and
+   * costlier; most Pd objects interpolate internally, so this rarely needs to
+   * go below the default.
+   */
+  readonly pollMs: number;
+  /**
+   * Minimum lat/lng change (degrees) before a new value is sent. Keeps a still
+   * map from flooding the patch.
+   */
+  readonly epsilon: number;
+  /** Minimum change before accelerometer and CO₂ values are resent. */
+  readonly accEpsilon: number;
+};
 
 /**
- * Minimum lat/lng delta (degrees) that triggers a sendFloat call.
- * 0.0001° ≈ 11 m at the equator — fine enough to track slow globe drags.
+ * Full descriptor for a single Pd4Web patch.
+ *
+ * At most one patch is active at a time. `Pd4WebProvider` starts them by id;
+ * the map and the composition dropdown decide which id that is.
  */
-const DEFAULT_POSITION_EPSILON = 0.0001;
+export type Map3Pd4WebPatch = {
+  /** Stable unique identifier, equal to the folder name under `patches/`. */
+  readonly id: string;
+  /** Human-readable label shown in the UI. */
+  readonly label: string;
+  /** Build output folder relative to `/public/`, e.g. `patches/thunder4`. */
+  readonly bundleFolder: string;
+  /**
+   * Short hash of the shared WebAssembly runtime, resolving to
+   * `/pd4web-runtime/<runtime>/pd4web.wasm`. Absent only before the patch has
+   * been built, in which case the loader falls back to the bundle folder.
+   */
+  readonly runtime?: string;
+  readonly activation: {
+    /** App moments in which this patch should be loaded and played. */
+    readonly moments: readonly Map3Pd4WebMoment[];
+    /**
+     * Compositions this patch plays with. Derived from the manifest; the live
+     * lookup used at runtime is `COMPOSITION_PATCH_ID`.
+     */
+    readonly compositions?: readonly string[];
+  };
+  readonly channels: Map3Pd4WebChannels;
+  readonly tuning: Map3Pd4WebTuning;
+};
 
 /**
  * All Pd4Web patches available in Gaiasenses.
  *
  * Patches are evaluated in order; the first match wins.
- * Add new patches here following the Map3Pd4WebPatch shape described above.
  */
-export const MAP3_PD4WEB_PATCHES: readonly Map3Pd4WebPatch[] = [
-  {
-    id: "thunder4",
-    label: "Thunder 4",
-    bundleFolder: "thunder4",
-    activation: {
-      moments: ["player"],
-      compositions: ["lightningBolts"],
-    },
-    binding: {
-      type: "none",
-    },
-  },
-  {
-    id: "bubble1",
-    label: "Bubble 1",
-    bundleFolder: "bubble1",
-    activation: {
-      moments: ["player"],
-      compositions: ["lluvia"],
-    },
-    binding: {
-      type: "none",
-    },
-  },
-  {
-    id: "paraisoGaia43",
-    label: "Map sound 43",
-    bundleFolder: "paraisoGaia43",
-    activation: {
-      // Keep this patch addressable in player mode too. Gating pause/resume is
-      // handled in GaiasensesMap via the composition's `pd4web` flag.
-      moments: ["map", "player"],
-    },
-    binding: {
-      type: "map-center",
-      latitudeReceiver: "latitude",
-      longitudeReceiver: "longitude",
-      accXReceiver: "aceX",
-      accYReceiver: "aceY",
-      accZReceiver: "aceZ",
-      co2Receiver: "co2",
-      sensorListReceiver: "input",
-      outputListReceiver: "output",
-      pollMs: 64,
-      epsilon: 0.5,
-      accEpsilon: 0.05,
-    },
-  },
-] as const;
+export const MAP3_PD4WEB_PATCHES: readonly Map3Pd4WebPatch[] =
+  GENERATED_MAP3_PD4WEB_PATCHES;
 
 export function getMap3Pd4WebPatchById(
   patchId: string,
 ): Map3Pd4WebPatch | null {
   return MAP3_PD4WEB_PATCHES.find((patch) => patch.id === patchId) ?? null;
+}
+
+/** The patch that plays with a given composition, if any. */
+export function getPatchIdForComposition(
+  composition: string,
+): string | undefined {
+  return (COMPOSITION_PATCH_ID as Record<string, string>)[composition];
+}
+
+/** URL of the WebAssembly runtime this patch should load. */
+export function getPatchRuntimeUrl(patch: Map3Pd4WebPatch): string {
+  return patch.runtime
+    ? `/pd4web-runtime/${patch.runtime}/pd4web.wasm`
+    : `/${patch.bundleFolder}/pd4web.wasm`;
+}
+
+/** True when the app has anything at all to send to this patch. */
+export function patchReceivesLiveData(patch: Map3Pd4WebPatch): boolean {
+  return Object.keys(patch.channels.receivers).length > 0;
 }

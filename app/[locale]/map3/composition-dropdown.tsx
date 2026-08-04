@@ -14,6 +14,7 @@ import CompositionsInfo from "@/components/compositions/compositions-info";
 import { useRouter } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import { usePd4Web } from "./pd4web-context";
+import { getPatchIdForComposition } from "./pd4web-patches";
 import { useEffect, useState } from "react";
 
 type CompositionDropdownProps = {
@@ -72,9 +73,11 @@ export function CompositionDropdown({
       ) {
         await stopPatch();
       }
-      if (compositionInfo.patchId) {
-        const startedPatch = await startPatch(compositionInfo.patchId);
-        console.log("startedPatch:", startedPatch);
+      // Which patch plays with this animation is derived from the patch
+      // manifests, not declared here — see pd4web-patches.generated.ts.
+      const patchId = getPatchIdForComposition(selectedComposition);
+      if (patchId) {
+        await startPatch(patchId);
       }
     }
   }

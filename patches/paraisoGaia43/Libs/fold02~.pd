@@ -1,0 +1,6 @@
+#N canvas 0 28 1440 900 12; 
+#X obj 66 45 inlet~; 
+#X obj 66 68 expr~ 1 - abs(remainder($v1 + 3 \, 4)); 
+#X obj 66 91 outlet~; 
+#X connect 0 0 1 0; 
+#X connect 1 0 2 0; 

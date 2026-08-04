@@ -1,0 +1,15 @@
+# Compiled Pd4Web artefacts. Never diffed, never merged — a conflict here means
+# rebuilding the patch, not editing bytes.
+*.wasm binary -diff -merge -text
+*.data binary -diff -merge -text
+
+# Audio assets.
+*.mp3 binary -diff -merge -text
+*.wav binary -diff -merge -text
+
+# Written by scripts/gen-patch-registry.mjs; keep it out of pull-request diffs.
+app/[locale]/map3/pd4web-patches.generated.ts linguist-generated=true -diff
+
+# Pure Data sources are text and should diff normally, even though they look
+# machine-generated.
+*.pd text

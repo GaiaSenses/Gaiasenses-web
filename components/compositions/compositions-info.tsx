@@ -78,7 +78,6 @@ export type CompositionInfo = {
   author?: string;
   openProcessingLink?: string;
   keepMapPatch?: boolean;
-  patchId?: string;
 };
 
 export type CompositionsInfoType = {
@@ -94,7 +93,6 @@ const CompositionsInfo: CompositionsInfoType = {
     thumb: "lluvia.png",
     openProcessingLink: "https://openprocessing.org/sketch/386391",
     author: "AK Stuxnet",
-    patchId: "bubble1",
   },
   zigzag: {
     name: "zigzag",
@@ -247,7 +245,6 @@ const CompositionsInfo: CompositionsInfoType = {
     thumb: "lightning-bolts.png",
     openProcessingLink: "https://openprocessing.org/sketch/639075",
     author: "Gweltaz Duval-Guennoc",
-    patchId: "thunder4",
   },
   burningTrees: {
     name: "burningTrees",

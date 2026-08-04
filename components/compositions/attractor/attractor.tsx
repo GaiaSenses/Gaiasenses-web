@@ -16,7 +16,6 @@ export type AttractorProps = {
 
 export default async function Attractor(props: AttractorProps) {
   let lightningCount = props.lightningCount ?? 0;
-  const packageName = "/thunder4/pd4web.data";
   try {
     if (props.today) {
       const data = await getLightning(props.lat, props.lon, 100);
