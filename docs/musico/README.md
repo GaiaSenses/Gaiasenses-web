@@ -163,6 +163,32 @@ Use fone de ouvido. No celular, tire do modo silencioso.
 resolver. Corrija o arquivo, suba de novo **na mesma branch**, e o robô recompila
 sozinho. Pode repetir quantas vezes quiser — é para isso que serve.
 
+### Abriu, diz que está tocando, e não sai som
+
+Três causas, em ordem de frequência:
+
+1. **O som começa desligado.** Procure o botão **Unmute** no canto superior
+   esquerdo, ao lado do texto de status. Enquanto ele disser "Unmute", está mudo.
+2. **O navegador bloqueou o áudio.** Se ele pedir permissão, aceite. O Pd precisa
+   iniciar o sistema de áudio, e um bloqueio impede isso.
+3. **A sua peça depende de um dado que agora vale zero.** Um patch de trovão só
+   soa quando cai raio de verdade. Num dia calmo ele fica em silêncio — e está
+   certo. Veja abaixo como testar mesmo assim.
+
+### Como testar quando o dado está zerado
+
+Abra o console do navegador (F12 → Console) com a peça tocando e mande o valor
+você mesmo:
+
+```js
+Pd4Web.sendBang("bolt")           // dispara um evento
+Pd4Web.sendFloat("gaia.temp", 38) // finge 38 °C
+Pd4Web.sendFloat("gaia.rain", 12) // finge chuva forte
+```
+
+`Pd4Web` é a peça que está tocando naquele momento. Isso é a maneira mais rápida
+de separar "está funcionando, só não tem dado" de "está quebrado".
+
 Para trocar um arquivo: vá até ele no GitHub, clique no lápis (ou em **Upload
 files** para substituir vários de uma vez), e confirme. Não abra um pull request
 novo.
@@ -228,4 +254,22 @@ A primeira compilação baixa o emscripten (~2,3 GB) e leva uns 6 minutos; as
 seguintes levam cerca de 1 minuto e meio.
 
 Para auditar um patch específico no navegador, sem esperar o CI:
-`http://localhost:3000/pt/map3?patch=<id>`.
+`http://localhost:3000/pt/map3?patch=<id>` — o parâmetro sobrepõe a escolha
+automática e vale para qualquer patch, inclusive os de composição.
+
+Note que os patches de composição aparecem no dropdown pelo nome da **animação**,
+não pelo nome do patch: `lluvia` toca `bubble1`, `lightningBolts` toca `thunder4`.
+
+Verificação de áudio sem depender de ouvido, útil em teste automatizado:
+
+```js
+const ctx = window.Pd4WebAudioContext;
+const analyser = ctx.createAnalyser();
+window.Pd4WebAudioWorkletNode.connect(analyser);
+const buf = new Float32Array(analyser.fftSize);
+analyser.getFloatTimeDomainData(buf);
+// RMS > 0 prova que o patch está gerando sinal.
+```
+
+Isso mede a saída do patch **antes** do controle de volume, então um RMS positivo
+com silêncio nas caixas significa que o mute está ligado, não que o patch falhou.

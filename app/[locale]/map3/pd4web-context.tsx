@@ -131,6 +131,15 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
         fadeGainRef.current = fadeGain;
       }
 
+      // Expose the running patch on window, matching the global already declared
+      // in types/pd4web.d.ts and the usage Pd4Web itself documents.
+      //
+      // This is how a musician tests a patch whose data happens to be zero. A
+      // thunder patch reacts to real lightning strikes, so on a calm day there
+      // is nothing to hear and no way to tell "working but quiet" from "broken".
+      // From the browser console, `Pd4Web.sendBang("bolt")` settles it.
+      window.Pd4Web = instance;
+
       pd4webRef.current = instance;
       pd4webAudioContextRef.current = audioContext;
       setPd4web(instance);
@@ -182,6 +191,7 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
       console.error("Error while stopping patch:", error);
     } finally {
       fadeGainRef.current = null;
+      window.Pd4Web = undefined;
       pd4webRef.current = null;
       pd4webAudioContextRef.current = null;
       isStoppingRef.current = false;
