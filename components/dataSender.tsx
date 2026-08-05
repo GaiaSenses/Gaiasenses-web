@@ -8,8 +8,9 @@ type DataSenderProps = {
   temp: number;
   speed: number;
   humidity: number;
-  lightningcount: number;
-  firecount: number;
+  /** `null` quando a fonte não respondeu — gravar 0 inventaria um céu calmo. */
+  lightningcount: number | null;
+  firecount: number | null;
   date_timeplayed: string;
   pinnedlocation: { lat: number; lng: number };
   userLocation: { lat: number; lng: number };

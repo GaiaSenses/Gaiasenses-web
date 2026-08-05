@@ -52,8 +52,8 @@ export async function insertSatelliteData({
   temperature: number;
   wind_speed: number;
   humidity: number;
-  lightning_count: number;
-  fire_count: number;
+  lightning_count: number | null;
+  fire_count: number | null;
   date_timeplayed: string;
   pinnedlocation: {
     lat: number;

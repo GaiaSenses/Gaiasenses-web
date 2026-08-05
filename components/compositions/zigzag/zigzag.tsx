@@ -51,7 +51,9 @@ export default async function Zigzag(props: ZigZagSketchProps) {
         ? (weatherData.rain as { "1h": number })["1h"]
         : 0;
 
-      lightningCount = lightningData.count;
+      // Fonte indisponível não é zero: a animação não tem como desenhar
+      // "não sei", então fica no mínimo. Quem avisa o público é o painel.
+      lightningCount = lightningData?.count ?? 0;
     }
   } catch (error) {
     console.log(error);

@@ -121,15 +121,22 @@ export default async function Page({ params, searchParams }: PageProps) {
   const temp = weatherData.main.temp;
   const speed = weatherData.wind.speed;
   const humidity = weatherData.main.humidity;
-  const lightningcount = lightningData?.count || 0;
-  const firecount = fireSpotsData?.count || 0;
+  // null = a fonte não respondeu. Distinto de 0, que significa "consultamos e não
+  // há nada". Antes os dois casos colapsavam em 0, e uma queda do backend ficava
+  // indistinguível de céu calmo — inclusive no registro de pesquisa.
+  const lightningcount = lightningData?.count ?? null;
+  const firecount = fireSpotsData?.count ?? null;
+
+  // A escolha automática de composição precisa de números. Tratar indisponível
+  // como zero aqui é deliberado e conservador: sem sinal, nenhuma obra de
+  // tempestade ou de fogo dispara. Quem conta a verdade ao público é o painel.
   const clima = {
     windSpeed: speed,
     humidity,
     clouds: weatherData.clouds,
     temperature: temp,
-    lightnings: lightningcount,
-    fireSpots: firecount,
+    lightnings: lightningcount ?? 0,
+    fireSpots: firecount ?? 0,
     rain: rainData?.["1h"] ?? 0,
   };
 
@@ -203,11 +210,14 @@ export default async function Page({ params, searchParams }: PageProps) {
               lightnings: t("compositionInfo.labels.lightnings"),
               firesSingular: t("compositionInfo.labels.firesSingular"),
               firesPlural: t("compositionInfo.labels.firesPlural"),
+              unavailable: t("compositionInfo.labels.unavailable"),
             }}
             mode={searchParams.mode === "player" ? "player" : "map"}
             composition={composition}
             InfoButtonText={t("infoButtonText")}
             clima={clima}
+            lightningCount={lightningcount}
+            fireSpotsCount={firecount}
             weatherSummary={{
               description:
                 weatherData.weather[0]?.description ?? "indisponivel",

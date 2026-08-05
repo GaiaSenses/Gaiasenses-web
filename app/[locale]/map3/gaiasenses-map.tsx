@@ -131,6 +131,7 @@ type GaiasensesMapProps = {
     lightnings: string;
     firesSingular: string;
     firesPlural: string;
+    unavailable: string;
   };
   initialLat: number;
   initialLng: number;
@@ -138,6 +139,13 @@ type GaiasensesMapProps = {
   composition: string | null;
   InfoButtonText: string;
   clima: ClimaData;
+  /**
+   * Contagens como a fonte respondeu: `null` quando ela não respondeu.
+   * `clima` colapsa isso em zero para a escolha automática de composição; estas
+   * duas preservam a distinção para que o painel possa dizer a verdade.
+   */
+  lightningCount: number | null;
+  fireSpotsCount: number | null;
   weatherSummary: {
     description: string;
     temperature: number;
@@ -158,6 +166,8 @@ export default function GaiasensesMap({
   composition,
   InfoButtonText,
   clima,
+  lightningCount,
+  fireSpotsCount,
   weatherSummary,
   locationInfo,
   weatherLabels,
@@ -861,8 +871,8 @@ export default function GaiasensesMap({
           compositionAuthor={compositionInfo.author}
           compositionAttributes={compositionInfo.attributes}
           weather={weatherSummary}
-          lightningCount={clima.lightnings}
-          fireSpotsCount={clima.fireSpots}
+          lightningCount={lightningCount}
+          fireSpotsCount={fireSpotsCount}
           co2Ppm={currentCo2Ppm}
         />
       )}

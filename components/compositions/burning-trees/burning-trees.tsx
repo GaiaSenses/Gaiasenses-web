@@ -29,7 +29,10 @@ export default async function BurningTrees(props: BurningTreesProps) {
   try {
     if (props.today) {
       const fireData = await getFireSpots(props.lat, props.lon, 100);
-      fireCount = fireData.count;
+      // Fonte indisponível não é zero: a animação não tem como desenhar
+      // "não sei", então fica no mínimo. Quem avisa o público é o painel
+      // de informações, que mostra o estado indisponível em vez de um número.
+      fireCount = fireData?.count ?? 0;
     }
   } catch (error) {
     console.log(error);
