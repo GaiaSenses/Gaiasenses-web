@@ -12,7 +12,8 @@ export default async function PopupFireInfo({
   const fireData = await getFireSpots(lat.toString(), lon.toString(), 100);
   const t = await getTranslations("Index");
 
-  // Three states, not two. `null` means NASA FIRMS did not answer, and saying
+  // Three states, not two. `null` means NASA FIRMS did not answer — this endpoint
+  // is FIRMS/VIIRS, not GOES-19, which is the lightning one — and saying
   // nothing would let an outage pass for an area with no fires — the same
   // silence this component used to produce.
   if (fireData === null) {
@@ -36,7 +37,9 @@ export default async function PopupFireInfo({
       <div className="flex items-end gap-1">
         <Flame size={20} />
         <p>
-          {fireData.count} fire spot{fireData.count !== 1 ? "s" : ""} nearby
+          {t("compositionInfo.labels.fireSpotsNearby", {
+            count: fireData.count,
+          })}
         </p>
       </div>
     </div>

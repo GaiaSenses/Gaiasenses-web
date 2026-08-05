@@ -29,7 +29,9 @@
         "lightnings": "Lightnings",
         "firesSingular": "Fire",
         "firesPlural": "Fires",
-        "unavailable": "source unavailable"
+        "unavailable": "source unavailable",
+        "fireSpotsNearby": "{count, plural, =1 {# fire spot nearby} other {# fire spots nearby}}",
+        "lightningNearby": "{count, plural, =1 {# lightning strike nearby} other {# lightning strikes nearby}}"
       }
     },
     "acknowledgement": "Acknowledgement:",
