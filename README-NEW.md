@@ -462,8 +462,8 @@ AWS CDK (TypeScript) project that provisions the satellite-data backend consumed
 ## ⚠️ Known Issues & Tech Debt
 
 - 🔗 The AWS API Gateway URL now reads from `SATELLITE_API_URL` (ARQ-01). A literal fallback remains in `components/getData.ts` so unset environments keep working; remove it once the variable is set everywhere.
-- 📦 Several declared dependencies have **zero imports** (`mongodb`, `joy-con-webhid`, `@mediapipe/tasks-vision`, `@xenova/transformers`, `react-webcam`, `react-h5-audio-player`, `react-three-map`) — candidates for removal.
-- 🗂️ `public/` carries ~214 MB, including **six unregistered Pd4Web bundles** left from earlier experiments.
+- 📦 ~~Several declared dependencies have zero imports~~ — removed (HIG-01): `mongodb`, `joy-con-webhid`, `@mediapipe/tasks-vision`, `@xenova/transformers`, `react-webcam`, `react-h5-audio-player`, `react-three-map`, `react-geolocated`. Note that `tone` was **not** dead: `components/compositions/airports/discrete.tsx` loads it with a dynamic `await import("tone")`, which a plain import grep misses.
+- 🗂️ `public/` carries ~196 MB. The six unregistered Pd4Web bundles are gone; `public/audios/` is now 176 MB of it.
 - 🧟 `app/old-main/` is a legacy page with dead links (`/map`, `/compositions`) — pending removal.
 - ⚡ Lightning errors return a **mock** (`count: 1`) instead of failing loudly.
 - 🧪 No automated tests and no tagged releases yet.

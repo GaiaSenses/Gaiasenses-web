@@ -10,6 +10,9 @@ const nextConfig = {
     config.resolve.alias = {
       ...config.resolve.alias,
       sharp$: false,
+      // Alias mantido de propósito: @xenova/transformers foi removido (HIG-01) e
+      // com ele o onnxruntime-node, mas apontar um módulo inexistente para false
+      // é inofensivo e evita quebrar caso a dependência volte.
       "onnxruntime-node$": false,
     };
     return config;
