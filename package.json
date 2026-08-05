@@ -14,7 +14,8 @@
     "patches:gc": "node scripts/gc-pd4web-runtimes.mjs",
     "patches:validate": "node scripts/patch-manifest.mjs",
     "sensor:ws": "node scripts/sensor-websocket-server.mjs",
-    "start": "next start"
+    "start": "next start",
+    "test": "node --import ./scripts/register-ts-resolve.mjs --test \"tests/**/*.test.ts\""
   },
   "dependencies": {
     "@formatjs/intl-localematcher": "^0.5.4",
