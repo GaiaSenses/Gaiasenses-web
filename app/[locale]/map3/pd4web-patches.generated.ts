@@ -13,7 +13,7 @@ export const GENERATED_MAP3_PD4WEB_PATCHES = [
     id: "bubble1",
     label: "Bubble 1",
     bundleFolder: "patches/bubble1",
-    runtime: "87bea9af152e",
+    runtime: "ade2e09dc894",
     activation: {
       moments: ["player"],
       compositions: ["lluvia"],
@@ -28,7 +28,7 @@ export const GENERATED_MAP3_PD4WEB_PATCHES = [
     id: "exemplo-clima",
     label: "Exemplo: temperatura",
     bundleFolder: "patches/exemplo-clima",
-    runtime: "12f0e8fb286e",
+    runtime: "ec746f787802",
     activation: {
       moments: ["player"],
     },
@@ -68,7 +68,7 @@ export const GENERATED_MAP3_PD4WEB_PATCHES = [
     id: "thunder4",
     label: "Thunder 4",
     bundleFolder: "patches/thunder4",
-    runtime: "87bea9af152e",
+    runtime: "ade2e09dc894",
     activation: {
       moments: ["player"],
       compositions: ["lightningBolts"],
