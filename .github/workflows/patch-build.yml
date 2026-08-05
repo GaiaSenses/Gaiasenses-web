@@ -180,6 +180,12 @@ jobs:
       - run: npm ci --prefer-offline --no-audit
       - run: npm run patches:codegen
 
+      # Content addressing dedupes identical runtimes but never reclaims. A build
+      # on a runner mints different bytes than one on a laptop — the checkout
+      # path is baked into the binary — so without this every machine that ever
+      # builds leaves ~2 MB behind for good.
+      - run: npm run patches:gc
+
       - name: Commit
         id: commit
         run: |

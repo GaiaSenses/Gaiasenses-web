@@ -11,6 +11,7 @@
     "patches:check": "node scripts/gen-patch-registry.mjs --check && node scripts/gen-musician-docs.mjs --check && node scripts/gen-issue-template.mjs --check",
     "patches:codegen": "node scripts/gen-patch-registry.mjs && node scripts/gen-musician-docs.mjs && node scripts/gen-issue-template.mjs",
     "patches:extract": "node scripts/extract-pd-sources.mjs",
+    "patches:gc": "node scripts/gc-pd4web-runtimes.mjs",
     "patches:validate": "node scripts/patch-manifest.mjs",
     "sensor:ws": "node scripts/sensor-websocket-server.mjs",
     "start": "next start"
