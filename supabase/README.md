@@ -22,6 +22,7 @@ contra o banco real. Estão aqui como registro do que foi feito e por quê.
 | 1 | `migrations/2026-08-04-gaiasubs-fechar-acesso-anonimo.sql` | Fecha leitura/escrita anônima de PII no `GaiaSubs` |
 | 2 | `migrations/2026-08-04-gaialogs-origin.sql` | Coluna `origin` no `GaiaLogs` |
 | 3 | `migrations/2026-08-04-gaialogs-restringir-concessoes.sql` | `anon` no `GaiaLogs` fica só com INSERT |
+| 4 | `migrations/2026-08-05-gaiasubs-endpoint-unico.sql` | Índice único no endpoint da subscription (SEC-03) |
 | — | `auditoria-rls.sql` | Diagnóstico de RLS e permissões (somente leitura) |
 
 ## Estado verificado após as migrações
