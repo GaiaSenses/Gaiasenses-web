@@ -45,12 +45,6 @@ export type LightningResponseData = {
   state: string;
 };
 
-export type BrightnessResponseData = {
-  city: string;
-  state: string;
-  temp: number;
-};
-
 /**
  * Base URL of the satellite backend that serves /fire and /lightning.
  *
@@ -164,87 +158,6 @@ export async function getFireSpots(
   return await getData<FireSpotsResponseData>("fire", lat, lon, dist);
 }
 
-async function openWeather(
-  lat: string | number,
-  lon: string | number,
-  lang: string,
-): Promise<RainfallResponseData> {
-  const part = "minutely,hourly,daily,alerts";
-
-  try {
-    const res = await fetch(
-      `https://api.openweathermap.org/data/3.0/onecall?lat=${lat}&lon=${lon}&exclude=${part}&appid=${process.env.OPEN_WEATHER_API_KEY}&units=metric&lang=${lang}`,
-      { next: { revalidate: 7200 } },
-    );
-
-    if (!res.ok) {
-      throw new Error(
-        `Response from openweather was not ok. Status: ${
-          res.status
-        } Message: ${await res.text()}`,
-      ); // some people throw the response entirely
-    }
-    const data = await res.json();
-
-    const transformedData = {
-      city: "Open Weather API",
-      clouds: data.current.clouds,
-      lat: data.lat,
-      lon: data.lon,
-      main: {
-        feels_like: data.current.feels_like,
-        humidity: data.current.humidity,
-        pressure: data.current.pressure,
-        temp: data.current.temp,
-        grnd_level: 0,
-      },
-      rain: data.current.rain ? { "1h": data.current.rain["1h"] } : {},
-      state: "Open weather API",
-
-      visibility: data.current.visibility,
-      weather: data.current.weather,
-      wind: {
-        deg: data.current.wind_deg,
-        gust: data.current.wind_gust,
-        speed: data.current.wind_speed,
-      },
-    };
-    return transformedData;
-  } catch (error) {
-    console.log(error);
-    const transformedData = {
-      city: "Open Weather API",
-      clouds: 30,
-      lat: 0,
-      lon: 0,
-      main: {
-        feels_like: 24,
-        humidity: 30,
-        pressure: 20,
-        temp: 24,
-        grnd_level: 0,
-      },
-      rain: {},
-      state: "Open weather API",
-
-      visibility: 100,
-      weather: [
-        {
-          description: "indisponível",
-          icon: "indisponível",
-          main: "indisponível",
-        },
-      ],
-      wind: {
-        deg: 90,
-        gust: 40,
-        speed: 30,
-      },
-    };
-    return transformedData;
-  }
-}
-
 export async function getWeather(
   lat: string | number,
   lon: string | number,
@@ -253,9 +166,6 @@ export async function getWeather(
   if (options && options.lang === "en") options.lang = "en_us";
   if (options && options.lang === "pt") options.lang = "pt_br";
 
-  //this is the old fetch, using satellite-fetcher API
-  //return getData("rainfall", lat, lon);
-  //return openWeather(lat, lon, options.lang);
   const resp = await getOpenMeteo({ lat, lon });
   return resp;
 }
@@ -275,13 +185,6 @@ export async function getLightning(
   dist: number,
 ): Promise<LightningResponseData | null> {
   return await getData<LightningResponseData>("lightning", lat, lon, dist);
-}
-
-export async function getBrightness(
-  lat: string,
-  lon: string,
-): Promise<BrightnessResponseData | null> {
-  return getData<BrightnessResponseData>("brightness", lat, lon);
 }
 
 export async function reverseGeocode(
