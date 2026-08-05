@@ -31,11 +31,17 @@
         "firesPlural": "Fires",
         "unavailable": "source unavailable",
         "fireSpotsNearby": "{count, plural, =1 {# fire spot nearby} other {# fire spots nearby}}",
-        "lightningNearby": "{count, plural, =1 {# lightning strike nearby} other {# lightning strikes nearby}}"
+        "lightningNearby": "{count, plural, =1 {# lightning strike nearby} other {# lightning strikes nearby}}",
+        "loadingWeather": "Loading weather data…",
+        "loadingLocation": "Loading location…"
       }
     },
     "acknowledgement": "Acknowledgement:",
-    "acknowledgementText": "This work wouldn't have been possible without the support of the researchers from CEPAGRI, Dr. Priscila Coltri, Dr. Renata Gonçalves, and Dr. Jurandir Zullo Jr., M.Sc. Bruno Bainy, and Engineer Bruno Veloso. The GaiaSenses project also received support from Prof. Dr. Amílcar Cardoso and Dr. Pedro Martins from the University of Coimbra, Prof. Dr. Jônatas Manzolli (IA-NICS) and Prof. Dr. José Fornari (NICS) from the University of Campinas (UNICAMP), Dr. Josué Ramos from DISCF/CTI Renato Archer, and Ph.D. Anésio Azevedo Costa Neto from IFSP. Students from various departments at UNICAMP have been contributing to the development of GaiaSenses, including Cássio Dezotti, Gabriel Kuae, Tauane Cardoso, and Ru Yi Shen from the Control and Automation Engineering Faculty; Elton do Nascimento, Thiago Lacerda, Isabella Rigue, and Felipe Santana from the Computer Engineering Institute."
+    "acknowledgementText": "This work wouldn't have been possible without the support of the researchers from CEPAGRI, Dr. Priscila Coltri, Dr. Renata Gonçalves, and Dr. Jurandir Zullo Jr., M.Sc. Bruno Bainy, and Engineer Bruno Veloso. The GaiaSenses project also received support from Prof. Dr. Amílcar Cardoso and Dr. Pedro Martins from the University of Coimbra, Prof. Dr. Jônatas Manzolli (IA-NICS) and Prof. Dr. José Fornari (NICS) from the University of Campinas (UNICAMP), Dr. Josué Ramos from DISCF/CTI Renato Archer, and Ph.D. Anésio Azevedo Costa Neto from IFSP. Students from various departments at UNICAMP have been contributing to the development of GaiaSenses, including Cássio Dezotti, Gabriel Kuae, Tauane Cardoso, and Ru Yi Shen from the Control and Automation Engineering Faculty; Elton do Nascimento, Thiago Lacerda, Isabella Rigue, and Felipe Santana from the Computer Engineering Institute.",
+    "meta": {
+      "title": "GaiaSenses — climate turned into image and sound",
+      "description": "Real-time audiovisual compositions generated from climate and satellite data for any place you choose. An art and science project from CTI Renato Archer."
+    }
   },
   "Notification": {
     "notificationTitle": "Push Notifications",
