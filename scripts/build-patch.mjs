@@ -207,6 +207,77 @@ function installPrebuilt(slug, manifest) {
   return { slug, seconds: "0.0", runtime, dataBytes, prebuilt: true };
 }
 
+/**
+ * Turn graph-on-parent off so a patch with more than one graph can compile.
+ *
+ * pd4web 3.3 refuses a main patch containing more than one graph, which is what
+ * kept paraisoGaia43 on the prebuilt escape hatch. The graphs in question are
+ * `visual03~`, an oscilloscope-style array display, and the main canvas itself.
+ *
+ * Graph-on-parent is a display property: it decides whether a subpatch draws its
+ * contents on the parent canvas. The web bundle is compiled with --nogui and
+ * renders no Pd interface at all, so the flag has no effect on what anyone hears.
+ * The arrays, the objects and the connections are untouched — only the seventh
+ * field of `#X coords` changes, from 1 or 2 to 0.
+ *
+ * This runs on the workspace copy, never on patches/. The musician's file keeps
+ * its graph-on-parent, because that is how they see their instrument in Pd, and
+ * nothing about their editing experience changes.
+ *
+ * It only acts when a patch actually has more than one graph. Patches with one or
+ * none compile as they always did and keep byte-identical bundles, so enabling
+ * this does not silently rebuild everything.
+ */
+const COORDS_WITH_GOP = /^(#X coords(?: [-\d.]+){6}) ([12])\b/;
+
+function findGraphs(dir) {
+  const found = [];
+  const libsDir = path.join(dir, "Libs");
+  const files = [
+    path.join(dir, "main.pd"),
+    ...(fs.existsSync(libsDir)
+      ? fs
+          .readdirSync(libsDir)
+          .filter((f) => f.endsWith(".pd"))
+          .map((f) => path.join(libsDir, f))
+      : []),
+  ];
+  for (const file of files) {
+    const lines = fs.readFileSync(file, "utf8").split("\n");
+    lines.forEach((line, index) => {
+      if (COORDS_WITH_GOP.test(line)) found.push({ file, index });
+    });
+  }
+  return found;
+}
+
+function flattenGraphs(dir, slug) {
+  const graphs = findGraphs(dir);
+  if (graphs.length <= 1) return 0;
+
+  const byFile = new Map();
+  for (const graph of graphs) {
+    if (!byFile.has(graph.file)) byFile.set(graph.file, []);
+    byFile.get(graph.file).push(graph.index);
+  }
+
+  for (const [file, indexes] of byFile) {
+    const lines = fs.readFileSync(file, "utf8").split("\n");
+    for (const index of indexes) {
+      lines[index] = lines[index].replace(COORDS_WITH_GOP, "$1 0");
+    }
+    fs.writeFileSync(file, lines.join("\n"));
+  }
+
+  console.log(
+    `  ${slug}: ${graphs.length} graph-on-parent desligados na cópia de compilação ` +
+      `(${[...byFile.keys()].map((f) => path.basename(f)).join(", ")}) — ` +
+      `pd4web aceita só um graph por patch principal; é ajuste visual, não sonoro, ` +
+      `e patches/ não foi tocado.`,
+  );
+  return graphs.length;
+}
+
 function buildPatch(slug, pd4webBin) {
   const sourceDir = path.join(ROOT, "patches", slug);
   const manifest = JSON.parse(
@@ -231,6 +302,8 @@ function buildPatch(slug, pd4webBin) {
   fs.mkdirSync(path.dirname(workDir), { recursive: true });
   fs.cpSync(sourceDir, workDir, { recursive: true });
   fs.rmSync(path.join(workDir, "patch.json"), { force: true });
+
+  flattenGraphs(workDir, slug);
 
   const memory = String(manifest.build?.initialMemory ?? 64);
 

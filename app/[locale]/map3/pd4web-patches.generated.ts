@@ -44,7 +44,7 @@ export const GENERATED_MAP3_PD4WEB_PATCHES = [
     id: "paraisoGaia43",
     label: "Map sound 43",
     bundleFolder: "patches/paraisoGaia43",
-    runtime: "2e21f2bda61a",
+    runtime: "f20cb2b1b620",
     activation: {
       moments: ["map","player"],
     },
