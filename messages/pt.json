@@ -29,7 +29,9 @@
         "lightnings": "Raios",
         "firesSingular": "foco de fogo",
         "firesPlural": "focos de fogo",
-        "unavailable": "fonte indisponível"
+        "unavailable": "fonte indisponível",
+        "fireSpotsNearby": "{count, plural, =1 {# foco de fogo por perto} other {# focos de fogo por perto}}",
+        "lightningNearby": "{count, plural, =1 {# descarga elétrica por perto} other {# descargas elétricas por perto}}"
       }
     },
     "acknowledgement": "Agradecimentos:",

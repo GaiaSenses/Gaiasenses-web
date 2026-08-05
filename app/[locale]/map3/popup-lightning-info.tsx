@@ -36,8 +36,9 @@ export default async function PopupLightningInfo({
       <div className="flex items-end gap-1">
         <Zap size={20} />
         <p>
-          {lightningData.count} lightning strike
-          {lightningData.count !== 1 ? "s" : ""} nearby
+          {t("compositionInfo.labels.lightningNearby", {
+            count: lightningData.count,
+          })}
         </p>
       </div>
     </div>
