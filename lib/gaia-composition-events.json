@@ -1,0 +1,48 @@
+{
+  "$comment": "The published contract of each p5 animation. These names are NOT a per-patch binding — they belong to the animation and stay stable across every patch ever paired with it. A new patch for lightningBolts only needs [r bolt]; no TypeScript is edited. Adding an event here means editing the sketch that emits it.",
+  "version": 1,
+  "compositions": {
+    "lightningBolts": {
+      "emits": [
+        {
+          "name": "bolt",
+          "kind": "bang",
+          "label": "Um raio foi desenhado",
+          "help": "Chega uma vez por raio. Numa tempestade forte podem ser dezenas por segundo.",
+          "emittedBy": "components/compositions/lightning-bolts/lightning-bolts-sketch.tsx"
+        }
+      ],
+      "listensTo": []
+    },
+    "lluvia": {
+      "emits": [
+        {
+          "name": "start",
+          "kind": "bang",
+          "label": "A animação começou",
+          "help": "Chega uma única vez, quando a chuva aparece na tela.",
+          "emittedBy": "components/compositions/lluvia/lluvia-sketch.tsx"
+        }
+      ],
+      "listensTo": [
+        {
+          "name": "paint",
+          "kind": "bang",
+          "label": "Desenhar uma gota",
+          "help": "Mande um bang para [s paint] e uma gota nova aparece na tela. É o patch controlando o visual.",
+          "consumedBy": "components/compositions/lluvia/lluvia-sketch.tsx"
+        }
+      ]
+    },
+    "curves": {
+      "emits": [],
+      "listensTo": [],
+      "note": "Compartilha o patch do mapa (keepMapPatch) e alimenta gaia.lat/gaia.lon a cada quadro com valores gerados, não com a posição real."
+    },
+    "cloudBubble": {
+      "emits": [],
+      "listensTo": [],
+      "note": "Compartilha o patch do mapa (keepMapPatch) e alimenta gaia.lat/gaia.lon e gaia.acc.* a cada 2 s com valores gerados."
+    }
+  }
+}

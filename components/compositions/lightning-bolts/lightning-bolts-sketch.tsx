@@ -7,6 +7,7 @@ import p5Types from "p5";
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { usePd4Web } from "@/app/[locale]/map3/pd4web-context";
+import { COMPOSITION_EVENTS } from "@/app/[locale]/map3/pd4web-patches";
 
 export type LightningBoltsSketchProps = {
   lightningCount: number;
@@ -66,7 +67,7 @@ function sketch(p5: P5CanvasInstance<SketchProps & LightningBoltsSketchProps>) {
         );
         p2.add(width / 2, height / 2);
         bolts.push(new ChaoticLine(p1, p2, 0.35, p5));
-        pd4web?.sendBang("bolt");
+        pd4web?.sendBang(COMPOSITION_EVENTS.lightningBolts.emits[0]);
       }
       boltTimer = 0;
     } else {

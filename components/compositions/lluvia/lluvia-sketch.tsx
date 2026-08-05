@@ -1,6 +1,7 @@
 "use client";
 
 import { usePd4Web } from "@/app/[locale]/map3/pd4web-context";
+import { COMPOSITION_EVENTS } from "@/app/[locale]/map3/pd4web-patches";
 //@ts-ignore this is generating require calls, should look into that
 import { NextReactP5Wrapper } from "@p5-wrapper/next";
 //@ts-ignore this is generating require calls, should look into that
@@ -55,7 +56,7 @@ function sketch(p5: P5CanvasInstance<LluviaSketchProps>) {
     if (nextPlay && pd && !paintListenerMap.get(pd)) {
       paintListenerMap.set(pd, true);
       console.log("Attaching paint listener to pd4web instance:", pd);
-      pd.onBangReceived("paint", (name: string) => {
+      pd.onBangReceived(COMPOSITION_EVENTS.lluvia.listensTo[0], () => {
         spawnDrop();
       });
     }
@@ -93,7 +94,7 @@ export function LluviaSketch({ play }: LluviaSketchProps) {
   const { pd4web } = usePd4Web();
 
   useEffect(() => {
-    pd4web?.sendBang("start");
+    pd4web?.sendBang(COMPOSITION_EVENTS.lluvia.emits[0]);
   }, [pd4web]);
 
   return <NextReactP5Wrapper sketch={sketch} play={play} pd4web={pd4web} />;

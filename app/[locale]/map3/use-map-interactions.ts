@@ -143,7 +143,11 @@ export function useMapInteractions({
       const newSearchParams = new URLSearchParams(searchParams.toString());
       newSearchParams.set("initial", "false");
       newSearchParams.set("lat", e.coords.latitude.toString());
-      newSearchParams.set("lon", e.coords.longitude.toString());
+      // "lng", not "lon": every reader in the app — page.tsx, the middleware,
+      // use-ble-sensor — uses "lng". Writing "lon" here left the old longitude
+      // untouched in the URL, so pressing "find my location" moved the map to
+      // the right latitude at the wrong longitude, with nothing reporting it.
+      newSearchParams.set("lng", e.coords.longitude.toString());
       newSearchParams.set("mode", "map");
       router.replace(`${pathname}?${newSearchParams.toString()}`);
     },

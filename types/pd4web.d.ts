@@ -196,4 +196,12 @@ declare const Pd4WebModule: pd4web.Pd4WebModule;
 interface Window {
   Pd4WebAudioContext?: AudioContext;
   Pd4WebAudioWorkletNode?: AudioNode;
+  /**
+   * The patch currently loaded, assigned by Pd4WebProvider.
+   *
+   * Handy from the browser console when a patch reacts to data that happens to
+   * be zero — `Pd4Web.sendBang("bolt")` proves a thunder patch works on a day
+   * with no lightning.
+   */
+  Pd4Web?: pd4web.Pd4Web;
 }

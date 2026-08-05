@@ -1,0 +1,188 @@
+{
+  "$comment": "Single source of truth for the gaia.* receiver vocabulary. Imported by the app (lib/gaia-vocabulary.ts) and by the build scripts (scripts/*.mjs). Editing this file changes what musicians can listen to AND what the app sends — keep the two in sync by wiring every new channel in gaiasenses-map.tsx.",
+  "version": 1,
+  "channels": [
+    {
+      "id": "gaia.lat",
+      "direction": "in",
+      "kind": "float",
+      "source": "map",
+      "unit": "°",
+      "range": [-90, 90],
+      "aliases": ["latitude", "lati"],
+      "label": "Latitude do centro do mapa",
+      "help": "Onde o globo está apontando agora. Sul é negativo, norte é positivo."
+    },
+    {
+      "id": "gaia.lon",
+      "direction": "in",
+      "kind": "float",
+      "source": "map",
+      "unit": "°",
+      "range": [-180, 180],
+      "aliases": ["longitude", "rotacaoSite"],
+      "label": "Longitude do centro do mapa",
+      "help": "Oeste é negativo, leste é positivo."
+    },
+    {
+      "id": "gaia.speed",
+      "direction": "in",
+      "kind": "float",
+      "source": "map",
+      "unit": "°/s",
+      "range": [0, 180],
+      "aliases": [],
+      "label": "Velocidade de rotação do globo",
+      "help": "Quão rápido o público está girando o globo. Zero quando parado."
+    },
+    {
+      "id": "gaia.acc.x",
+      "direction": "in",
+      "kind": "float",
+      "source": "sensor",
+      "unit": "g",
+      "range": [-16, 16],
+      "aliases": ["aceX"],
+      "label": "Aceleração no eixo X (sensor Bolota)",
+      "help": "Só chega quando o sensor BLE está conectado."
+    },
+    {
+      "id": "gaia.acc.y",
+      "direction": "in",
+      "kind": "float",
+      "source": "sensor",
+      "unit": "g",
+      "range": [-16, 16],
+      "aliases": ["aceY"],
+      "label": "Aceleração no eixo Y (sensor Bolota)",
+      "help": "Só chega quando o sensor BLE está conectado."
+    },
+    {
+      "id": "gaia.acc.z",
+      "direction": "in",
+      "kind": "float",
+      "source": "sensor",
+      "unit": "g",
+      "range": [-16, 16],
+      "aliases": ["aceZ"],
+      "label": "Aceleração no eixo Z (sensor Bolota)",
+      "help": "Só chega quando o sensor BLE está conectado."
+    },
+    {
+      "id": "gaia.co2",
+      "direction": "in",
+      "kind": "float",
+      "source": "sensor",
+      "unit": "ppm",
+      "range": [400, 5000],
+      "aliases": ["co2"],
+      "label": "CO₂ medido pelo sensor",
+      "help": "Ar livre fica perto de 420 ppm. Sala fechada com gente passa de 1000 ppm."
+    },
+    {
+      "id": "gaia.temp",
+      "direction": "in",
+      "kind": "float",
+      "source": "weather",
+      "unit": "°C",
+      "range": [-60, 55],
+      "aliases": [],
+      "label": "Temperatura do ar",
+      "help": "Do local para onde o globo está apontando."
+    },
+    {
+      "id": "gaia.humidity",
+      "direction": "in",
+      "kind": "float",
+      "source": "weather",
+      "unit": "%",
+      "range": [0, 100],
+      "aliases": [],
+      "label": "Umidade relativa do ar"
+    },
+    {
+      "id": "gaia.clouds",
+      "direction": "in",
+      "kind": "float",
+      "source": "weather",
+      "unit": "%",
+      "range": [0, 100],
+      "aliases": [],
+      "label": "Cobertura de nuvens"
+    },
+    {
+      "id": "gaia.rain",
+      "direction": "in",
+      "kind": "float",
+      "source": "weather",
+      "unit": "mm/h",
+      "range": [0, 100],
+      "aliases": [],
+      "label": "Chuva na última hora",
+      "help": "Zero na maior parte do tempo. Acima de 10 já é chuva forte."
+    },
+    {
+      "id": "gaia.wind.speed",
+      "direction": "in",
+      "kind": "float",
+      "source": "weather",
+      "unit": "m/s",
+      "range": [0, 60],
+      "aliases": [],
+      "label": "Velocidade do vento"
+    },
+    {
+      "id": "gaia.wind.deg",
+      "direction": "in",
+      "kind": "float",
+      "source": "weather",
+      "unit": "°",
+      "range": [0, 360],
+      "aliases": [],
+      "label": "Direção do vento",
+      "help": "0 é vento vindo do norte, 90 do leste."
+    },
+    {
+      "id": "gaia.lightning",
+      "direction": "in",
+      "kind": "float",
+      "source": "weather",
+      "unit": "contagem",
+      "range": [0, 500],
+      "aliases": [],
+      "label": "Raios detectados por perto",
+      "help": "Contagem do satélite GOES-19 num raio de 100 km."
+    },
+    {
+      "id": "gaia.fire",
+      "direction": "in",
+      "kind": "float",
+      "source": "weather",
+      "unit": "contagem",
+      "range": [0, 500],
+      "aliases": [],
+      "label": "Focos de queimada por perto",
+      "help": "Contagem do NASA FIRMS num raio de 100 km."
+    },
+    {
+      "id": "gaia.sensors",
+      "direction": "in",
+      "kind": "list",
+      "arity": 7,
+      "source": "sensor",
+      "aliases": ["input"],
+      "label": "Pacote completo do sensor",
+      "help": "Lista de 7 valores: giroX giroY giroZ aceX aceY aceZ co2. Use [list split] para separar."
+    },
+    {
+      "id": "gaia.out",
+      "direction": "out",
+      "kind": "list",
+      "arity": 2,
+      "source": "map",
+      "aliases": ["output"],
+      "label": "O patch move o globo",
+      "help": "Envie uma lista de 2 valores — latitude e longitude — e o globo vai para lá."
+    }
+  ]
+}

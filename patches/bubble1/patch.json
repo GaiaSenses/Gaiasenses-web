@@ -1,0 +1,11 @@
+{
+  "$schema": "../../schemas/gaia.patch.schema.json",
+  "schemaVersion": 1,
+  "id": "bubble1",
+  "label": "Bubble 1",
+  "description": "Bolhas sonoras que respondem à chuva desenhada pela animação lluvia.",
+  "author": { "name": "Equipe GaiaSenses" },
+  "license": "CC-BY-4.0",
+  "build": { "initialMemory": 64 },
+  "activation": { "moments": ["player"], "compositions": ["lluvia"] }
+}

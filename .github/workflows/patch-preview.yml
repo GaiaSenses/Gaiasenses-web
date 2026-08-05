@@ -1,0 +1,98 @@
+name: Link de preview para o músico
+
+# The build workflow cannot know the preview URL: Vercel is still deploying when
+# it finishes. This runs on the deployment event instead, so the listen link the
+# musician receives is a real, clickable URL rather than an instruction to
+# assemble one by hand.
+#
+# The URL comes from the deployment_status payload that Vercel's GitHub
+# integration emits, so no VERCEL_TOKEN or API call is involved.
+on:
+  deployment_status
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  comment:
+    name: Atualizar o comentário com o link
+    if: >
+      github.event.deployment_status.state == 'success' &&
+      github.event.deployment.environment != 'Production' &&
+      github.event.deployment_status.environment_url != ''
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.deployment.sha }}
+
+      - uses: actions/github-script@v7
+        env:
+          PREVIEW_URL: ${{ github.event.deployment_status.environment_url }}
+        with:
+          script: |
+            const { execFileSync } = require("child_process");
+            const fs = require("fs");
+
+            const sha = context.payload.deployment.sha;
+            const { data: prs } =
+              await github.rest.repos.listPullRequestsAssociatedWithCommit({
+                ...context.repo,
+                commit_sha: sha,
+              });
+            if (prs.length === 0) {
+              core.info("Deployment não pertence a nenhum pull request.");
+              return;
+            }
+            const pr = prs[0];
+
+            // Only talk about patches that this pull request actually touches,
+            // so an unrelated preview does not advertise every patch in the repo.
+            const { data: files } = await github.rest.pulls.listFiles({
+              ...context.repo,
+              pull_number: pr.number,
+              per_page: 300,
+            });
+            const slugs = [
+              ...new Set(
+                files
+                  .map((f) => f.filename.match(/^patches\/([^/]+)\//))
+                  .filter(Boolean)
+                  .map((m) => m[1]),
+              ),
+            ].filter((slug) => fs.existsSync(`patches/${slug}/patch.json`));
+
+            if (slugs.length === 0) {
+              core.info("Nenhum patch alterado neste pull request.");
+              return;
+            }
+
+            const baseUrl = process.env.PREVIEW_URL.replace(/\/$/, "");
+            const body = execFileSync(
+              "node",
+              ["scripts/render-preview-comment.mjs", "--preview", baseUrl, ...slugs],
+              { encoding: "utf8" },
+            );
+
+            const { data: comments } = await github.rest.issues.listComments({
+              ...context.repo,
+              issue_number: pr.number,
+              per_page: 100,
+            });
+            const previous = comments.find((c) =>
+              c.body.includes("<!-- gaia-preview-bot -->"),
+            );
+            if (previous) {
+              await github.rest.issues.updateComment({
+                ...context.repo,
+                comment_id: previous.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                ...context.repo,
+                issue_number: pr.number,
+                body,
+              });
+            }

@@ -6,6 +6,7 @@ import { NextReactP5Wrapper } from "@p5-wrapper/next";
 import { useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { usePd4Web } from "@/app/[locale]/map3/pd4web-context";
+import { GAIA_LEGACY } from "@/lib/gaia-vocabulary";
 
 export type CurvesSketchProps = {
   rain: number;
@@ -84,14 +85,13 @@ function sketch(p5: P5CanvasInstance<SketchProps & CurvesSketchProps>) {
     const lat = randomLatitude();
     const lon = randomLongitude();
 
-    pd4web?.sendFloat(latitudeReceiver, lat);
-    pd4web?.sendFloat(longitudeReceiver, lon);
+    // Names come from the shared vocabulary, so a patch can listen on either
+    // the canonical gaia.* name or its historical alias.
+    pd4web?.sendFloat(GAIA_LEGACY.LAT, lat);
+    pd4web?.sendFloat(GAIA_LEGACY.LON, lon);
   };
 }
 
-const latitudeReceiver = "lati";
-const longitudeReceiver = "rotacaoSite";
-const pollFrequencyMs = 1000;
 
 export default function CurvesSketch(initialProps: CurvesSketchProps) {
   const { pd4web } = usePd4Web();

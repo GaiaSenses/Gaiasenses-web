@@ -6,6 +6,7 @@ import { NextReactP5Wrapper } from "@p5-wrapper/next";
 import { useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { usePd4Web } from "@/app/[locale]/map3/pd4web-context";
+import { GAIA_LEGACY } from "@/lib/gaia-vocabulary";
 
 export type CloudBubbleSketchProps = {
   clouds: number;
@@ -175,11 +176,11 @@ export default function CloudBubbleSketch(
       const accX = Math.random() * 5000;
       const accY = Math.random() * 5000;
       const accZ = Math.random() * 5000;
-      pd4web.sendFloat("lati", lat);
-      pd4web.sendFloat("rotacaoSite", lon);
-      pd4web.sendFloat("aceX", accX);
-      pd4web.sendFloat("aceY", accY);
-      pd4web.sendFloat("aceZ", accZ);
+      pd4web.sendFloat(GAIA_LEGACY.LAT, lat);
+      pd4web.sendFloat(GAIA_LEGACY.LON, lon);
+      pd4web.sendFloat(GAIA_LEGACY.ACC_X, accX);
+      pd4web.sendFloat(GAIA_LEGACY.ACC_Y, accY);
+      pd4web.sendFloat(GAIA_LEGACY.ACC_Z, accZ);
     }, 2000);
 
     return () => {

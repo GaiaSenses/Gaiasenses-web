@@ -1,0 +1,9 @@
+{
+  "slug": "paraisoGaia43",
+  "runtime": "2e21f2bda61a",
+  "initialMemory": 64,
+  "dataBytes": 926867,
+  "prebuilt": true,
+  "prebuiltFrom": "paraisoGaia43",
+  "prebuiltReason": "O pd4web 3.3 aceita apenas um graph no patch principal, e este tem mais de um (o subpatch 'anotações' contém outro). O bundle atual, compilado com uma versão anterior, continua sendo usado. Para voltar a compilar: consolidar os graphs do patch principal em um só."
+}

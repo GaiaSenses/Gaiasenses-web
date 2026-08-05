@@ -1,0 +1,19 @@
+{
+  "$schema": "../../schemas/gaia.patch.schema.json",
+  "schemaVersion": 1,
+  "id": "exemplo-clima",
+  "label": "Exemplo: temperatura",
+  "description": "Patch mínimo do tutorial. A temperatura do lugar para onde o globo aponta vira a altura de uma nota contínua. Não toca sozinho: abra com ?patch=exemplo-clima.",
+  "author": {
+    "name": "Tutorial GaiaSenses"
+  },
+  "license": "CC0-1.0",
+  "build": {
+    "initialMemory": 32
+  },
+  "activation": {
+    "moments": [
+      "player"
+    ]
+  }
+}
