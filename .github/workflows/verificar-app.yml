@@ -1,0 +1,61 @@
+name: Verificar app
+
+# The patch workflows only look at patches/**, so a change to the app itself had
+# no automated check at all. This one covers that gap: types, lint and the data
+# layer contract, on every PR that touches app code.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths-ignore:
+      - "patches/**"
+      - "public/patches/**"
+      - "public/pd4web-runtime/**"
+      - "docs/**"
+      - "**.md"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: verificar-app-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      # next-env.d.ts is gitignored, and tsc needs it to know about the Next
+      # types. next build writes it, but the type check runs first — so recreate
+      # the two reference lines rather than reordering the whole job.
+      - name: Recriar next-env.d.ts
+        run: |
+          printf '/// <reference types="next" />\n/// <reference types="next/image-types/global" />\n' > next-env.d.ts
+
+      - name: Tipos
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      # Contract tests for the data layer. No test framework: Node 22 strips the
+      # types itself and scripts/ts-resolve-hook.mjs supplies the extensionless
+      # and @/ resolution that Next does and plain Node does not.
+      - name: Testes de contrato
+        run: npm test
+
+      - name: Build
+        run: npm run build
+        env:
+          SATELLITE_API_URL: https://exemplo.invalid/prod
