@@ -31,11 +31,17 @@
         "firesPlural": "focos de fogo",
         "unavailable": "fonte indisponível",
         "fireSpotsNearby": "{count, plural, =1 {# foco de fogo por perto} other {# focos de fogo por perto}}",
-        "lightningNearby": "{count, plural, =1 {# descarga elétrica por perto} other {# descargas elétricas por perto}}"
+        "lightningNearby": "{count, plural, =1 {# descarga elétrica por perto} other {# descargas elétricas por perto}}",
+        "loadingWeather": "Carregando dados do clima…",
+        "loadingLocation": "Carregando a localidade…"
       }
     },
     "acknowledgement": "Agradecimentos:",
-    "acknowledgementText": "Este trabalho não teria sido possível sem o apoio dos pesquisadores do CEPAGRI, Dr.ª Priscila Coltri, Dr.ª Renata Gonçalves e Dr. Jurandir Zullo Jr., M.Sc. Bruno Bainy. O projeto GaiaSenses também contou com o apoio do Prof. Dr. Amílcar Cardoso, da Universidade de Coimbra, do Prof. Dr. Jônatas Manzolli (IA-NICS) e Prof. Dr. José Fornari (NICS), da Universidade Estadual de Campinas (UNICAMP), do Dr. Josué Ramos e do Dr. Hélio Azevedo, do DISCF/CTI Renato Archer, Dr. Anésio Azevedo Costa Neto, do IFSP e M.Sc. Guilherme Zanchetta (NICS/UNICAMP. Estudantes de diversos departamentos da UNICAMP têm contribuído para o desenvolvimento do GaiaSenses, incluindo Cássio Dezotti, Gabriel Kuae, Tauane Cardoso e Ru Yi Shen, da Faculdade de Engenharia de Controle e Automação; Elton do Nascimento, Thiago Lacerda, Isabella Rigue e Felipe Santana, do Instituto de Engenharia de Computação."
+    "acknowledgementText": "Este trabalho não teria sido possível sem o apoio dos pesquisadores do CEPAGRI, Dr.ª Priscila Coltri, Dr.ª Renata Gonçalves e Dr. Jurandir Zullo Jr., M.Sc. Bruno Bainy. O projeto GaiaSenses também contou com o apoio do Prof. Dr. Amílcar Cardoso, da Universidade de Coimbra, do Prof. Dr. Jônatas Manzolli (IA-NICS) e Prof. Dr. José Fornari (NICS), da Universidade Estadual de Campinas (UNICAMP), do Dr. Josué Ramos e do Dr. Hélio Azevedo, do DISCF/CTI Renato Archer, Dr. Anésio Azevedo Costa Neto, do IFSP e M.Sc. Guilherme Zanchetta (NICS/UNICAMP. Estudantes de diversos departamentos da UNICAMP têm contribuído para o desenvolvimento do GaiaSenses, incluindo Cássio Dezotti, Gabriel Kuae, Tauane Cardoso e Ru Yi Shen, da Faculdade de Engenharia de Controle e Automação; Elton do Nascimento, Thiago Lacerda, Isabella Rigue e Felipe Santana, do Instituto de Engenharia de Computação.",
+    "meta": {
+      "title": "GaiaSenses — clima que vira imagem e som",
+      "description": "Composições audiovisuais geradas em tempo real com dados climáticos e de satélite do lugar que você escolher. Arte e ciência no CTI Renato Archer."
+    }
   },
   "Notification": {
     "notificationTitle": "Notificações",

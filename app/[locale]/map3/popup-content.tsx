@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { ReactNode, Suspense } from "react";
 import PopupLocationInfo from "./popup-location-info";
 import PopupWeatherInfo from "./popup-weather-info";
@@ -18,12 +19,14 @@ export default async function PopupContent({
   lang,
   children,
 }: DataPopupProps) {
+  const t = await getTranslations("Index");
+
   return (
     <div>
-      <Suspense fallback={<p>Loading Location</p>}>
+      <Suspense fallback={<p>{t("compositionInfo.labels.loadingLocation")}</p>}>
         <PopupLocationInfo lat={lat} lng={lng} lang={lang}></PopupLocationInfo>
       </Suspense>
-      <Suspense fallback={<p>Loading weather info</p>}>
+      <Suspense fallback={<p>{t("compositionInfo.labels.loadingWeather")}</p>}>
         <PopupWeatherInfo lat={lat} lon={lng} lang={lang}></PopupWeatherInfo>
       </Suspense>
       <Suspense fallback={null}>
