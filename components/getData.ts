@@ -59,24 +59,22 @@ export type LightningResponseData = {
  * component, so the value stays out of the browser bundle. Do not rename this to
  * NEXT_PUBLIC_*.
  *
- * The literal below is the endpoint in use today and exists so the site keeps
- * working in environments where the variable has not been set yet. It is a
- * migration aid, not a default worth keeping: once SATELLITE_API_URL is set in
- * Vercel for all environments, drop the fallback and let a missing value fail.
+ * There is no fallback. The literal that used to live here was a migration aid
+ * while the variable was being set up; keeping it would have meant the id of the
+ * account we are trying to leave stayed in source, which is the whole thing
+ * ARQ-01 set out to remove. It is now set in Vercel for every environment, and
+ * locally it belongs in .env.local — see .env.example.
+ *
+ * A missing value does not throw. It reports the source as unavailable, which is
+ * the vocabulary BUG-02 established: the callers already handle null, the map
+ * popups already say "fonte indisponível", and an unconfigured environment is a
+ * source you cannot reach. Throwing would take the whole page down over a
+ * configuration mistake, and a page that renders while naming what is missing is
+ * easier to diagnose than a stack trace.
  */
-const LEGACY_SATELLITE_API_URL =
-  "https://7ghevyl79d.execute-api.sa-east-1.amazonaws.com/prod";
-
-function satelliteApiUrl() {
+function satelliteApiUrl(): string | null {
   const configured = process.env.SATELLITE_API_URL?.trim();
-  if (configured) return configured.replace(/\/+$/, "");
-
-  console.warn(
-    "[satellite] SATELLITE_API_URL não está definida — usando o endpoint legado " +
-      "embutido no código. Defina a variável no ambiente para poder apontar o site " +
-      "para outra conta AWS sem alterar código.",
-  );
-  return LEGACY_SATELLITE_API_URL;
+  return configured ? configured.replace(/\/+$/, "") : null;
 }
 
 /**
@@ -98,13 +96,16 @@ function satelliteEndpoint(
   lat: string,
   lon: string,
   dist?: number,
-) {
+): string | null {
+  const base = satelliteApiUrl();
+  if (!base) return null;
+
   const query = new URLSearchParams({
     lat: Number(lat).toFixed(2),
     lon: Number(lon).toFixed(2),
   });
   if (dist !== undefined) query.set("dist", String(dist));
-  return `${satelliteApiUrl()}/${endpoint}?${query.toString()}`;
+  return `${base}/${endpoint}?${query.toString()}`;
 }
 
 /**
@@ -128,6 +129,15 @@ export default async function getData<T>(
   dist?: number,
 ): Promise<T | null> {
   const url = satelliteEndpoint(endpoint, lat, lon, dist);
+
+  if (!url) {
+    console.error(
+      `[satellite] ${endpoint} indisponível — SATELLITE_API_URL não está definida. ` +
+        "Defina-a no ambiente (Vercel: Settings → Environment Variables; " +
+        "local: .env.local) apontando para a base do API Gateway, sem barra final.",
+    );
+    return null;
+  }
 
   try {
     const res = await fetch(url, { next: { revalidate: 7200 } });
