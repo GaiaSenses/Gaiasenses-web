@@ -32,11 +32,26 @@ type GetOpenMeteoParams = {
 
 export default async function getOpenMeteo({ lat, lon }: GetOpenMeteoParams) {
   try {
-    const responses = await fetchWeatherApi(url, {
-      ...params,
-      latitude: lat,
-      longitude: lon,
-    });
+    // A lib aceita fetchOptions como 6º argumento e repassa ao fetch do Next.
+    // Sem isso a chamada ficava sujeita ao default do App Router e era refeita a
+    // cada render da página principal — a única fonte de dados do projeto sem
+    // nenhum controle de frequência.
+    //
+    // 15 min: o Open-Meteo publica em intervalos dessa ordem, então cachear mais
+    // que isso não perde nada, e a coordenada arredondada faz visitantes na
+    // mesma região compartilharem a resposta.
+    const responses = await fetchWeatherApi(
+      url,
+      {
+        ...params,
+        latitude: Number(Number(lat).toFixed(2)),
+        longitude: Number(Number(lon).toFixed(2)),
+      },
+      3,
+      0.2,
+      2,
+      { next: { revalidate: 900 } },
+    );
     const response = responses[0];
 
     // Attributes for timezone and location
