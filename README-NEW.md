@@ -158,6 +158,9 @@ Create `.env.local` in the repository root (it is gitignored via `.env*.local` �
 NEXT_PUBLIC_MAPBOX_API_ACCESS_TOKEN=pk.your_mapbox_token       # no token = black screen, no globe
 OPEN_WEATHER_API_KEY=your_openweather_key                      # reverse geocoding only (city names)
 
+# --- Satellite backend (fire + lightning) ---
+SATELLITE_API_URL=https://<api-id>.execute-api.<region>.amazonaws.com/prod
+
 # --- Recommended (session telemetry) ---
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
@@ -172,6 +175,7 @@ SUPABASE_SERVICE_ROLE_KEY=your_service_role_key                # ⚠️ most sen
 |---|---|---|
 | `NEXT_PUBLIC_MAPBOX_API_ACCESS_TOKEN` | ✅ Yes | Globe rendering (Mapbox GL) |
 | `OPEN_WEATHER_API_KEY` | ✅ Yes | Reverse geocoding (place names). Weather itself comes from Open-Meteo, key-free |
+| `SATELLITE_API_URL` | 🟡 Recommended | Base URL of the `satellite-fetcher-aws` API Gateway, without a trailing slash. Server-side only — never `NEXT_PUBLIC_*`. Falls back to the endpoint hardcoded in `components/getData.ts` and logs a warning, so the site still runs unset; set it so the backend can move to another AWS account without a code change |
 | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | 🟡 Recommended | Writes session telemetry to the `GaiaLogs` table |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | ⚪ Push only | Web-push (VAPID) notifications |
 | `SUPABASE_SERVICE_ROLE_KEY` | ⚪ Push only | Server-side access to `GaiaSubs` (used by the daily cron) |
@@ -457,7 +461,7 @@ AWS CDK (TypeScript) project that provisions the satellite-data backend consumed
 
 ## ⚠️ Known Issues & Tech Debt
 
-- 🔗 The AWS API Gateway URL is **hardcoded** in `components/getData.ts` — should become an env var (e.g., `SATELLITE_API_URL`).
+- 🔗 The AWS API Gateway URL now reads from `SATELLITE_API_URL` (ARQ-01). A literal fallback remains in `components/getData.ts` so unset environments keep working; remove it once the variable is set everywhere.
 - 📦 Several declared dependencies have **zero imports** (`mongodb`, `joy-con-webhid`, `@mediapipe/tasks-vision`, `@xenova/transformers`, `react-webcam`, `react-h5-audio-player`, `react-three-map`) — candidates for removal.
 - 🗂️ `public/` carries ~214 MB, including **six unregistered Pd4Web bundles** left from earlier experiments.
 - 🧟 `app/old-main/` is a legacy page with dead links (`/map`, `/compositions`) — pending removal.
