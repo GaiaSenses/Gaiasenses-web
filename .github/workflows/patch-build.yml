@@ -208,12 +208,13 @@ jobs:
             const { execFileSync } = require("child_process");
             const slugs = ${{ needs.detect.outputs.slugs }};
 
-            // The Vercel preview URL is not known yet at this point; the
-            // patch-preview workflow rewrites this comment with real links as
-            // soon as the deployment reports success.
+            // Reports what compiled. The listen link lives in a separate
+            // comment with its own marker, posted by patch-preview once the
+            // deployment URL exists — Vercel finishes before the build does, so
+            // sharing one comment meant this job always clobbered the link.
             const body = execFileSync(
               "node",
-              ["scripts/render-preview-comment.mjs", "", ...slugs],
+              ["scripts/render-preview-comment.mjs", "--build", ...slugs],
               { encoding: "utf8" },
             );
 
@@ -222,7 +223,7 @@ jobs:
               issue_number: context.issue.number,
               per_page: 100,
             });
-            const previous = comments.find((c) => c.body.includes("<!-- gaia-patch-bot -->"));
+            const previous = comments.find((c) => c.body.includes("<!-- gaia-build-bot -->"));
             if (previous) {
               await github.rest.issues.updateComment({ ...context.repo, comment_id: previous.id, body });
             } else {

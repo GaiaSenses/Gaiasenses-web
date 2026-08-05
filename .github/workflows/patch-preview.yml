@@ -71,7 +71,7 @@ jobs:
             const baseUrl = process.env.PREVIEW_URL.replace(/\/$/, "");
             const body = execFileSync(
               "node",
-              ["scripts/render-preview-comment.mjs", baseUrl, ...slugs],
+              ["scripts/render-preview-comment.mjs", "--preview", baseUrl, ...slugs],
               { encoding: "utf8" },
             );
 
@@ -81,7 +81,7 @@ jobs:
               per_page: 100,
             });
             const previous = comments.find((c) =>
-              c.body.includes("<!-- gaia-patch-bot -->"),
+              c.body.includes("<!-- gaia-preview-bot -->"),
             );
             if (previous) {
               await github.rest.issues.updateComment({

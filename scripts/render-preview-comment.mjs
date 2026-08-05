@@ -1,19 +1,25 @@
 #!/usr/bin/env node
 /**
- * Render the pull-request comment a musician reads after their patch is built.
+ * Render the pull-request comments a musician reads after their patch is built.
  *
- * Kept out of the workflow YAML because the listen link is not obvious and the
- * rule belongs next to a test, not inline in a shell step: a patch paired with an
- * animation must reach the player, since it is the animation that drives it —
- * a thunder patch opened on the globe alone is silent by design.
+ * There are two, with separate markers, because they arrive at different times
+ * and would otherwise overwrite each other. Measured on the first real run:
+ * Vercel finishes deploying at 00:11 and the patch build at 00:14, so a single
+ * shared comment always ended up as the build's version — without the link,
+ * which is the part the musician actually needs.
  *
- * `?patch=<id>` handles both cases. The title screen starts that patch and, when
- * it has a composition, forwards into the player for it. Linking straight at the
- * player instead would fail: the composition modal covers the start button, and
- * browsers refuse to start audio without a click.
+ *   --build    → what compiled, how big, what to do if it failed
+ *   --preview  → where to click to listen, once the deployment URL exists
+ *
+ * The listen link is `?patch=<id>` in both cases. That parameter starts the
+ * patch and, when the patch declares a composition, forwards into the player for
+ * it — a patch driven by an animation is silent on the globe alone. Linking
+ * straight at the player does not work either: the composition modal covers the
+ * start button, and browsers refuse to start audio without a click.
  *
  * Usage:
- *   node scripts/render-preview-comment.mjs <baseUrl|""> <slug> [...]
+ *   node scripts/render-preview-comment.mjs --build <slug> [...]
+ *   node scripts/render-preview-comment.mjs --preview <baseUrl> <slug> [...]
  */
 
 import fs from "node:fs";
@@ -21,7 +27,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const MARKER = "<!-- gaia-patch-bot -->";
+
+export const BUILD_MARKER = "<!-- gaia-build-bot -->";
+export const PREVIEW_MARKER = "<!-- gaia-preview-bot -->";
 
 function readManifest(slug) {
   const file = path.join(ROOT, "patches", slug, "patch.json");
@@ -33,53 +41,36 @@ function readBuildInfo(slug) {
   return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : null;
 }
 
-export function renderComment(baseUrl, slugs) {
+function split(slugs) {
   const built = [];
   const failed = [];
-
   for (const slug of slugs) {
     const info = readBuildInfo(slug);
     if (info) built.push({ slug, info, manifest: readManifest(slug) });
     else failed.push(slug);
   }
+  return { built, failed };
+}
 
-  const lines = [MARKER];
+export function renderBuildComment(slugs) {
+  const { built, failed } = split(slugs);
+  const lines = [BUILD_MARKER];
 
   if (built.length === 0) {
-    lines.push(
+    return [
+      ...lines,
       "## ✕ Nenhum patch compilou",
       "",
       `Não consegui compilar: ${failed.map((s) => `\`${s}\``).join(", ")}.`,
       "",
-      "Abra o log da execução (aba **Actions** acima) para ver a mensagem do compilador.",
-      "As causas mais comuns estão no [guia do músico](docs/musico/README.md).",
-    );
-    return lines.join("\n");
-  }
-
-  lines.push("## 🎧 Seu patch está pronto para ouvir", "");
-
-  for (const { slug, manifest } of built) {
-    const label = manifest?.label ?? slug;
-    const composition = manifest?.activation?.compositions?.[0];
-    const link = baseUrl
-      ? `${baseUrl}/pt/map3?patch=${encodeURIComponent(slug)}`
-      : null;
-
-    lines.push(
-      link
-        ? `- **[▶ Ouvir “${label}”](${link})**`
-        : `- **“${label}”** — abra o preview da Vercel (comentário logo abaixo) e acrescente \`/pt/map3?patch=${slug}\``,
-    );
-    if (composition) {
-      lines.push(`  - toca junto com a animação \`${composition}\``);
-    }
+      "Abra a aba **Actions** acima para ver a mensagem do compilador. As causas",
+      "mais comuns — e como resolver cada uma — estão no",
+      "[guia do músico](docs/musico/README.md).",
+    ].join("\n");
   }
 
   lines.push(
-    "",
-    "> Ao abrir, clique em **Iniciar** e depois em **Unmute** — o som começa desligado,",
-    "> e o navegador só o libera após um clique seu. Use fone de ouvido.",
+    "## ✅ Compilou",
     "",
     "| Patch | Tamanho | Memória | Runtime |",
     "|---|---|---|---|",
@@ -102,9 +93,39 @@ export function renderComment(baseUrl, slugs) {
 
   lines.push(
     "",
-    "**Não está ouvindo nada?** Pode ser que a sua peça dependa de um dado que agora",
-    "vale zero — um patch de trovão fica em silêncio quando não há raios. Abra o",
-    "console do navegador (F12) e force um valor:",
+    "O link para ouvir aparece em outro comentário assim que a Vercel terminar",
+    "de publicar o preview — leva cerca de dois minutos.",
+    "",
+    "<sub>🤖 Robô do GaiaSenses · [guia do músico](docs/musico/README.md) · [vocabulário](docs/musico/vocabulario.md)</sub>",
+  );
+
+  return lines.join("\n");
+}
+
+export function renderPreviewComment(baseUrl, slugs) {
+  const { built } = split(slugs);
+  const url = baseUrl.replace(/\/$/, "");
+  const lines = [PREVIEW_MARKER, "## 🎧 Ouça o seu patch", ""];
+
+  const listable = built.length > 0 ? built : slugs.map((slug) => ({ slug, manifest: readManifest(slug) }));
+
+  for (const { slug, manifest } of listable) {
+    const label = manifest?.label ?? slug;
+    const composition = manifest?.activation?.compositions?.[0];
+    lines.push(
+      `- **[▶ Ouvir “${label}”](${url}/pt/map3?patch=${encodeURIComponent(slug)})**` +
+        (composition ? ` — toca com a animação \`${composition}\`` : ""),
+    );
+  }
+
+  lines.push(
+    "",
+    "> Ao abrir, clique em **Iniciar** e depois em **Unmute** — o som começa",
+    "> desligado, e o navegador só o libera após um clique seu. Use fone de ouvido.",
+    "",
+    "**Não está ouvindo nada?** Pode ser que a sua peça dependa de um dado que",
+    "agora vale zero — um patch de trovão fica em silêncio quando não há raios.",
+    "Abra o console do navegador (F12) e force um valor:",
     "",
     "```js",
     'Pd4Web.sendBang("bolt")',
@@ -113,23 +134,36 @@ export function renderComment(baseUrl, slugs) {
     "",
     "Quer ajustar? Suba o arquivo corrigido **nesta mesma branch** e eu recompilo sozinho.",
     "",
-    "<sub>🤖 Robô do GaiaSenses · [guia do músico](docs/musico/README.md) · [vocabulário](docs/musico/vocabulario.md)</sub>",
+    "<sub>🤖 Robô do GaiaSenses · [guia do músico](docs/musico/README.md)</sub>",
   );
 
   return lines.join("\n");
 }
 
-export { MARKER };
-
 function main() {
-  const [baseUrl, ...slugs] = process.argv.slice(2);
-  if (slugs.length === 0) {
-    console.error(
-      'Usage: node scripts/render-preview-comment.mjs <baseUrl|""> <slug> [...]',
-    );
-    process.exit(1);
+  const args = process.argv.slice(2);
+  const mode = args[0];
+
+  if (mode === "--build") {
+    const slugs = args.slice(1);
+    if (slugs.length === 0) process.exit(1);
+    process.stdout.write(renderBuildComment(slugs));
+    return;
   }
-  process.stdout.write(renderComment(baseUrl || null, slugs));
+
+  if (mode === "--preview") {
+    const [baseUrl, ...slugs] = args.slice(1);
+    if (!baseUrl || slugs.length === 0) process.exit(1);
+    process.stdout.write(renderPreviewComment(baseUrl, slugs));
+    return;
+  }
+
+  console.error(
+    "Usage:\n" +
+      "  node scripts/render-preview-comment.mjs --build <slug> [...]\n" +
+      "  node scripts/render-preview-comment.mjs --preview <baseUrl> <slug> [...]",
+  );
+  process.exit(1);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
