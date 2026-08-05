@@ -85,14 +85,30 @@ function satelliteApiUrl() {
   return LEGACY_SATELLITE_API_URL;
 }
 
-/** Build the request URL for one of the satellite endpoints. */
+/**
+ * Build the request URL for one of the satellite endpoints.
+ *
+ * Coordinates are rounded to 2 decimals (~1 km) because they are the cache key.
+ * The `revalidate: 7200` below looks like a two-hour cache, but with raw
+ * coordinates every pixel of globe movement produced a distinct URL and
+ * therefore a fresh request — measured: four renders a few metres apart made
+ * four calls each to /fire and /lightning. The endpoints answer for a 100 km
+ * radius, so a kilometre of rounding changes nothing about the result while
+ * turning "a call per render" into "a call per neighbourhood per two hours".
+ *
+ * This matters beyond latency: /lightning downloads a NetCDF granule per
+ * invocation, and the backend has no throttle or spending ceiling (SEC-01).
+ */
 function satelliteEndpoint(
   endpoint: string,
   lat: string,
   lon: string,
   dist?: number,
 ) {
-  const query = new URLSearchParams({ lat, lon });
+  const query = new URLSearchParams({
+    lat: Number(lat).toFixed(2),
+    lon: Number(lon).toFixed(2),
+  });
   if (dist !== undefined) query.set("dist", String(dist));
   return `${satelliteApiUrl()}/${endpoint}?${query.toString()}`;
 }
@@ -262,12 +278,24 @@ export async function reverseGeocode(
   country: string;
   state?: string;
 } | null> {
-  const url = `http://api.openweathermap.org/geo/1.0/reverse?lat=${lat}&lon=${lon}&limit=${1}&appid=${
+  // Duas mudanças aqui, ambas por motivo próprio.
+  //
+  // https, não http: a URL carrega a OPEN_WEATHER_API_KEY, e em texto claro ela
+  // viaja legível por qualquer intermediário da rede.
+  //
+  // Coordenada arredondada a 2 casas (~1 km): o nome de um lugar não muda dentro
+  // de um quarteirão, mas a coordenada crua muda a cada pixel que o globo se
+  // move, e cada valor distinto era uma chamada nova à API. Arredondar é o que
+  // transforma "uma chamada por render" em "uma chamada por bairro por dia".
+  const cacheKeyLat = Number(lat).toFixed(2);
+  const cacheKeyLon = Number(lon).toFixed(2);
+  const url = `https://api.openweathermap.org/geo/1.0/reverse?lat=${cacheKeyLat}&lon=${cacheKeyLon}&limit=${1}&appid=${
     process.env.OPEN_WEATHER_API_KEY
   }`;
 
   try {
-    const res = await fetch(url);
+    // Nome de lugar é praticamente imutável: 24 h de cache.
+    const res = await fetch(url, { next: { revalidate: 86400 } });
     if (!res.ok) {
       throw new Error(
         `Response from reverse geocode was not ok. Status: ${
