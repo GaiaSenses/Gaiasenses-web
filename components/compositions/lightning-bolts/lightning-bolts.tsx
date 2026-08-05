@@ -36,7 +36,10 @@ export default async function LightningBolts(props: LightningBoltsProps) {
   try {
     if (props.today) {
       const data = await getLightning(props.lat, props.lon, 100);
-      lightningCount = data.count;
+      // Fonte indisponível não é zero: a animação não tem como desenhar
+      // "não sei", então fica no mínimo. Quem avisa o público é o painel
+      // de informações, que mostra o estado indisponível em vez de um número.
+      lightningCount = data?.count ?? 0;
       console.log(data);
     }
   } catch (error) {

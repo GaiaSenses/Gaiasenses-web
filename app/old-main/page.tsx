@@ -112,14 +112,16 @@ export default async function Page({
       windDegData = weatherData.wind.deg;
       city = weatherData.city;
       state = weatherData.state;
-      const lightningData = getLightning(lat, lon, 50);
-      lightningCountData = (await lightningData).count;
+      // Página legada (HIG-04): mantida compilando, não corrigida. Trata fonte
+      // indisponível como zero porque não há UI aqui para dizer outra coisa.
+      const lightningData = await getLightning(lat, lon, 50);
+      lightningCountData = lightningData?.count ?? 0;
 
       fireData = await getFireSpots(lat, lon, 50);
-      fireCount = fireData.count;
+      fireCount = fireData?.count ?? 0;
 
       const brightnessData = await getBrightness(lat, lon);
-      brightnessTemperature = brightnessData.temp;
+      brightnessTemperature = brightnessData?.temp ?? 0;
     } catch (error) {
       console.log(error);
       error = error;

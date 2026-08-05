@@ -57,8 +57,10 @@ export async function GET(req: Request){
             windSpeed: weather.wind?.speed ?? null,
             windDeg: weather.wind?.deg ?? null,
             humidity: weather.main?.humidity ?? null,
-            lightningCount: lightning.count ?? 0,
-            fireSpotsCount: fireSpots?.count ?? 0,
+            // null, não 0: esta rota devolve JSON para quem quiser consumir, e um
+            // consumidor precisa distinguir "nenhum raio" de "não consegui saber".
+            lightningCount: lightning?.count ?? null,
+            fireSpotsCount: fireSpots?.count ?? null,
             rain: (weather.rain as { "1h": number } | undefined)?.["1h"] ?? 0,
             pressure: weather.main?.pressure ?? null,
             pressure_grnd_level: weather.main?.grnd_level ?? null,

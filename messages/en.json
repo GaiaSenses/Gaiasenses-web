@@ -29,7 +29,8 @@
         "co2": "CO2",
         "lightnings": "Lightnings",
         "firesSingular": "Fire",
-        "firesPlural": "Fires"
+        "firesPlural": "Fires",
+        "unavailable": "source unavailable"
       }
     },
     "acknowledgement": "Acknowledgement:",

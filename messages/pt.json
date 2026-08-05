@@ -29,7 +29,8 @@
         "co2": "CO2",
         "lightnings": "Raios",
         "firesSingular": "foco de fogo",
-        "firesPlural": "focos de fogo"
+        "firesPlural": "focos de fogo",
+        "unavailable": "fonte indisponível"
       }
     },
     "acknowledgement": "Agradecimentos:",

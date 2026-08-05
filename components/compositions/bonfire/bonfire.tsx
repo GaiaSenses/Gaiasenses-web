@@ -43,8 +43,12 @@ export default async function Bonfire(props: BonfireProps) {
   if (props.today) {
     try {
       const fireData = await getFireSpots(props.lat, props.lon, 100);
-      fireCount = fireData.count;
-      closeFires = fireData.events.filter((item) => item.dist < 50).length;
+      // Fonte indisponível não é zero: a animação não tem como desenhar
+      // "não sei", então fica no mínimo. Quem avisa o público é o painel
+      // de informações, que mostra o estado indisponível em vez de um número.
+      fireCount = fireData?.count ?? 0;
+      closeFires =
+        fireData?.events.filter((item) => item.dist < 50).length ?? 0;
     } catch (error) {
       console.log("Server responded with error.");
       console.log(error);

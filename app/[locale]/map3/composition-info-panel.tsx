@@ -31,9 +31,11 @@ type CompositionInfoPanelProps = {
     lightnings: string;
     firesSingular: string;
     firesPlural: string;
+    unavailable: string;
   };
-  lightningCount?: number;
-  fireSpotsCount?: number;
+  /** `null` quando a fonte não respondeu; distinto de 0, que é "não há". */
+  lightningCount: number | null;
+  fireSpotsCount: number | null;
   co2Ppm: number | null;
   locationInfo: { name: string; state: string; country: string };
   lat: number;
@@ -70,8 +72,8 @@ export default function CompositionInfoPanel({
   compositionAttributes = [],
   weather,
   weatherLabels,
-  lightningCount = 0,
-  fireSpotsCount = 0,
+  lightningCount,
+  fireSpotsCount,
   co2Ppm,
   locationInfo,
   lat,
@@ -97,7 +99,7 @@ export default function CompositionInfoPanel({
   const metricClass = (highlight: boolean) =>
     highlight ? "font-medium" : "font-light";
   const fireLabel =
-    Math.round(fireSpotsCount) > 1
+    Math.round(fireSpotsCount ?? 0) > 1
       ? weatherLabels.firesPlural
       : weatherLabels.firesSingular;
 
@@ -159,23 +161,38 @@ export default function CompositionInfoPanel({
             {weatherLabels.rain} {formatNumber(weather.rain1h, 1)} mm/h
           </p>
         )}
-        {lightningCount > 0 && (
-          <p
-            className={metricClass(
-              hasAnyAttribute("lightningcount", "lightnings", "lightning"),
-            )}
-          >
-            {weatherLabels.lightnings} {Math.round(lightningCount)}
+        {/* null é dito em voz alta; 0 continua silencioso, como sempre foi.
+            Antes os dois eram a mesma coisa, e uma queda do backend passava por
+            céu calmo sem que ninguém — público ou pesquisador — percebesse. */}
+        {lightningCount === null ? (
+          <p className="font-light italic opacity-70">
+            {weatherLabels.lightnings}: {weatherLabels.unavailable}
           </p>
+        ) : (
+          lightningCount > 0 && (
+            <p
+              className={metricClass(
+                hasAnyAttribute("lightningcount", "lightnings", "lightning"),
+              )}
+            >
+              {weatherLabels.lightnings} {Math.round(lightningCount)}
+            </p>
+          )
         )}
-        {fireSpotsCount > 0 && (
-          <p
-            className={metricClass(
-              hasAnyAttribute("firecount", "firespots", "fires", "fire"),
-            )}
-          >
-            {Math.round(fireSpotsCount)} {fireLabel}
+        {fireSpotsCount === null ? (
+          <p className="font-light italic opacity-70">
+            {weatherLabels.firesPlural}: {weatherLabels.unavailable}
           </p>
+        ) : (
+          fireSpotsCount > 0 && (
+            <p
+              className={metricClass(
+                hasAnyAttribute("firecount", "firespots", "fires", "fire"),
+              )}
+            >
+              {Math.round(fireSpotsCount)} {fireLabel}
+            </p>
+          )
         )}
         <p className={metricClass(hasAnyAttribute("co2"))}>
           {weatherLabels.co2}{" "}

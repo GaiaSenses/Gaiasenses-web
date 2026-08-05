@@ -97,12 +97,26 @@ function satelliteEndpoint(
   return `${satelliteApiUrl()}/${endpoint}?${query.toString()}`;
 }
 
-export default async function getData(
+/**
+ * Fetch one satellite endpoint, returning `null` when the source is unavailable.
+ *
+ * `null` means "we do not know", and it is deliberately not zero. A backend that
+ * is down used to be indistinguishable from a calm sky: this function swallowed
+ * every error and returned `undefined` while its signature promised data, so
+ * every caller read `.count` off nothing and quietly settled on zero. A real
+ * thunderstorm and a broken deploy produced the same silence — which is fatal for
+ * a project whose subject is the weather, and worse for any research done on top
+ * of it, since the record cannot tell an outage from a quiet night.
+ *
+ * Returning `null` from a typed signature forces each caller to decide what an
+ * unknown means for it. Do not "simplify" this back to `?? 0`.
+ */
+export default async function getData<T>(
   endpoint: string,
   lat: string,
   lon: string,
   dist?: number,
-) {
+): Promise<T | null> {
   const url = satelliteEndpoint(endpoint, lat, lon, dist);
 
   try {
@@ -112,22 +126,26 @@ export default async function getData(
       // The old messages here named satellite-fetcher.up.railway.app, a backend
       // decommissioned in 2023. Reporting a URL that was never called sends
       // whoever is debugging to the wrong place.
-      throw new Error(
-        `Failed to fetch data from ${url} — got status ${res.status}: ${res.statusText}`,
+      console.error(
+        `[satellite] ${endpoint} indisponível — ${url} respondeu ${res.status} ${res.statusText}`,
       );
+      return null;
     }
-    return res.json();
+
+    return (await res.json()) as T;
   } catch (error) {
-    console.log(error);
+    console.error(`[satellite] ${endpoint} indisponível — ${url}`, error);
+    return null;
   }
 }
 
+/** Fire spots near a point, or `null` when NASA FIRMS could not be reached. */
 export async function getFireSpots(
   lat: string,
   lon: string,
   dist?: number,
-): Promise<FireSpotsResponseData> {
-  return await getData("fire", lat, lon, dist);
+): Promise<FireSpotsResponseData | null> {
+  return await getData<FireSpotsResponseData>("fire", lat, lon, dist);
 }
 
 async function openWeather(
@@ -226,29 +244,28 @@ export async function getWeather(
   return resp;
 }
 
+/**
+ * Lightning near a point, or `null` when the GOES pipeline could not be reached.
+ *
+ * This used to answer a failure with `{count: 1, state: "This is mock data..."}`
+ * — an invented strike. That branch was in fact unreachable, because getData
+ * never threw, so the real behaviour was a silent zero. Both are fabrications;
+ * they merely lie in opposite directions. Neither belongs in a system whose
+ * output is an artwork about real weather.
+ */
 export async function getLightning(
   lat: string,
   lon: string,
   dist: number,
-): Promise<LightningResponseData> {
-  try {
-    const res = await getData("lightning", lat, lon, dist);
-    return res;
-  } catch (error) {
-    return {
-      city: "Test",
-      count: 1,
-      events: [{ lat: lat, lon: lon, dist: dist }],
-      state: "This is mock data in case of server error.",
-    };
-  }
+): Promise<LightningResponseData | null> {
+  return await getData<LightningResponseData>("lightning", lat, lon, dist);
 }
 
 export async function getBrightness(
   lat: string,
   lon: string,
-): Promise<BrightnessResponseData> {
-  return getData("brightness", lat, lon);
+): Promise<BrightnessResponseData | null> {
+  return getData<BrightnessResponseData>("brightness", lat, lon);
 }
 
 export async function reverseGeocode(
