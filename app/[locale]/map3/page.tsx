@@ -11,7 +11,6 @@ import { getTranslations } from "next-intl/server";
 import { CompositionDropdown } from "./composition-dropdown";
 import InfoModal from "./info-modal";
 import {
-  getBrightness,
   getFireSpots,
   getLightning,
   getWeather,
