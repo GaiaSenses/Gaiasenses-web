@@ -25,10 +25,11 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      // /controller depends on a socket server that no longer answers, and
-      // /gaiaball is a sensor debugging surface. Neither is something to send a
-      // visitor arriving from a search engine into.
-      disallow: ["/api/", "/pt/controller", "/en/controller", "/pt/gaiaball", "/en/gaiaball"],
+      // /gaiaball is a sensor debugging surface — not something to send a
+      // visitor arriving from a search engine into. /controller used to be
+      // listed here too; the route is gone, along with the socket server it
+      // depended on.
+      disallow: ["/api/", "/pt/gaiaball", "/en/gaiaball"],
     },
     sitemap: `${SITE_URL}/sitemap.xml`,
   };
