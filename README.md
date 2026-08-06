@@ -158,8 +158,9 @@ Create `.env.local` in the repository root (it is gitignored via `.env*.local` �
 NEXT_PUBLIC_MAPBOX_API_ACCESS_TOKEN=pk.your_mapbox_token       # no token = black screen, no globe
 OPEN_WEATHER_API_KEY=your_openweather_key                      # reverse geocoding only (city names)
 
-# --- Satellite backend (fire + lightning) ---
+# --- Satellite backend (fire + lightning + rain) ---
 SATELLITE_API_URL=https://<api-id>.execute-api.<region>.amazonaws.com/prod
+SATELLITE_API_KEY=your_api_gateway_key                         # the backend refuses requests without it
 
 # --- Recommended (session telemetry) ---
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
@@ -169,6 +170,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
 NEXT_PUBLIC_VAPID_PUBLIC_KEY=your_vapid_public_key
 VAPID_PRIVATE_KEY=your_vapid_private_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key                # ⚠️ most sensitive key — bypasses RLS
+CRON_SECRET=your_cron_secret                                   # unset = /api/notifications sends nothing
 ```
 
 | Variable | Required? | Purpose |
@@ -303,7 +305,7 @@ public/<bundleFolder>/
 
 `startPatch(patchId)` performs, in order:
 
-1. Looks up the patch metadata in `pd4web-patches.ts`;
+1. Looks up the patch metadata in `pd4web-patches.ts` (accessors over the generated registry);
 2. Dynamically imports `/<bundleFolder>/pd4web.js` (the Emscripten loader);
 3. Fetches `/<bundleFolder>/pd4web.wasm`;
 4. Initializes the patch via the `Pd4Web` class (`openPatch("index.pd")` + `init()`, which starts Web Audio);
@@ -313,66 +315,94 @@ public/<bundleFolder>/
 
 `stopPatch()` → applies a 0.5 s fade-out, closes the AudioContext and audio resources, clears the active-patch state.
 
-### Patch registry & binding metadata (`app/[locale]/map3/pd4web-patches.ts`)
+### The `gaia.*` vocabulary — how a patch binds to the app
 
-Every patch entry declares **when** it activates and **how** it binds to the app:
+**The patch declares its own bindings, by using them.** A composer puts
+`[r gaia.temp]` in their Pure Data patch and the temperature arrives. There is
+no registration step, no TypeScript to edit, and no list of receiver names to
+keep in sync on two sides.
 
-| Field | Values | Purpose |
-|---|---|---|
-| `activation.moments` | `["map"]`, `["player"]`, or both | In which mode(s) the patch may run |
-| `activation.compositions` | optional list of composition keys | Restricts a player patch to specific compositions |
-| `binding.type` | `"map-center"` \| `"none"` | `map-center` wires the patch to globe position + sensor data |
-| `binding.…Receiver` | Pd receive-symbol names | `latitudeReceiver`, `longitudeReceiver`, `sensorListReceiver`, `outputListReceiver`, `accXReceiver`/`accYReceiver`/`accZReceiver`, `co2Receiver` |
-| `binding.pollMs` / `epsilon` / `accEpsilon` | numbers | Send interval (ms) and change thresholds — values are only re-sent when the delta exceeds the epsilon |
+`scripts/gen-patch-registry.mjs` scans the `.pd` files for objects in the
+`gaia.` namespace and writes `pd4web-patches.generated.ts` from what it finds,
+together with `patches/<slug>/patch.json`. **That file is generated — never
+edit it by hand.**
 
-Complete example of a map-mode patch registration:
+The complete list of channels lives in
+[`docs/musico/vocabulario.md`](docs/musico/vocabulario.md), which is also
+generated, in Portuguese, and written for musicians rather than developers. It
+is not repeated here on purpose: an earlier version of this README carried its
+own copy of the binding names, and that copy is what went stale. A shape of it:
 
-```ts
+| Group | Examples |
+|---|---|
+| Globe | `gaia.lat`, `gaia.lon`, `gaia.speed` |
+| Weather at the point the globe faces | `gaia.temp`, `gaia.humidity`, `gaia.clouds`, `gaia.rain`, `gaia.wind.speed`, `gaia.wind.deg`, `gaia.lightning`, `gaia.fire` |
+| Bolota BLE sensor, only while connected | `gaia.acc.x/y/z`, `gaia.co2`, `gaia.sensors` |
+| Patch → app | `[s gaia.out]` — send a list of two floats and the globe moves there |
+| Animation events | `[r bolt]` (lightningBolts), `[r start]` / `[s paint]` (lluvia) |
+
+Older patches used names of their own — `latitude`, `aceX`, `co2`, `input`,
+`output`. Those still work: the manifest resolves them as aliases of the
+canonical channel, so nothing had to be rewritten when the vocabulary arrived.
+New patches should use `gaia.*`.
+
+A typo does **not** fail silently the way it used to. `npm run patches:validate`
+reads the patch, and anything in the `gaia.` namespace that is not a real
+channel is an error with a spelling suggestion — `gaia.temperatura` is reported
+as a probable `gaia.temp`. A patch that listens to no channel and no animation
+event is also flagged, since it is almost certainly a mistake.
+
+`patch.json` carries what cannot be read from the patch itself: identity,
+author, licence, when it may activate, and tuning.
+
+```jsonc
 {
-  id: "myMapPatch",
-  label: "My Map Patch",
-  bundleFolder: "my-map-patch", // must match the folder name under public/
-  activation: {
-    moments: ["map"],
-  },
-  binding: {
-    type: "map-center",
-    latitudeReceiver: "latitude",
-    longitudeReceiver: "longitude",
-    sensorListReceiver: "input",
-    outputListReceiver: "output",
-    accXReceiver: "aceX",
-    accYReceiver: "aceY",
-    accZReceiver: "aceZ",
-    co2Receiver: "input_co2",
-    pollMs: 64,
-    epsilon: 0.5,
-    accEpsilon: 0.05,
-  },
+  "id": "paraisoGaia43",
+  "label": "Map sound 43",
+  "author": { "name": "…" },
+  "license": "CC-BY-4.0",
+  "build": { "initialMemory": 64 },
+  "activation": { "moments": ["map", "player"] },
+  "tuning": { "pollMs": 64, "epsilon": 0.5, "accEpsilon": 0.05 }
 }
 ```
+
+`tuning` controls how often values are sent and how much they must change to be
+sent again — values below the epsilon are not re-sent.
 
 ### App ⇄ Pd message contract
 
 ```text
-App → Pd   receiver "input"  (every 64 ms, list):
+App → Pd   gaia.sensors   (every pollMs, list):
            [gyroX gyroY gyroZ accX accY accZ co2]
 
-Pd → App   receiver "output" (list):
+Pd → App   gaia.out       (list):
            [latitude longitude]   → moves the globe target
 ```
 
-The map patch is **part of the control loop**, not just an audio sink: with the default mapping method (`pd`), the patch computes the globe's target position from accelerometer data. Safety rule (implemented in `gaiasenses-map.tsx`): Pd output only moves the globe while a sensor is connected (input mode ≠ mouse). Without a sensor, the app sends `latitude`/`longitude`/`aceX/Y/Z`/`input_co2` as individual floats instead.
+The map patch is **part of the control loop**, not just an audio sink: with the
+default mapping method (`pd`), the patch computes the globe's target position
+from accelerometer data. Safety rule (implemented in `gaiasenses-map.tsx`): Pd
+output only moves the globe while a sensor is connected (input mode ≠ mouse).
+Without a sensor, the app sends the individual channels as floats instead.
 
-Available Pd4Web methods: `sendBang`, `sendFloat`, `sendList`, `sendSymbol` and listeners `onBangReceived`, `onFloatReceived`, `onListReceived`, `onSymbolReceived`. Reference sketches: **lightningBolts** (sketch → patch), **lluvia** (start bang + periodic events from patch → drawing).
+Available Pd4Web methods: `sendBang`, `sendFloat`, `sendList`, `sendSymbol` and
+listeners `onBangReceived`, `onFloatReceived`, `onListReceived`,
+`onSymbolReceived`. Reference sketches: **lightningBolts** (sketch → patch),
+**lluvia** (start bang + periodic events from patch → drawing).
 
-> ⚠️ **Always keep receiver names synchronized.** Receiver names are plain strings shared between TypeScript (`pd4web-patches.ts`) and the `[receive]` objects inside the Pure Data patch — nothing type-checks them across that boundary. A mismatch fails **silently**: the patch runs, but no data arrives. Whenever a patch is recompiled or edited, re-check its receive symbols against the registry entry (the patch log panel is the fastest way to verify).
+> 🔎 **From the browser console**, `Pd4Web.sendFloat` talks straight to Pd, so it
+> takes the receiver name **inside the patch**, not the canonical one. On a
+> patch that still uses legacy names, `Pd4Web.sendFloat("latitude", -23.55)`
+> works and `sendFloat("gaia.lat", …)` does not — the registry does that
+> translation, and the console does not go through it. Only one patch runs at a
+> time, so a channel belonging to another patch reaches nothing.
 
 ### Binding patterns
 
 #### Pattern A — dedicated player patch
 Patch runs only for one composition in player mode.
-1. Add the patch to `pd4web-patches.ts` with `activation.moments: ["player"]` and `activation.compositions: ["<compositionKey>"]` (recommended for clarity).
+1. Declare `activation.moments: ["player"]` and `activation.compositions: ["<compositionKey>"]` in `patches/<slug>/patch.json`, then run `npm run patches:codegen`.
 2. Set `patchId` on the composition entry in `compositions-info.tsx`; leave `keepMapPatch` unset (or `false`).
 
 *Runtime behavior:* when the composition is selected and player mode opens, `composition-dropdown.tsx` **stops the current map patch** (if active and `keepMapPatch` is false) and **starts the patch referenced by `patchId`**. `toggle-play-button.tsx` handles restoring/stopping patches when returning from the player to the map.
@@ -382,12 +412,26 @@ Composition keeps the map's audio running: set `keepMapPatch: true` on the compo
 
 *Runtime behavior:* `gaiasenses-map.tsx` computes `hasSharedPd4WebPatch` from `keepMapPatch`, which allows the map patch to remain active while the player composition is displayed.
 
-### ➕ Adding a map-mode patch (checklist)
+### ➕ Adding a patch (checklist)
 
-1. Compile with `pd4web --export-es6-module --nogui`.
-2. Copy the bundle to `public/<your-bundle-folder>/` (must contain the 4 files above).
-3. Register it in `app/[locale]/map3/pd4web-patches.ts` with a `map-center` binding and the correct receiver names.
-4. Start it via the map audio button and validate I/O in the **patch log panel** (`pd4web-patch-log.tsx`).
+Nothing here compiles or registers by hand — the scripts do both.
+
+1. Put the sources in `patches/<slug>/`: `main.pd`, any `Libs/`, and a
+   `patch.json` (copy a neighbour's and edit identity, licence and activation).
+2. Use `gaia.*` channels inside the patch. That is the binding.
+3. `npm run patches:validate` — checks the manifest, the channels and the
+   spelling of anything in the `gaia.` namespace.
+4. `npm run patches:build` — compiles with pd4web into `public/patches/<slug>/`
+   and installs the wasm runtime under `public/pd4web-runtime/<hash>/`, shared
+   between patches that compile to identical code.
+5. `npm run patches:codegen` — regenerates the registry, the musician
+   vocabulary and the issue template.
+6. Start it from the map audio button and check I/O in the **patch log panel**
+   (`pd4web-patch-log.tsx`).
+
+`npm run patches:check` verifies the generated files are current, so a
+forgotten step 5 fails in CI instead of shipping a registry that disagrees with
+the patches.
 
 ---
 
@@ -445,7 +489,7 @@ If you have 10 minutes to understand a bug, open these in order:
 1. `app/[locale]/map3/gaiasenses-map.tsx` — the orchestrator; everything passes through here
 2. `components/getData.ts` — the entire external data layer in one file (including the AWS coupling)
 3. `app/[locale]/map3/use-ble-sensor.ts` → `use-sensor-smoothing.ts` — sensor pipeline
-4. `app/[locale]/map3/pd4web-context.tsx` → `pd4web-patches.ts` — audio lifecycle and patch registry
+4. `app/[locale]/map3/pd4web-context.tsx` → `pd4web-patches.ts` — audio lifecycle and the accessors over `pd4web-patches.generated.ts`
 5. `components/compositions/compositions-info.tsx` — the catalog; then `use-composition-queue.ts` for auto-selection
 
 This path covers almost all behavior coupling in `map3`.
