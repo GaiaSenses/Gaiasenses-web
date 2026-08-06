@@ -15,26 +15,19 @@ conta for encerrada amanhã, o time consegue agir?**
 | **AWS** (satellite-fetcher) | `283236387908`, do projeto | endpoint responde 200 nas três rotas | ✅ resolvido em ago/2026 |
 | **Supabase** | organização **CTI**, plano free | consulta SQL responde | 🟡 plano free pausa por inatividade |
 | **Open-Meteo** (clima) | nenhuma — API sem chave | em uso pelo site | ✅ sem conta, sem risco |
-| **NASA FIRMS** (`FIRMS_MAP_KEY`) | chave gratuita, cadastro por e-mail | `/fire` responde 200 | 🟡 dono do cadastro não confirmado |
-| **OpenWeather** (`OPEN_WEATHER_API_KEY`) | **desconhecida** | chave válida — HTTP 200 | 🔴 ninguém sabe de quem é |
+| **NASA FIRMS** (`FIRMS_MAP_KEY`) | **`gaiasenses.cti@gmail.com`** | `/fire` responde 200 com a chave nova | ✅ resolvido em ago/2026 |
+| **OpenWeather** (`OPEN_WEATHER_API_KEY`) | **`gaiasenses.cti@gmail.com`** | geocoding reverso devolve São Paulo | ✅ resolvido em ago/2026 |
 | **Mapbox** | pessoal, de quem saiu do projeto | JWT do token: `{"u":"fmammoli"}` | 🔴 não dá para restringir nem rotacionar |
 | **Render** (servidor do controller) | **desconhecida** | `gaiasenses-controller-server.onrender.com` → **HTTP 404** | 🔴 serviço não existe mais |
 | **Vercel** (deploy) | organização do projeto | produção no ar | ✅ |
 | **VAPID** (push) | par de chaves, não é conta | contato: `gaiasenses.cti@gmail.com` | 🟡 se as chaves se perderem, toda inscrição morre |
 
-## O que fazer com os três vermelhos
+## O que fazer com o vermelho que resta
 
 **Mapbox** — decisão do time de pesquisa, com material pronto em
 [`mapa-alternativas.md`](mapa-alternativas.md): cadastrar um cartão institucional
 e criar a conta do projeto, ou migrar para MapLibre, que já tem spike funcionando
 e não pede cadastro nem cartão.
-
-**OpenWeather** — a chave funciona, então há uma conta ativa em algum lugar. É
-usada só para geocoding reverso, ou seja, converter coordenada em nome de
-lugar; o clima em si vem do Open-Meteo, que não pede chave. Duas saídas:
-descobrir de quem é a conta, ou trocar o geocoding por um serviço sem cadastro
-e eliminar a dependência. A segunda é mais barata do que parece, dado o quão
-pequeno é o uso.
 
 **Render** — o servidor já não existe. Isso não é uma conta a recuperar, é a
 confirmação de que `/pt/controller` aponta para o nada. A decisão pendente sobre
@@ -45,11 +38,6 @@ essa rota — remover ou ressuscitar — agora tem a evidência que faltava.
 **Supabase no plano free** pausa projetos por inatividade. Com o banco pausado,
 o cron de push falha e o site perde a telemetria. Também é o que impede o
 upgrade do Postgres, que segue com patches de segurança pendentes.
-
-**NASA FIRMS** dá chaves gratuitas por cadastro de e-mail. A chave em uso
-funciona, mas ninguém confirmou sob qual e-mail ela foi emitida. Se for pessoal,
-vale reemitir sob `gaiasenses.cti@gmail.com` — leva minutos e é a correção mais
-barata desta lista.
 
 **VAPID** não é conta, é um par de chaves. Mas a pública está gravada em toda
 inscrição de push já feita: perder a privada significa que nenhuma delas volta a
