@@ -22,7 +22,18 @@
  */
 import { test, describe, before } from "node:test";
 import assert from "node:assert/strict";
-import webpush from "web-push";
+import { createRequire } from "node:module";
+
+/**
+ * `web-push` ships no type declarations, so `import webpush from "web-push"`
+ * fails `tsc --noEmit` with TS7016 — which is exactly how this suite broke the
+ * main branch once. Loading it through `createRequire` keeps the type checker
+ * out of a module it cannot describe, and avoids adding `@types/web-push` just
+ * to satisfy one line in one test. The rest of the test tooling here is
+ * dependency-free on purpose; this stays that way.
+ */
+const require = createRequire(import.meta.url);
+const webpush = require("web-push");
 
 const FUSO = "America/Sao_Paulo";
 
