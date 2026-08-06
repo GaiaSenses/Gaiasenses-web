@@ -78,6 +78,39 @@ function satelliteApiUrl(): string | null {
 }
 
 /**
+ * The API Gateway key, sent as `x-api-key`.
+ *
+ * The backend used to answer anyone who asked. It now sits behind a key, a
+ * throttle and a monthly quota, because an open endpoint has no ceiling and
+ * "inside the free tier" was a hope rather than a property of the system.
+ *
+ * Safe to hold here: this module only ever runs on the server. The variable
+ * carries no NEXT_PUBLIC_ prefix, the calls happen inside Next.js server-side
+ * fetches, and the key never reaches a browser.
+ *
+ * Missing key is not fatal, and deliberately so. It is reported and the request
+ * goes out anyway: the request then answers 403 and the caller handles it the
+ * same way it handles any unreachable source. Refusing to send would turn a
+ * misconfiguration into silence, which is harder to diagnose than a 403 in the
+ * logs.
+ */
+function satelliteHeaders(): HeadersInit | undefined {
+  const key = process.env.SATELLITE_API_KEY?.trim();
+
+  if (!key) {
+    console.error(
+      "[satellite] SATELLITE_API_KEY não está definida — o API Gateway vai " +
+        "responder 403. Defina-a no ambiente (Vercel: Settings → Environment " +
+        "Variables; local: .env.local). O valor sai de: aws apigateway " +
+        "get-api-key --api-key <id> --include-value --query value --output text",
+    );
+    return undefined;
+  }
+
+  return { "x-api-key": key };
+}
+
+/**
  * Build the request URL for one of the satellite endpoints.
  *
  * Coordinates are rounded to 2 decimals (~1 km) because they are the cache key.
@@ -140,7 +173,10 @@ export default async function getData<T>(
   }
 
   try {
-    const res = await fetch(url, { next: { revalidate: 7200 } });
+    const res = await fetch(url, {
+      headers: satelliteHeaders(),
+      next: { revalidate: 7200 },
+    });
 
     if (!res.ok) {
       // The old messages here named satellite-fetcher.up.railway.app, a backend
@@ -225,7 +261,10 @@ export async function reverseGeocode(
 
   try {
     // Nome de lugar é praticamente imutável: 24 h de cache.
-    const res = await fetch(url, { next: { revalidate: 86400 } });
+    const res = await fetch(url, {
+      headers: satelliteHeaders(),
+      next: { revalidate: 86400 },
+    });
     if (!res.ok) {
       throw new Error(
         `Response from reverse geocode was not ok. Status: ${
