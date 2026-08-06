@@ -207,4 +207,30 @@ describe("HIG-09 — geocoding reverso", () => {
     responderCom(status(401, "Invalid API key"));
     assert.equal(await reverseGeocode("-23.55", "-46.63"), null);
   });
+
+  /**
+   * A chave do nosso API Gateway não pode vazar para a OpenWeather. Não é só
+   * higiene: ela responde 401 e ignora o `appid` quando recebe um `x-api-key`,
+   * então o nome do lugar simplesmente para de resolver.
+   *
+   * Foi o que aconteceu ao acrescentar a chave — os dois `fetch` deste arquivo
+   * foram tratados como se ambos fossem do satélite, e só um é. Ficou em
+   * produção porque o sintoma é discreto: o painel mostra vírgula e nada mais,
+   * e nenhum status de erro aparece.
+   */
+  test("não manda a chave do satélite para a OpenWeather", async () => {
+    process.env.SATELLITE_API_KEY = "chave-do-gateway";
+    responderCom(ok([{ name: "São Paulo" }]));
+
+    await reverseGeocode("-23.55", "-46.63");
+
+    const enviados = new Headers(
+      (chamadas[0].init?.headers as HeadersInit) ?? {},
+    );
+    assert.equal(
+      enviados.get("x-api-key"),
+      null,
+      "a chave do API Gateway foi enviada para um serviço de terceiro",
+    );
+  });
 });

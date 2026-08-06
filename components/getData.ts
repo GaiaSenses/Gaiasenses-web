@@ -261,8 +261,15 @@ export async function reverseGeocode(
 
   try {
     // Nome de lugar é praticamente imutável: 24 h de cache.
+    //
+    // Sem `satelliteHeaders()`. Esta é a única chamada deste arquivo que NÃO vai
+    // para o nosso API Gateway, e mandar o `x-api-key` para a OpenWeather não é
+    // inofensivo: ela responde 401 e ignora o `appid` da query. Foi o que
+    // aconteceu quando a chave foi acrescentada — os dois `fetch` do arquivo
+    // foram tratados como se fossem do satélite, e o nome do lugar parou de
+    // resolver em produção. Credencial vai para quem a pediu, e para mais
+    // ninguém.
     const res = await fetch(url, {
-      headers: satelliteHeaders(),
       next: { revalidate: 86400 },
     });
     if (!res.ok) {
