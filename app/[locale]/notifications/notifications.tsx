@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from 'react';
-import { isValidEmail, subscribeUser, unsubscribeUser } from '@/lib/notifications.js';
+import { isValidEmail, scheduleNextPush, subscribeUser, unsubscribeUser } from '@/lib/notifications.js';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu,
 	DropdownMenuTrigger,
@@ -86,37 +86,33 @@ export default function PushNotificationManager() {
 			setSubscription(sub);
 			const serializedSub = JSON.parse(JSON.stringify(sub));
 
-			let first_push = new Date();
 			let formatFreq = "";
-			
+
 			switch (frequency) {
-				/*
-				case 'Notification.notification60secTest':
-					first_push.setUTCMinutes(first_push.getUTCMinutes() + 1);
-					formatFreq = '60secondTest';
-					break;
-				*/
 				case 'Daily':
 				case 'Diária':
-					first_push.setUTCDate(first_push.getUTCDate() + 1);
 					formatFreq = 'Daily';
 					break;
 
 				case 'Weekly':
-				case 'Semanal':			
-					first_push.setUTCDate(first_push.getUTCDate() + 7);
+				case 'Semanal':
 					formatFreq = 'Weekly';
 					break;
 
 				case 'Monthly':
 				case 'Mensal':
-					first_push.setUTCMonth(first_push.getUTCMonth() + 1);
 					formatFreq = 'Monthly';
 					break;
-			
+
 				default:
 					break;
 			}
+
+			// O primeiro envio segue a mesma regra dos seguintes, calculada no
+			// servidor. Antes, `first_push` era a hora da inscrição deslocada em
+			// UTC, então quem se inscrevia de madrugada caía num horário que o
+			// cron diário nunca visitava.
+			const first_push = await scheduleNextPush(formatFreq);
 
 			await subscribeUser({name, email, freq: formatFreq, first_push, sub: serializedSub});
 
