@@ -3,15 +3,19 @@ name: Verificar app
 # The patch workflows only look at patches/**, so a change to the app itself had
 # no automated check at all. This one covers that gap: types, lint and the data
 # layer contract, on every PR that touches app code.
+# This job is a required status check on main, and that removes the option of
+# skipping it. A `paths-ignore` list used to sit here, so a docs-only pull
+# request never ran this workflow — which is fine until the check is required,
+# at which point GitHub waits forever for a report that will never arrive and
+# the pull request can never merge.
+#
+# So it runs on every pull request, including the ones that only touch Markdown.
+# That costs a few minutes of CI on changes that cannot break anything. The
+# alternative is a required check that sometimes does not report, which is worse
+# than wasteful: it is a gate that quietly stops being a gate.
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-    paths-ignore:
-      - "patches/**"
-      - "public/patches/**"
-      - "public/pd4web-runtime/**"
-      - "docs/**"
-      - "**.md"
   push:
     branches: [main]
   workflow_dispatch:
