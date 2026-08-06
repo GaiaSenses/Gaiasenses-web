@@ -8,8 +8,8 @@ const LOCALES = ["pt", "en"] as const;
 
 /**
  * Only the two pages a visitor should land on: the locale entry, which redirects
- * into the app, and the app itself. /controller and /gaiaball are deliberately
- * absent for the same reason robots.ts excludes them.
+ * into the app, and the app itself. /gaiaball is deliberately absent for the
+ * same reason robots.ts excludes it.
  *
  * Each entry declares the other language through `alternates.languages`, so a
  * search engine can serve whichever one the reader wants instead of guessing.
