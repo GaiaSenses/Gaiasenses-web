@@ -44,3 +44,7 @@ next-env.d.ts
 /.pd4web-venv
 /.pd4web-root
 /.pd4web-build
+
+# Capturas do Playwright MCP. Registram a página inteira, inclusive
+# tokens que aparecem em atributos e URLs — nunca devem ser versionadas.
+.playwright-mcp/
