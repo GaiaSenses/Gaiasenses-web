@@ -46,9 +46,34 @@ depois que o Mapbox fechou a licença na v2. A API é a mesma de onde o fork
 saiu, e o `react-map-gl` que já está no projeto suporta os dois — há um ponto de
 entrada `react-map-gl/maplibre`. Não usa token.
 
-O ponto que decide a viabilidade é a **projeção em globo**: ela chegou ao
-MapLibre na v5. Antes de qualquer decisão isso precisa de um teste real no
-projeto — é a única incerteza técnica relevante aqui, e vale meio dia de spike.
+### O spike foi feito — o globo funciona
+
+A incerteza técnica está respondida. A página `/[locale]/spike-mapa` (branch
+`spike/maplibre-globo`) roda MapLibre GL JS v6 com `react-map-gl/maplibre`, que
+já estava instalado, e `projection={{ type: "globe" }}`. **Sem token, sem
+cadastro, sem cartão.** O globo gira e responde normalmente.
+
+O que o spike também mostrou é que o problema mudou de lugar: não é mais *se*
+dá, é *como fica*.
+
+| hoje — Mapbox `standard` | MapLibre + OpenFreeMap `liberty` |
+|---|---|
+| ![](imagens/globo-mapbox-hoje.png) | ![](imagens/globo-maplibre-openfreemap.png) |
+
+O Mapbox entrega oceano azul, halo de atmosfera, estrelas e rótulos de país já
+no zoom 2 — é isso que faz a tela de abertura parecer um planeta. Os estilos do
+OpenFreeMap são pensados para mapa plano de rua: o oceano sai quase branco e o
+globo lê como um disco claro.
+
+Tentei fechar a diferença dentro do spike, com `setSky` e sobrescrita das
+camadas `water` e `background`. Nenhuma das duas pegou — os nomes de camada do
+liberty não batem, e o prop `sky` não é repassado pelo `react-map-gl` v8. Parei
+aí de propósito: dá para resolver com um estilo próprio, mas isso é trabalho a
+ser dimensionado, não remendo de spike.
+
+Também vale registrar uma incompatibilidade encontrada: o `maplibre-gl` v5 não
+serve, porque o `react-map-gl` 8.1.1 importa `dist/maplibre-gl.mjs`, arquivo que
+só existe a partir do v6.
 
 O MapLibre é o motor; o desenho vem de uma fonte de tiles separada:
 
@@ -76,15 +101,17 @@ planeta e o som responde à latitude e longitude. Descartado.
 
 ## Recomendação
 
-Vale medir antes de decidir. O spike do MapLibre + OpenFreeMap custa pouco e
-responde a única pergunta aberta — se o globo fica bom o bastante. Com uma
-captura de tela lado a lado, a conversa com o time de pesquisa deixa de ser
-sobre preferência e passa a ser sobre o que se vê.
+A conversa com o time de pesquisa agora pode ser sobre o que se vê, e não sobre
+preferência. As duas imagens acima são o material.
 
-Se o resultado agradar, o Caminho B tira o projeto de uma dependência que hoje
-ninguém controla, sem custo e sem cartão. Se não agradar, o Caminho A é
-legítimo, e aí o pedido ao time de pesquisa vem com a evidência de que a
-alternativa livre foi testada.
+A escolha ficou assim:
+
+- **Se o visual do planeta é parte da identidade do GaiaSenses** — e a tela de
+  abertura sugere que é —, o Caminho A entrega isso sem trabalho nenhum, ao
+  custo de um cartão institucional. O Caminho B chega perto, mas exige construir
+  um estilo próprio, o que é um projeto com começo, meio e fim, não um ajuste.
+- **Se o mapa é sobretudo funcional**, o Caminho B resolve hoje, de graça, e
+  ainda tira o projeto de uma dependência que ninguém controla.
 
 O que **não** é opção é seguir como está: um token de terceiro, irrestrito, que
 o projeto não pode rotacionar nem substituir com urgência.
