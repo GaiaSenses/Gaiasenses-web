@@ -149,10 +149,16 @@ export function renderPreviewComment(baseUrl, slugs) {
 /**
  * O mesmo comentário de preview, para quem enviou uma animação.
  *
- * O link aponta direto para o player daquela animação, e não para o globo: uma
- * animação declarada não é escolhida pelo clima até que alguém a acrescente às
- * categorias, então o sorteio não a mostraria. Quem acabou de enviá-la quer vê-la
- * na hora.
+ * O link pousa no mapa com a animação pré-selecionada, e **não** direto no
+ * player. A primeira versão apontava para `?mode=player&play=true`, e o
+ * resultado era animação sem som nenhum: navegador não deixa áudio começar sem
+ * um clique, e pular a tela inicial é pular justamente o clique. O aviso já
+ * estava escrito no topo deste arquivo, para o link do patch, e eu o repeti do
+ * mesmo jeito no link da animação.
+ *
+ * As coordenadas vão explícitas pelo mesmo motivo de sempre: a `middleware` só
+ * preenche lat/lng quando o next-intl redireciona, e numa URL que já traz o
+ * idioma não há redirecionamento. Sem elas o link fica à mercê do que sobrar.
  *
  * Se a animação também tem um patch pareado, o link com `?patch=` já cobre os
  * dois — o patch abre o player da animação dele sozinho. Por isso este
@@ -169,7 +175,10 @@ export function renderCompositionPreviewComment(baseUrl, slugs, pairedIds = []) 
     const manifest = JSON.parse(fs.readFileSync(file, "utf8"));
     if (pairedIds.includes(manifest.id)) continue;
 
-    const query = `?mode=player&composition=${encodeURIComponent(manifest.id)}&play=true`;
+    // São Paulo como ponto de partida: precisa ser um lugar concreto, e é o
+    // mesmo padrão que a middleware usa quando não sabe de onde vem a visita.
+    const query =
+      `?lat=-23.55&lng=-46.63&composition=${encodeURIComponent(manifest.id)}`;
     lines.push(
       `- **[▶ Ver “${manifest.label}”](${url}/pt/map3${query})**` +
         (manifest.attributes?.length
@@ -182,9 +191,14 @@ export function renderCompositionPreviewComment(baseUrl, slugs, pairedIds = []) 
 
   lines.push(
     "",
-    "> A animação recebe o clima **do lugar para onde o link aponta**. Troque",
-    "> `lat` e `lon` na barra de endereço para ver como ela responde a outro",
-    "> tempo — um sketch de chuva fica parado num dia seco, e isso está certo.",
+    "> Ao abrir, clique em **Iniciar** e depois no botão com o nome da animação.",
+    "> São dois cliques porque o navegador só libera áudio depois de um gesto",
+    "> seu — um link que já cai dentro da animação mostra a imagem e fica mudo.",
+    "",
+    "A animação recebe o clima **do lugar para onde o link aponta**, que começa em",
+    "São Paulo. Troque `lat` e `lng` na barra de endereço para ver como ela",
+    "responde a outro tempo — um sketch de chuva fica parado num dia seco, e isso",
+    "está certo.",
     "",
     "Quer ajustar? Suba o arquivo corrigido **nesta mesma branch** e eu republico.",
     "",
