@@ -23,9 +23,6 @@ const VOCABULARY = JSON.parse(
 );
 
 const ATTRIBUTES = VOCABULARY.attributes;
-const ALIASES = Object.fromEntries(
-  Object.entries(VOCABULARY.aliases).filter(([chave]) => chave !== "$comment"),
-);
 
 /** ids são chaves de objeto em TypeScript gerado, e nomes de pasta. */
 const ID_PATTERN = /^[a-z][a-zA-Z0-9]{1,39}$/;
@@ -68,10 +65,9 @@ function closestName(alvo, candidatos) {
   return menor <= Math.max(2, Math.floor(alvo.length / 2)) ? melhor : null;
 }
 
+/** Um dado tem um nome só. Errar a grafia é erro, com sugestão. */
 function canonical(nome) {
-  if (nome in ATTRIBUTES) return nome;
-  const apelido = ALIASES[nome];
-  return apelido && apelido in ATTRIBUTES ? apelido : null;
+  return nome in ATTRIBUTES ? nome : null;
 }
 
 function validateManifest(manifest, slug, errors, warnings, aliasesUsed) {
@@ -121,6 +117,8 @@ function validateManifest(manifest, slug, errors, warnings, aliasesUsed) {
   validateAudio(manifest, slug, onde, errors, warnings);
 }
 
+const OPERADORES = ["min", "max", "below", "above"];
+
 function validateAudio(manifest, slug, onde, errors, warnings) {
   const audio = manifest.audio;
   if (!audio || typeof audio !== "object") return;
@@ -133,54 +131,78 @@ function validateAudio(manifest, slug, onde, errors, warnings) {
   if (audio.kind !== "mp3") return;
 
   const arquivos = [];
+  const declarados = Array.isArray(manifest.attributes)
+    ? manifest.attributes.filter((nome) => canonical(nome))
+    : [];
 
   if (audio.file !== undefined) {
     arquivos.push(audio.file);
-  } else if (Array.isArray(audio.steps)) {
-    if (audio.by === undefined) {
-      errors.push(`${onde}: audio com "steps" precisa de "by" dizendo qual dado decide`);
-    } else if (!canonical(audio.by)) {
-      errors.push(`${onde}: audio.by "${audio.by}" não é um dado disponível`);
-    } else if (
-      Array.isArray(manifest.attributes) &&
-      !manifest.attributes.some((nome) => canonical(nome) === canonical(audio.by))
-    ) {
-      errors.push(
-        `${onde}: audio.by é "${audio.by}", mas ele não está em "attributes" — ` +
-          `o dado não seria buscado e a regra escolheria sempre a mesma faixa`,
-      );
+  } else if (Array.isArray(audio.rules)) {
+    if (audio.rules.length === 0) {
+      errors.push(`${onde}: audio.rules está vazio`);
     }
 
-    // Faixas fora de ordem escolhem o arquivo errado sem erro nenhum: a
-    // primeira que couber vence, então uma faixa larga na frente engole as
-    // seguintes.
-    let anterior = -Infinity;
-    for (const [indice, faixa] of audio.steps.entries()) {
-      if (faixa.below !== undefined) {
-        if (faixa.below <= anterior) {
+    for (const [indice, regra] of audio.rules.entries()) {
+      const onde2 = `${onde}: audio.rules[${indice}]`;
+
+      if (typeof regra.file !== "string") {
+        errors.push(`${onde2} precisa de "file" (use "" para silêncio)`);
+      } else if (regra.file) {
+        arquivos.push(regra.file);
+      }
+
+      const ultima = indice === audio.rules.length - 1;
+
+      if (!regra.when || Object.keys(regra.when).length === 0) {
+        // Uma regra sem condição é o caso final: tudo depois dela é inalcançável.
+        if (!ultima) {
           errors.push(
-            `${onde}: audio.steps[${indice}] tem "below" ${faixa.below}, que não é ` +
-              `maior que o anterior (${anterior}). As faixas precisam subir`,
+            `${onde2} não tem condição, então as regras seguintes nunca seriam ` +
+              `alcançadas. Só a última pode ser incondicional`,
           );
         }
-        anterior = faixa.below;
-      } else if (indice !== audio.steps.length - 1) {
-        errors.push(
-          `${onde}: só a última faixa pode omitir "below" — as depois dela ` +
-            `nunca seriam alcançadas`,
+        continue;
+      }
+
+      if (ultima) {
+        warnings.push(
+          `compositions/${slug}: a última regra de áudio tem condição, então ` +
+            `existe um estado do clima em que a animação fica muda. Deixe a ` +
+            `última sem "when" para cobrir o resto`,
         );
       }
-      if (faixa.file) arquivos.push(faixa.file);
-    }
 
-    if (audio.steps.at(-1)?.below !== undefined) {
-      warnings.push(
-        `compositions/${slug}: a última faixa de áudio tem "below", então ` +
-          `valores acima dela ficam sem som. Omita "below" para cobrir o resto`,
-      );
+      for (const [dado, condicao] of Object.entries(regra.when)) {
+        if (!canonical(dado)) {
+          const sugestao = closestName(dado, Object.keys(ATTRIBUTES));
+          errors.push(
+            `${onde2}: "${dado}" não é um dado disponível` +
+              (sugestao ? `. Você quis dizer "${sugestao}"?` : ""),
+          );
+          continue;
+        }
+
+        if (!declarados.includes(dado)) {
+          errors.push(
+            `${onde2} decide por "${dado}", que não está em "attributes" — ` +
+              `o dado não seria buscado e valeria sempre zero`,
+          );
+        }
+
+        for (const operador of Object.keys(condicao)) {
+          if (!OPERADORES.includes(operador)) {
+            errors.push(
+              `${onde2}: operador "${operador}" desconhecido. ` +
+                `Use ${OPERADORES.join(", ")}`,
+            );
+          } else if (typeof condicao[operador] !== "number") {
+            errors.push(`${onde2}: "${operador}" precisa ser um número`);
+          }
+        }
+      }
     }
   } else {
-    errors.push(`${onde}: audio mp3 precisa de "file" ou de "steps"`);
+    errors.push(`${onde}: audio mp3 precisa de "file" ou de "rules"`);
   }
 
   for (const arquivo of arquivos) {

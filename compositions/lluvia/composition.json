@@ -1,0 +1,14 @@
+{
+  "id": "lluvia",
+  "label": "Lluvia",
+  "author": "AK Stuxnet",
+  "license": "CC-BY-4.0",
+  "openProcessingLink": "https://openprocessing.org/sketch/386391",
+  "attributes": [
+    "rain"
+  ],
+  "audio": {
+    "kind": "patch"
+  },
+  "thumb": "lluvia.png"
+}

@@ -1,0 +1,33 @@
+{
+  "id": "lightningBolts",
+  "label": "Lightning Bolts",
+  "license": "CC-BY-4.0",
+  "attributes": [
+    "lightningCount"
+  ],
+  "audio": {
+    "kind": "mp3",
+    "rules": [
+      {
+        "when": {
+          "lightningCount": {
+            "max": 0
+          }
+        },
+        "file": ""
+      },
+      {
+        "when": {
+          "lightningCount": {
+            "below": 4
+          }
+        },
+        "file": "lightningBolts_Low.mp3"
+      },
+      {
+        "file": "lightningBolts_High.mp3"
+      }
+    ]
+  },
+  "thumb": "lightning-bolts.png"
+}

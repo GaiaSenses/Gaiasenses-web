@@ -10,7 +10,8 @@ import type {
 } from "./composition-data";
 
 export type {
-  AudioStep,
+  AudioRule,
+  AudioCondition,
   CompositionAudio,
   CompositionManifest,
   CompositionRuntimeProps,

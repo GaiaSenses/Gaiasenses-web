@@ -117,12 +117,3 @@ export const COMPOSITION_ATTRIBUTES =
       ]
     }
   } as const;
-
-export const COMPOSITION_ATTRIBUTE_ALIASES =
-  {
-    "windspeed": "windSpeed",
-    "winddeg": "windDeg",
-    "lightning": "lightningCount",
-    "fire": "fireCount",
-    "temp": "temperature"
-  } as const;

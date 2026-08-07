@@ -1,0 +1,14 @@
+{
+  "id": "rectangles",
+  "label": "Rectangles",
+  "author": "Desire Sanchez",
+  "license": "CC-BY-4.0",
+  "openProcessingLink": "https://openprocessing.org/sketch/1274144",
+  "attributes": [
+    "rain"
+  ],
+  "audio": {
+    "kind": "none"
+  },
+  "thumb": "rectangles.png"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "generativeStrings",
+  "label": "Generative Strings",
+  "license": "CC-BY-4.0",
+  "attributes": [
+    "temperature"
+  ],
+  "audio": {
+    "kind": "none"
+  },
+  "thumb": "weather-tree.png"
+}

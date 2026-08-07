@@ -1,0 +1,15 @@
+{
+  "id": "airports",
+  "label": "Airports",
+  "description": "Imagem de satélite do lugar para onde o globo aponta, com uma implementação em Tone.js do Discrete Music (Brian Eno, 1975). O som é gerado, não tocado de arquivo.",
+  "author": "Brian Eno — Discrete Music (1975), via Tone.js",
+  "license": "CC-BY-4.0",
+  "attributes": [
+    "lat",
+    "lon"
+  ],
+  "audio": {
+    "kind": "none"
+  },
+  "thumb": "weather-tree.png"
+}

@@ -1,0 +1,15 @@
+{
+  "id": "cloudBubble",
+  "label": "Cloud Bubble",
+  "author": "Naoki Tsutae",
+  "license": "CC-BY-4.0",
+  "openProcessingLink": "https://openprocessing.org/sketch/1786759",
+  "attributes": [
+    "clouds"
+  ],
+  "audio": {
+    "kind": "none"
+  },
+  "thumb": "cloud-bubble.png",
+  "keepMapPatch": true
+}

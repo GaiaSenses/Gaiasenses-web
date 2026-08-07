@@ -1,0 +1,47 @@
+{
+  "id": "zigzag",
+  "label": "Zigzag",
+  "author": "garabatospr",
+  "license": "CC-BY-4.0",
+  "openProcessingLink": "https://openprocessing.org/sketch/1643288",
+  "attributes": [
+    "rain",
+    "lightningCount"
+  ],
+  "audio": {
+    "kind": "mp3",
+    "rules": [
+      {
+        "when": {
+          "rain": {
+            "above": 20
+          },
+          "lightningCount": {
+            "above": 4
+          }
+        },
+        "file": "ZigZag-AA.mp3"
+      },
+      {
+        "when": {
+          "rain": {
+            "above": 20
+          }
+        },
+        "file": "ZigZag-AB.mp3"
+      },
+      {
+        "when": {
+          "lightningCount": {
+            "above": 4
+          }
+        },
+        "file": "ZigZag-BA.mp3"
+      },
+      {
+        "file": "ZigZag-BB.mp3"
+      }
+    ]
+  },
+  "thumb": "zig-zag.png"
+}

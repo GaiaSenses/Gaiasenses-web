@@ -1,0 +1,14 @@
+{
+  "id": "attractor",
+  "label": "Attractor",
+  "author": "Masaki Yamabe",
+  "license": "CC-BY-4.0",
+  "openProcessingLink": "https://openprocessing.org/sketch/394718",
+  "attributes": [
+    "lightningCount"
+  ],
+  "audio": {
+    "kind": "none"
+  },
+  "thumb": "attractor.png"
+}

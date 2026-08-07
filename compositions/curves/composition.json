@@ -1,0 +1,16 @@
+{
+  "id": "curves",
+  "label": "Curves",
+  "author": "Pedro Alexis Mendoza Llanos",
+  "license": "CC-BY-4.0",
+  "openProcessingLink": "https://openprocessing.org/sketch/1176431",
+  "attributes": [
+    "rain",
+    "temperature"
+  ],
+  "audio": {
+    "kind": "patch"
+  },
+  "thumb": "curves.png",
+  "keepMapPatch": true
+}

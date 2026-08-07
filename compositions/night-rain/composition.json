@@ -1,0 +1,42 @@
+{
+  "id": "nightRain",
+  "label": "Night Rain",
+  "license": "CC-BY-4.0",
+  "attributes": [
+    "rain",
+    "temperature"
+  ],
+  "audio": {
+    "kind": "mp3",
+    "rules": [
+      {
+        "when": {
+          "rain": {
+            "max": 0
+          }
+        },
+        "file": ""
+      },
+      {
+        "when": {
+          "rain": {
+            "below": 3
+          }
+        },
+        "file": "NRlight.mp3"
+      },
+      {
+        "when": {
+          "rain": {
+            "below": 6
+          }
+        },
+        "file": "NRmedium.mp3"
+      },
+      {
+        "file": "NRheavy.mp3"
+      }
+    ]
+  },
+  "thumb": "night-rain.png"
+}

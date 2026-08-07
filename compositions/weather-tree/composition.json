@@ -1,0 +1,12 @@
+{
+  "id": "weatherTree",
+  "label": "Weather Tree",
+  "author": "Gazi",
+  "license": "CC-BY-4.0",
+  "openProcessingLink": "https://openprocessing.org/sketch/1780681",
+  "attributes": [],
+  "audio": {
+    "kind": "none"
+  },
+  "thumb": "weather-tree.png"
+}

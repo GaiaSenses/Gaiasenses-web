@@ -1,0 +1,15 @@
+{
+  "id": "digitalOrganism",
+  "label": "Digital Organism",
+  "author": "Naoki Tsutae",
+  "license": "CC-BY-4.0",
+  "openProcessingLink": "https://openprocessing.org/sketch/1864228",
+  "attributes": [
+    "rain"
+  ],
+  "audio": {
+    "kind": "mp3",
+    "file": "DigitalOrganism-Improviso.mp3"
+  },
+  "thumb": "digital-organism.png"
+}

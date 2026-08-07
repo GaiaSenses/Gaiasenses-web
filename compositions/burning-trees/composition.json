@@ -1,0 +1,25 @@
+{
+  "id": "burningTrees",
+  "label": "Burning Trees",
+  "license": "CC-BY-4.0",
+  "attributes": [
+    "fireCount"
+  ],
+  "audio": {
+    "kind": "mp3",
+    "rules": [
+      {
+        "when": {
+          "fireCount": {
+            "max": 0
+          }
+        },
+        "file": "burningTrees_noFire.wav"
+      },
+      {
+        "file": "burningTrees_audio.mp3"
+      }
+    ]
+  },
+  "thumb": "burning-trees.png"
+}
