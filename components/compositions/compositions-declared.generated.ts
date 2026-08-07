@@ -17,6 +17,7 @@ import CloudBubbleSketch from "@/compositions/cloud-bubble/sketch";
 import ColorFlowerSketch from "@/compositions/color-flower/sketch";
 import CurvesSketch from "@/compositions/curves/sketch";
 import DigitalOrganismSketch from "@/compositions/digital-organism/sketch";
+import ExemploClimaSketch from "@/compositions/exemplo-clima/sketch";
 import GenerativeStringsSketch from "@/compositions/generative-strings/sketch";
 import LightningBoltsSketch from "@/compositions/lightning-bolts/sketch";
 import LightningTreesSketch from "@/compositions/lightning-trees/sketch";
@@ -111,6 +112,14 @@ export const DECLARED_COMPOSITION_MANIFESTS = {
     thumb: "digital-organism.png",
     author: "Naoki Tsutae",
     openProcessingLink: "https://openprocessing.org/sketch/1864228",
+  },
+  exemploClima: {
+    id: "exemploClima",
+    label: "Exemplo Clima",
+    attributes: ["temperature","rain"],
+    audio: {"kind":"none"},
+    thumb: "exemplo-clima.png",
+    author: "GaiaSenses",
   },
   generativeStrings: {
     id: "generativeStrings",
@@ -240,6 +249,7 @@ export const DECLARED_COMPOSITIONS = {
   colorFlower: createComposition(DECLARED_COMPOSITION_MANIFESTS.colorFlower, ColorFlowerSketch),
   curves: createComposition(DECLARED_COMPOSITION_MANIFESTS.curves, CurvesSketch),
   digitalOrganism: createComposition(DECLARED_COMPOSITION_MANIFESTS.digitalOrganism, DigitalOrganismSketch),
+  exemploClima: createComposition(DECLARED_COMPOSITION_MANIFESTS.exemploClima, ExemploClimaSketch),
   generativeStrings: createComposition(DECLARED_COMPOSITION_MANIFESTS.generativeStrings, GenerativeStringsSketch),
   lightningBolts: createComposition(DECLARED_COMPOSITION_MANIFESTS.lightningBolts, LightningBoltsSketch),
   lightningTrees: createComposition(DECLARED_COMPOSITION_MANIFESTS.lightningTrees, LightningTreesSketch),

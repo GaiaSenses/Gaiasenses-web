@@ -1,0 +1,14 @@
+{
+  "id": "exemploClima",
+  "label": "Exemplo Clima",
+  "license": "CC-BY-4.0",
+  "attributes": [
+    "temperature",
+    "rain"
+  ],
+  "audio": {
+    "kind": "none"
+  },
+  "thumb": "exemplo-clima.png",
+  "author": "GaiaSenses"
+}
