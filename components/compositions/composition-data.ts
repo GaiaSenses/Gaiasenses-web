@@ -1,8 +1,5 @@
 import { getFireSpots, getLightning, getWeather } from "@/components/getData";
-import {
-  COMPOSITION_ATTRIBUTES,
-  COMPOSITION_ATTRIBUTE_ALIASES,
-} from "@/lib/gaia-composition-attributes.generated";
+import { COMPOSITION_ATTRIBUTES } from "@/lib/gaia-composition-attributes.generated";
 
 /**
  * The data half of the declared-animation runtime.
@@ -42,21 +39,41 @@ const ATRIBUTOS = COMPOSITION_ATTRIBUTES as unknown as Record<
   string,
   DefinicaoAtributo
 >;
-const APELIDOS = COMPOSITION_ATTRIBUTE_ALIASES as unknown as Record<
-  string,
-  string
->;
 
-/** Resolve a grafia antiga para a canônica, para animações migradas. */
+/**
+ * Confere que o nome existe no vocabulário.
+ *
+ * Não há apelidos: cada dado tem um nome, e só. O catálogo antigo tinha
+ * `windSpeed` numa entrada e `windspeed` noutra, e a segunda simplesmente não
+ * chegava a lugar nenhum. Aceitar as duas teria preservado esse tipo de engano
+ * em vez de eliminá-lo; quem errar a grafia recebe a sugestão certa do
+ * validador, o que resolve a ergonomia sem criar um segundo conjunto.
+ */
 export function canonicalAttribute(nome: string): string | null {
-  if (nome in ATRIBUTOS) return nome;
-  const apelido = APELIDOS[nome];
-  return apelido && apelido in ATRIBUTOS ? apelido : null;
+  return nome in ATRIBUTOS ? nome : null;
 }
 
-export type AudioStep = {
-  /** Limite superior exclusivo. Ausente = "de qualquer valor acima daqui". */
+/**
+ * Condição sobre um dado. Todos os limites são combinados por "e".
+ *
+ * Quatro operadores em vez de dois porque as regras reais precisam dos quatro:
+ * "chuva igual a zero" quer `max: 0`, e "chuva abaixo de 3" quer `below: 3`.
+ * Escolher só um obrigaria a escrever `below: 0.0001` para dizer zero.
+ */
+export type AudioCondition = {
+  /** Maior ou igual. */
+  min?: number;
+  /** Menor ou igual. */
+  max?: number;
+  /** Estritamente menor. */
   below?: number;
+  /** Estritamente maior. */
+  above?: number;
+};
+
+export type AudioRule = {
+  /** Condições por dado. Ausente = sempre verdadeira, o caso final. */
+  when?: Record<string, AudioCondition>;
   /** Nome do arquivo em public/audios/, ou "" para silêncio. */
   file: string;
 };
@@ -67,8 +84,8 @@ export type CompositionAudio =
   | { kind: "patch" }
   /** Um arquivo fixo. */
   | { kind: "mp3"; file: string }
-  /** Um arquivo escolhido por faixas de um atributo. */
-  | { kind: "mp3"; by: string; steps: AudioStep[] };
+  /** A primeira regra que couber decide. */
+  | { kind: "mp3"; rules: AudioRule[] };
 
 export type CompositionManifest = {
   id: string;
@@ -176,7 +193,21 @@ export async function collect(
   return valores;
 }
 
-/** Aplica a regra de áudio declarada. Devolve "" quando não há som. */
+function cabe(condicao: AudioCondition, valor: number): boolean {
+  if (condicao.min !== undefined && valor < condicao.min) return false;
+  if (condicao.max !== undefined && valor > condicao.max) return false;
+  if (condicao.below !== undefined && valor >= condicao.below) return false;
+  if (condicao.above !== undefined && valor <= condicao.above) return false;
+  return true;
+}
+
+/**
+ * Aplica a regra de áudio declarada. Devolve "" quando não há som.
+ *
+ * A primeira regra que couber decide, como numa sequência de `if`. A ordem é
+ * significativa e o validador cobra que a última não tenha condição, senão há
+ * um estado do mundo em que a animação fica muda sem ninguém ter pedido.
+ */
 export function resolveAudio(
   audio: CompositionAudio,
   valores: Record<string, number>,
@@ -184,12 +215,11 @@ export function resolveAudio(
   if (audio.kind !== "mp3") return "";
   if ("file" in audio) return `/audios/${audio.file}`;
 
-  const valor = valores[canonicalAttribute(audio.by) ?? audio.by] ?? 0;
-
-  for (const faixa of audio.steps) {
-    if (faixa.below === undefined || valor < faixa.below) {
-      return faixa.file ? `/audios/${faixa.file}` : "";
-    }
+  for (const regra of audio.rules) {
+    const casa = Object.entries(regra.when ?? {}).every(([dado, condicao]) =>
+      cabe(condicao, valores[dado] ?? 0),
+    );
+    if (casa) return regra.file ? `/audios/${regra.file}` : "";
   }
 
   return "";

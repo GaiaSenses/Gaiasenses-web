@@ -1,0 +1,48 @@
+{
+  "id": "stormEye",
+  "label": "Storm Eye",
+  "author": "Mandelgen",
+  "license": "CC-BY-4.0",
+  "openProcessingLink": "https://openprocessing.org/sketch/1936782",
+  "attributes": [
+    "temperature",
+    "windSpeed",
+    "windDeg"
+  ],
+  "audio": {
+    "kind": "mp3",
+    "rules": [
+      {
+        "when": {
+          "windSpeed": {
+            "min": 1
+          },
+          "windDeg": {
+            "max": 180
+          }
+        },
+        "file": "StormEYE-ForteConcentrado.mp3"
+      },
+      {
+        "when": {
+          "windSpeed": {
+            "min": 1
+          }
+        },
+        "file": "StormEYE-ForteEspalhado.mp3"
+      },
+      {
+        "when": {
+          "windDeg": {
+            "max": 180
+          }
+        },
+        "file": "StormEYE-SuaveConcentrado.mp3"
+      },
+      {
+        "file": "StormEYE-SuaveEspalhado.mp3"
+      }
+    ]
+  },
+  "thumb": "storm-eye.png"
+}

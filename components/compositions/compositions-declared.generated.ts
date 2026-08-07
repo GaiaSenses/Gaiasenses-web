@@ -8,21 +8,252 @@
 import { createComposition } from "./composition-runtime";
 import type { CompositionManifest } from "./composition-runtime";
 
-import ExemploClimaSketch from "@/compositions/exemplo-clima/sketch";
+import AirportsSketch from "@/compositions/airports/sketch";
+import AttractorSketch from "@/compositions/attractor/sketch";
+import BonfireSketch from "@/compositions/bonfire/sketch";
+import BurningTreesSketch from "@/compositions/burning-trees/sketch";
+import ChaosTreeSketch from "@/compositions/chaos-tree/sketch";
+import CloudBubbleSketch from "@/compositions/cloud-bubble/sketch";
+import ColorFlowerSketch from "@/compositions/color-flower/sketch";
+import CurvesSketch from "@/compositions/curves/sketch";
+import DigitalOrganismSketch from "@/compositions/digital-organism/sketch";
+import GenerativeStringsSketch from "@/compositions/generative-strings/sketch";
+import LightningBoltsSketch from "@/compositions/lightning-bolts/sketch";
+import LightningTreesSketch from "@/compositions/lightning-trees/sketch";
+import LluviaSketch from "@/compositions/lluvia/sketch";
+import MudflatScatterSketch from "@/compositions/mudflat-scatter/sketch";
+import NightRainSketch from "@/compositions/night-rain/sketch";
+import PaintBrushSketch from "@/compositions/paint-brush/sketch";
+import PumpSketch from "@/compositions/pump/sketch";
+import RectanglesSketch from "@/compositions/rectangles/sketch";
+import RiverLinesSketch from "@/compositions/river-lines/sketch";
+import StormEyeSketch from "@/compositions/storm-eye/sketch";
+import WeatherTreeSketch from "@/compositions/weather-tree/sketch";
+import WindLinesSketch from "@/compositions/wind-lines/sketch";
+import ZigzagSketch from "@/compositions/zigzag/sketch";
 
 export const DECLARED_COMPOSITION_MANIFESTS = {
-  exemploClima: {
-    id: "exemploClima",
-    label: "Exemplo — clima",
-    attributes: ["temperature","rain"],
-    audio: {"kind":"mp3","by":"rain","steps":[{"below":3,"file":"NRlight.mp3"},{"below":6,"file":"NRmedium.mp3"},{"file":"NRheavy.mp3"}]},
+  airports: {
+    id: "airports",
+    label: "Airports",
+    attributes: ["lat","lon"],
+    audio: {"kind":"none"},
+    thumb: "weather-tree.png",
+    author: "Brian Eno — Discrete Music (1975), via Tone.js",
+  },
+  attractor: {
+    id: "attractor",
+    label: "Attractor",
+    attributes: ["lightningCount"],
+    audio: {"kind":"none"},
+    thumb: "attractor.png",
+    author: "Masaki Yamabe",
+    openProcessingLink: "https://openprocessing.org/sketch/394718",
+  },
+  bonfire: {
+    id: "bonfire",
+    label: "Bonfire",
+    attributes: ["fireCount","closeFires"],
+    audio: {"kind":"mp3","rules":[{"when":{"fireCount":{"min":4},"closeFires":{"min":2}},"file":"FOGO-AA.mp3"},{"when":{"fireCount":{"min":4}},"file":"FOGO-AB.mp3"},{"when":{"closeFires":{"min":2}},"file":"FOGO-BA.mp3"},{"file":"FOGO-BB.mp3"}]},
+    thumb: "bonfire.png",
+    author: "Pedro Trama",
+    openProcessingLink: "https://openprocessing.org/sketch/1749652",
+  },
+  burningTrees: {
+    id: "burningTrees",
+    label: "Burning Trees",
+    attributes: ["fireCount"],
+    audio: {"kind":"mp3","rules":[{"when":{"fireCount":{"max":0}},"file":"burningTrees_noFire.wav"},{"file":"burningTrees_audio.mp3"}]},
+    thumb: "burning-trees.png",
+  },
+  chaosTree: {
+    id: "chaosTree",
+    label: "Chaos Tree",
+    attributes: ["lat","lon"],
+    audio: {"kind":"none"},
+    thumb: "chaos-tree.png",
+    author: "Pedro Trama",
+  },
+  cloudBubble: {
+    id: "cloudBubble",
+    label: "Cloud Bubble",
+    attributes: ["clouds"],
+    audio: {"kind":"none"},
+    thumb: "cloud-bubble.png",
+    author: "Naoki Tsutae",
+    openProcessingLink: "https://openprocessing.org/sketch/1786759",
+    keepMapPatch: true,
+  },
+  colorFlower: {
+    id: "colorFlower",
+    label: "Color Flower",
+    attributes: ["temperature"],
+    audio: {"kind":"mp3","rules":[{"when":{"temperature":{"below":10}},"file":"Flor-infinito_10.mp3"},{"when":{"temperature":{"below":15}},"file":"Flor-10_15.mp3"},{"when":{"temperature":{"below":20}},"file":"Flor-15_20.mp3"},{"when":{"temperature":{"below":25}},"file":"Flor-20_25.mp3"},{"when":{"temperature":{"below":30}},"file":"Flor-25_30.mp3"},{"file":"Flor-30_infinito.mp3"}]},
+    thumb: "color-flower.png",
+    author: "Aaron Reuland (a_soluble_fish)",
+    openProcessingLink: "https://openprocessing.org/sketch/1929051",
+  },
+  curves: {
+    id: "curves",
+    label: "Curves",
+    attributes: ["rain","temperature"],
+    audio: {"kind":"patch"},
+    thumb: "curves.png",
+    author: "Pedro Alexis Mendoza Llanos",
+    openProcessingLink: "https://openprocessing.org/sketch/1176431",
+    keepMapPatch: true,
+  },
+  digitalOrganism: {
+    id: "digitalOrganism",
+    label: "Digital Organism",
+    attributes: ["rain"],
+    audio: {"kind":"mp3","file":"DigitalOrganism-Improviso.mp3"},
+    thumb: "digital-organism.png",
+    author: "Naoki Tsutae",
+    openProcessingLink: "https://openprocessing.org/sketch/1864228",
+  },
+  generativeStrings: {
+    id: "generativeStrings",
+    label: "Generative Strings",
+    attributes: ["temperature"],
+    audio: {"kind":"none"},
+    thumb: "weather-tree.png",
+  },
+  lightningBolts: {
+    id: "lightningBolts",
+    label: "Lightning Bolts",
+    attributes: ["lightningCount"],
+    audio: {"kind":"mp3","rules":[{"when":{"lightningCount":{"max":0}},"file":""},{"when":{"lightningCount":{"below":4}},"file":"lightningBolts_Low.mp3"},{"file":"lightningBolts_High.mp3"}]},
+    thumb: "lightning-bolts.png",
+  },
+  lightningTrees: {
+    id: "lightningTrees",
+    label: "Lightning Trees",
+    attributes: ["lightningCount"],
+    audio: {"kind":"none"},
+    thumb: "lightning-trees.png",
+    author: "Roni Kaufman",
+    openProcessingLink: "https://openprocessing.org/sketch/1203202",
+  },
+  lluvia: {
+    id: "lluvia",
+    label: "Lluvia",
+    attributes: ["rain"],
+    audio: {"kind":"patch"},
     thumb: "lluvia.png",
-    author: "GaiaSenses",
+    author: "AK Stuxnet",
+    openProcessingLink: "https://openprocessing.org/sketch/386391",
+  },
+  mudflatScatter: {
+    id: "mudflatScatter",
+    label: "Mudflat Scatter",
+    attributes: ["temperature","windDeg","windSpeed"],
+    audio: {"kind":"mp3","rules":[{"when":{"temperature":{"below":10}},"file":"Flor-infinito_10.mp3"},{"when":{"temperature":{"below":15}},"file":"Flor-10_15.mp3"},{"when":{"temperature":{"below":20}},"file":"Flor-15_20.mp3"},{"when":{"temperature":{"below":25}},"file":"Flor-20_25.mp3"},{"when":{"temperature":{"below":30}},"file":"Flor-25_30.mp3"},{"file":"Flor-30_infinito.mp3"}]},
+    thumb: "weather-tree.png",
+    author: "Aaron Reuland (a_soluble_fish)",
+    openProcessingLink: "https://openprocessing.org/sketch/1982410",
+  },
+  nightRain: {
+    id: "nightRain",
+    label: "Night Rain",
+    attributes: ["rain","temperature"],
+    audio: {"kind":"mp3","rules":[{"when":{"rain":{"max":0}},"file":""},{"when":{"rain":{"below":3}},"file":"NRlight.mp3"},{"when":{"rain":{"below":6}},"file":"NRmedium.mp3"},{"file":"NRheavy.mp3"}]},
+    thumb: "night-rain.png",
+  },
+  paintBrush: {
+    id: "paintBrush",
+    label: "Paint Brush",
+    attributes: ["humidity"],
+    audio: {"kind":"none"},
+    thumb: "paint-brush.png",
+    author: "Aaron Reuland (a_soluble_fish)",
+    openProcessingLink: "https://openprocessing.org/sketch/1645787",
+  },
+  pump: {
+    id: "pump",
+    label: "Pump",
+    attributes: ["temperature","windSpeed","windDeg"],
+    audio: {"kind":"none"},
+    thumb: "lluvia.png",
+    author: "Roots Blower + GaiaSenses, baseado no sketch de Metamere",
+    openProcessingLink: "https://openprocessing.org/sketch/2711609",
+  },
+  rectangles: {
+    id: "rectangles",
+    label: "Rectangles",
+    attributes: ["rain"],
+    audio: {"kind":"none"},
+    thumb: "rectangles.png",
+    author: "Desire Sanchez",
+    openProcessingLink: "https://openprocessing.org/sketch/1274144",
+  },
+  riverLines: {
+    id: "riverLines",
+    label: "River Lines",
+    attributes: ["humidity","temperature"],
+    audio: {"kind":"mp3","rules":[{"when":{"humidity":{"max":0}},"file":""},{"when":{"humidity":{"max":30}},"file":"riverLines_weak.wav"},{"file":"riverLines_strong.wav"}]},
+    thumb: "weather-tree.png",
+  },
+  stormEye: {
+    id: "stormEye",
+    label: "Storm Eye",
+    attributes: ["temperature","windSpeed","windDeg"],
+    audio: {"kind":"mp3","rules":[{"when":{"windSpeed":{"min":1},"windDeg":{"max":180}},"file":"StormEYE-ForteConcentrado.mp3"},{"when":{"windSpeed":{"min":1}},"file":"StormEYE-ForteEspalhado.mp3"},{"when":{"windDeg":{"max":180}},"file":"StormEYE-SuaveConcentrado.mp3"},{"file":"StormEYE-SuaveEspalhado.mp3"}]},
+    thumb: "storm-eye.png",
+    author: "Mandelgen",
+    openProcessingLink: "https://openprocessing.org/sketch/1936782",
+  },
+  weatherTree: {
+    id: "weatherTree",
+    label: "Weather Tree",
+    attributes: [],
+    audio: {"kind":"none"},
+    thumb: "weather-tree.png",
+    author: "Gazi",
+    openProcessingLink: "https://openprocessing.org/sketch/1780681",
+  },
+  windLines: {
+    id: "windLines",
+    label: "Wind Lines",
+    attributes: ["windSpeed"],
+    audio: {"kind":"mp3","rules":[{"when":{"windSpeed":{"max":11}},"file":"wind-linesLight.wav"},{"when":{"windSpeed":{"max":24}},"file":"wind-linesMedium.wav"},{"file":"wind-linesHeavy.wav"}]},
+    thumb: "weather-tree.png",
+  },
+  zigzag: {
+    id: "zigzag",
+    label: "Zigzag",
+    attributes: ["rain","lightningCount"],
+    audio: {"kind":"mp3","rules":[{"when":{"rain":{"above":20},"lightningCount":{"above":4}},"file":"ZigZag-AA.mp3"},{"when":{"rain":{"above":20}},"file":"ZigZag-AB.mp3"},{"when":{"lightningCount":{"above":4}},"file":"ZigZag-BA.mp3"},{"file":"ZigZag-BB.mp3"}]},
+    thumb: "zig-zag.png",
+    author: "garabatospr",
+    openProcessingLink: "https://openprocessing.org/sketch/1643288",
   },
 } as const satisfies Record<string, CompositionManifest>;
 
 export const DECLARED_COMPOSITIONS = {
-  exemploClima: createComposition(DECLARED_COMPOSITION_MANIFESTS.exemploClima, ExemploClimaSketch),
+  airports: createComposition(DECLARED_COMPOSITION_MANIFESTS.airports, AirportsSketch),
+  attractor: createComposition(DECLARED_COMPOSITION_MANIFESTS.attractor, AttractorSketch),
+  bonfire: createComposition(DECLARED_COMPOSITION_MANIFESTS.bonfire, BonfireSketch),
+  burningTrees: createComposition(DECLARED_COMPOSITION_MANIFESTS.burningTrees, BurningTreesSketch),
+  chaosTree: createComposition(DECLARED_COMPOSITION_MANIFESTS.chaosTree, ChaosTreeSketch),
+  cloudBubble: createComposition(DECLARED_COMPOSITION_MANIFESTS.cloudBubble, CloudBubbleSketch),
+  colorFlower: createComposition(DECLARED_COMPOSITION_MANIFESTS.colorFlower, ColorFlowerSketch),
+  curves: createComposition(DECLARED_COMPOSITION_MANIFESTS.curves, CurvesSketch),
+  digitalOrganism: createComposition(DECLARED_COMPOSITION_MANIFESTS.digitalOrganism, DigitalOrganismSketch),
+  generativeStrings: createComposition(DECLARED_COMPOSITION_MANIFESTS.generativeStrings, GenerativeStringsSketch),
+  lightningBolts: createComposition(DECLARED_COMPOSITION_MANIFESTS.lightningBolts, LightningBoltsSketch),
+  lightningTrees: createComposition(DECLARED_COMPOSITION_MANIFESTS.lightningTrees, LightningTreesSketch),
+  lluvia: createComposition(DECLARED_COMPOSITION_MANIFESTS.lluvia, LluviaSketch),
+  mudflatScatter: createComposition(DECLARED_COMPOSITION_MANIFESTS.mudflatScatter, MudflatScatterSketch),
+  nightRain: createComposition(DECLARED_COMPOSITION_MANIFESTS.nightRain, NightRainSketch),
+  paintBrush: createComposition(DECLARED_COMPOSITION_MANIFESTS.paintBrush, PaintBrushSketch),
+  pump: createComposition(DECLARED_COMPOSITION_MANIFESTS.pump, PumpSketch),
+  rectangles: createComposition(DECLARED_COMPOSITION_MANIFESTS.rectangles, RectanglesSketch),
+  riverLines: createComposition(DECLARED_COMPOSITION_MANIFESTS.riverLines, RiverLinesSketch),
+  stormEye: createComposition(DECLARED_COMPOSITION_MANIFESTS.stormEye, StormEyeSketch),
+  weatherTree: createComposition(DECLARED_COMPOSITION_MANIFESTS.weatherTree, WeatherTreeSketch),
+  windLines: createComposition(DECLARED_COMPOSITION_MANIFESTS.windLines, WindLinesSketch),
+  zigzag: createComposition(DECLARED_COMPOSITION_MANIFESTS.zigzag, ZigzagSketch),
 };
 
 export type DeclaredCompositionName = keyof typeof DECLARED_COMPOSITIONS;

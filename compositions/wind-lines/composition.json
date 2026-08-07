@@ -1,0 +1,33 @@
+{
+  "id": "windLines",
+  "label": "Wind Lines",
+  "license": "CC-BY-4.0",
+  "attributes": [
+    "windSpeed"
+  ],
+  "audio": {
+    "kind": "mp3",
+    "rules": [
+      {
+        "when": {
+          "windSpeed": {
+            "max": 11
+          }
+        },
+        "file": "wind-linesLight.wav"
+      },
+      {
+        "when": {
+          "windSpeed": {
+            "max": 24
+          }
+        },
+        "file": "wind-linesMedium.wav"
+      },
+      {
+        "file": "wind-linesHeavy.wav"
+      }
+    ]
+  },
+  "thumb": "weather-tree.png"
+}

@@ -1,0 +1,16 @@
+{
+  "id": "pump",
+  "label": "Pump",
+  "author": "Roots Blower + GaiaSenses, baseado no sketch de Metamere",
+  "license": "CC-BY-4.0",
+  "openProcessingLink": "https://openprocessing.org/sketch/2711609",
+  "attributes": [
+    "temperature",
+    "windSpeed",
+    "windDeg"
+  ],
+  "audio": {
+    "kind": "none"
+  },
+  "thumb": "lluvia.png"
+}

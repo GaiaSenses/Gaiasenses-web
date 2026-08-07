@@ -1,0 +1,59 @@
+{
+  "id": "colorFlower",
+  "label": "Color Flower",
+  "author": "Aaron Reuland (a_soluble_fish)",
+  "license": "CC-BY-4.0",
+  "openProcessingLink": "https://openprocessing.org/sketch/1929051",
+  "attributes": [
+    "temperature"
+  ],
+  "audio": {
+    "kind": "mp3",
+    "rules": [
+      {
+        "when": {
+          "temperature": {
+            "below": 10
+          }
+        },
+        "file": "Flor-infinito_10.mp3"
+      },
+      {
+        "when": {
+          "temperature": {
+            "below": 15
+          }
+        },
+        "file": "Flor-10_15.mp3"
+      },
+      {
+        "when": {
+          "temperature": {
+            "below": 20
+          }
+        },
+        "file": "Flor-15_20.mp3"
+      },
+      {
+        "when": {
+          "temperature": {
+            "below": 25
+          }
+        },
+        "file": "Flor-20_25.mp3"
+      },
+      {
+        "when": {
+          "temperature": {
+            "below": 30
+          }
+        },
+        "file": "Flor-25_30.mp3"
+      },
+      {
+        "file": "Flor-30_infinito.mp3"
+      }
+    ]
+  },
+  "thumb": "color-flower.png"
+}

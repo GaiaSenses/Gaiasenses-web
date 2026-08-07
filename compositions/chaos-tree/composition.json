@@ -1,0 +1,14 @@
+{
+  "id": "chaosTree",
+  "label": "Chaos Tree",
+  "author": "Pedro Trama",
+  "license": "CC-BY-4.0",
+  "attributes": [
+    "lat",
+    "lon"
+  ],
+  "audio": {
+    "kind": "none"
+  },
+  "thumb": "chaos-tree.png"
+}

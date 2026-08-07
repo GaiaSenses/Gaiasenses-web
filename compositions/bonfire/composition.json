@@ -1,0 +1,47 @@
+{
+  "id": "bonfire",
+  "label": "Bonfire",
+  "author": "Pedro Trama",
+  "license": "CC-BY-4.0",
+  "openProcessingLink": "https://openprocessing.org/sketch/1749652",
+  "attributes": [
+    "fireCount",
+    "closeFires"
+  ],
+  "audio": {
+    "kind": "mp3",
+    "rules": [
+      {
+        "when": {
+          "fireCount": {
+            "min": 4
+          },
+          "closeFires": {
+            "min": 2
+          }
+        },
+        "file": "FOGO-AA.mp3"
+      },
+      {
+        "when": {
+          "fireCount": {
+            "min": 4
+          }
+        },
+        "file": "FOGO-AB.mp3"
+      },
+      {
+        "when": {
+          "closeFires": {
+            "min": 2
+          }
+        },
+        "file": "FOGO-BA.mp3"
+      },
+      {
+        "file": "FOGO-BB.mp3"
+      }
+    ]
+  },
+  "thumb": "bonfire.png"
+}

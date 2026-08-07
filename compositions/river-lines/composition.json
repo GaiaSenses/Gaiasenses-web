@@ -1,0 +1,34 @@
+{
+  "id": "riverLines",
+  "label": "River Lines",
+  "license": "CC-BY-4.0",
+  "attributes": [
+    "humidity",
+    "temperature"
+  ],
+  "audio": {
+    "kind": "mp3",
+    "rules": [
+      {
+        "when": {
+          "humidity": {
+            "max": 0
+          }
+        },
+        "file": ""
+      },
+      {
+        "when": {
+          "humidity": {
+            "max": 30
+          }
+        },
+        "file": "riverLines_weak.wav"
+      },
+      {
+        "file": "riverLines_strong.wav"
+      }
+    ]
+  },
+  "thumb": "weather-tree.png"
+}

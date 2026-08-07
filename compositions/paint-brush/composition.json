@@ -1,0 +1,14 @@
+{
+  "id": "paintBrush",
+  "label": "Paint Brush",
+  "author": "Aaron Reuland (a_soluble_fish)",
+  "license": "CC-BY-4.0",
+  "openProcessingLink": "https://openprocessing.org/sketch/1645787",
+  "attributes": [
+    "humidity"
+  ],
+  "audio": {
+    "kind": "none"
+  },
+  "thumb": "paint-brush.png"
+}

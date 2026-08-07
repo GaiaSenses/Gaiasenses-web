@@ -1,15 +1,14 @@
 /**
  * Contract tests for the declared-animation runtime.
  *
- * The two functions here decide things that fail quietly when wrong: which file
- * an animation plays, and whether a legacy attribute name still resolves. A
- * mistake in either produces a page that renders — just with the wrong sound,
- * or with a value stuck at zero.
+ * Two functions decide things that fail quietly when wrong: whether an attribute
+ * name exists, and which file an animation plays. A mistake in either produces a
+ * page that renders — just silent, or with a value stuck at zero.
  *
- * The rest of the runtime fetches over the network and returns JSX, and is
- * covered end to end instead: `compositions:validate` refuses a manifest that
- * asks for a dataitem that does not exist, and the browser check confirms the
- * fetched values reach the sketch.
+ * The audio cases are transcribed from the animations that were migrated, so
+ * they are also a record of what those pieces used to do. `bonfire`, `stormEye`
+ * and `zigzag` decide on two values at once, which is why the rule model takes
+ * conditions rather than a single range.
  *
  * Run with: npm test
  */
@@ -23,21 +22,21 @@ import {
 } from "@/components/compositions/composition-data";
 
 describe("canonicalAttribute", () => {
-  test("aceita os nomes canônicos", () => {
+  test("aceita os nomes do vocabulário", () => {
     assert.equal(canonicalAttribute("temperature"), "temperature");
     assert.equal(canonicalAttribute("windSpeed"), "windSpeed");
-    assert.equal(canonicalAttribute("fireCount"), "fireCount");
+    assert.equal(canonicalAttribute("closeFires"), "closeFires");
   });
 
   /**
-   * O catálogo antigo trazia `windspeed` minúsculo numa entrada e `windSpeed`
-   * noutra. Uma animação migrada não deveria precisar ser reescrita por causa
-   * disso, então o apelido resolve.
+   * Há um nome por dado, e só. O catálogo antigo tinha `windSpeed` numa entrada
+   * e `windspeed` noutra; a segunda não chegava a lugar nenhum, e aceitar as
+   * duas teria preservado o engano em vez de eliminá-lo.
    */
-  test("resolve as grafias antigas do catálogo", () => {
-    assert.equal(canonicalAttribute("windspeed"), "windSpeed");
-    assert.equal(canonicalAttribute("lightning"), "lightningCount");
-    assert.equal(canonicalAttribute("temp"), "temperature");
+  test("recusa grafias alternativas", () => {
+    assert.equal(canonicalAttribute("windspeed"), null);
+    assert.equal(canonicalAttribute("temp"), null);
+    assert.equal(canonicalAttribute("lightning"), null);
   });
 
   test("recusa o que não existe", () => {
@@ -47,74 +46,98 @@ describe("canonicalAttribute", () => {
 });
 
 describe("resolveAudio", () => {
-  const valores = { rain: 4, temperature: 20 };
-
   test("sem áudio devolve vazio", () => {
-    assert.equal(resolveAudio({ kind: "none" }, valores), "");
+    assert.equal(resolveAudio({ kind: "none" }, { rain: 4 }), "");
   });
 
   /** Quando o som vem de um patch Pd, não há arquivo a tocar. */
   test("áudio de patch não devolve arquivo", () => {
-    assert.equal(resolveAudio({ kind: "patch" }, valores), "");
+    assert.equal(resolveAudio({ kind: "patch" }, { rain: 4 }), "");
   });
 
   test("arquivo fixo vira caminho em /audios", () => {
     assert.equal(
-      resolveAudio({ kind: "mp3", file: "NRheavy.mp3" }, valores),
+      resolveAudio({ kind: "mp3", file: "NRheavy.mp3" }, {}),
       "/audios/NRheavy.mp3",
     );
   });
 
-  const porFaixa: CompositionAudio = {
+  /** Transcrito de night-rain. */
+  const chuva: CompositionAudio = {
     kind: "mp3",
-    by: "rain",
-    steps: [
-      { below: 3, file: "NRlight.mp3" },
-      { below: 6, file: "NRmedium.mp3" },
+    rules: [
+      { when: { rain: { max: 0 } }, file: "" },
+      { when: { rain: { below: 3 } }, file: "NRlight.mp3" },
+      { when: { rain: { below: 6 } }, file: "NRmedium.mp3" },
       { file: "NRheavy.mp3" },
     ],
   };
 
-  test("escolhe a faixa pelo valor", () => {
-    assert.equal(resolveAudio(porFaixa, { rain: 0 }), "/audios/NRlight.mp3");
-    assert.equal(resolveAudio(porFaixa, { rain: 4 }), "/audios/NRmedium.mp3");
-    assert.equal(resolveAudio(porFaixa, { rain: 50 }), "/audios/NRheavy.mp3");
+  test("a primeira regra que couber decide", () => {
+    assert.equal(resolveAudio(chuva, { rain: 0 }), "");
+    assert.equal(resolveAudio(chuva, { rain: 1 }), "/audios/NRlight.mp3");
+    assert.equal(resolveAudio(chuva, { rain: 4 }), "/audios/NRmedium.mp3");
+    assert.equal(resolveAudio(chuva, { rain: 50 }), "/audios/NRheavy.mp3");
   });
 
-  /** O limite é exclusivo: `below: 3` significa "menor que 3", não "até 3". */
-  test("o limite da faixa é exclusivo", () => {
-    assert.equal(resolveAudio(porFaixa, { rain: 2.999 }), "/audios/NRlight.mp3");
-    assert.equal(resolveAudio(porFaixa, { rain: 3 }), "/audios/NRmedium.mp3");
+  test("`below` é estrito e `max` é inclusivo", () => {
+    assert.equal(resolveAudio(chuva, { rain: 2.999 }), "/audios/NRlight.mp3");
+    assert.equal(resolveAudio(chuva, { rain: 3 }), "/audios/NRmedium.mp3");
+    assert.equal(resolveAudio(chuva, { rain: 0.0001 }), "/audios/NRlight.mp3");
   });
 
-  /** Uma faixa com arquivo vazio é silêncio declarado, não ausência de regra. */
-  test("faixa com arquivo vazio é silêncio", () => {
-    const comSilencio: CompositionAudio = {
+  test("arquivo vazio é silêncio declarado", () => {
+    assert.equal(resolveAudio(chuva, { rain: 0 }), "");
+  });
+
+  test("dado ausente vale zero", () => {
+    assert.equal(resolveAudio(chuva, {}), "");
+  });
+
+  /**
+   * Transcrito de bonfire, que decide por dois valores: quantos focos há, e
+   * quantos estão a menos de 50 km.
+   */
+  const fogo: CompositionAudio = {
+    kind: "mp3",
+    rules: [
+      { when: { fireCount: { min: 4 }, closeFires: { min: 2 } }, file: "FOGO-AA.mp3" },
+      { when: { fireCount: { min: 4 } }, file: "FOGO-AB.mp3" },
+      { when: { closeFires: { min: 2 } }, file: "FOGO-BA.mp3" },
+      { file: "FOGO-BB.mp3" },
+    ],
+  };
+
+  test("uma regra com dois dados exige os dois", () => {
+    assert.equal(resolveAudio(fogo, { fireCount: 5, closeFires: 3 }), "/audios/FOGO-AA.mp3");
+    assert.equal(resolveAudio(fogo, { fireCount: 5, closeFires: 1 }), "/audios/FOGO-AB.mp3");
+    assert.equal(resolveAudio(fogo, { fireCount: 2, closeFires: 3 }), "/audios/FOGO-BA.mp3");
+    assert.equal(resolveAudio(fogo, { fireCount: 0, closeFires: 0 }), "/audios/FOGO-BB.mp3");
+  });
+
+  /** Transcrito de zigzag, que usa os operadores estritos. */
+  const zigzag: CompositionAudio = {
+    kind: "mp3",
+    rules: [
+      { when: { rain: { above: 20 }, lightningCount: { above: 4 } }, file: "ZigZag-AA.mp3" },
+      { when: { rain: { above: 20 } }, file: "ZigZag-AB.mp3" },
+      { when: { lightningCount: { above: 4 } }, file: "ZigZag-BA.mp3" },
+      { file: "ZigZag-BB.mp3" },
+    ],
+  };
+
+  test("`above` é estrito", () => {
+    assert.equal(resolveAudio(zigzag, { rain: 21, lightningCount: 5 }), "/audios/ZigZag-AA.mp3");
+    // Exatamente no limite não passa: o original era `> 20`, não `>= 20`.
+    assert.equal(resolveAudio(zigzag, { rain: 20, lightningCount: 4 }), "/audios/ZigZag-BB.mp3");
+  });
+
+  test("sem regra que caiba, fica em silêncio", () => {
+    const incompleta: CompositionAudio = {
       kind: "mp3",
-      by: "rain",
-      steps: [
-        { below: 0.1, file: "" },
-        { file: "NRheavy.mp3" },
-      ],
+      rules: [{ when: { rain: { min: 100 } }, file: "NRheavy.mp3" }],
     };
 
-    assert.equal(resolveAudio(comSilencio, { rain: 0 }), "");
-    assert.equal(resolveAudio(comSilencio, { rain: 5 }), "/audios/NRheavy.mp3");
-  });
-
-  /** Um dado ausente vale zero, como em todo o resto do runtime. */
-  test("dado ausente cai na primeira faixa", () => {
-    assert.equal(resolveAudio(porFaixa, {}), "/audios/NRlight.mp3");
-  });
-
-  test("o `by` também aceita grafia antiga", () => {
-    const porApelido: CompositionAudio = {
-      kind: "mp3",
-      by: "temp",
-      steps: [{ below: 10, file: "NRlight.mp3" }, { file: "NRheavy.mp3" }],
-    };
-
-    assert.equal(resolveAudio(porApelido, { temperature: 5 }), "/audios/NRlight.mp3");
-    assert.equal(resolveAudio(porApelido, { temperature: 30 }), "/audios/NRheavy.mp3");
+    assert.equal(resolveAudio(incompleta, { rain: 0 }), "");
   });
 });

@@ -46,7 +46,6 @@ const VOCABULARY_OUTPUT = path.join(
 
 function renderVocabulary() {
   const bruto = JSON.parse(fs.readFileSync(VOCABULARY_SOURCE, "utf8"));
-  const { $comment, ...aliases } = bruto.aliases;
 
   return [
     "/**",
@@ -57,9 +56,6 @@ function renderVocabulary() {
     "",
     "export const COMPOSITION_ATTRIBUTES =",
     `  ${JSON.stringify(bruto.attributes, null, 2).replace(/\n/g, "\n  ")} as const;`,
-    "",
-    "export const COMPOSITION_ATTRIBUTE_ALIASES =",
-    `  ${JSON.stringify(aliases, null, 2).replace(/\n/g, "\n  ")} as const;`,
     "",
   ].join("\n");
 }

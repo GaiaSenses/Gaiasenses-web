@@ -267,16 +267,15 @@ sequenceDiagram
 
 ## 🎨 Composition Catalog
 
-Animations come from two places, and `compositions-info.tsx` merges them into
-one catalogue so nothing downstream needs to know which is which.
+**Every animation is declared.** One lives in `compositions/<slug>/` as a sketch
+beside a `composition.json`, and `components/compositions/compositions-info.tsx`
+is 64 lines of accessors over a generated registry — it used to be 368 lines of
+imports, union types and hand-maintained entries.
 
-**Declared** (`compositions/<slug>/`) — a plain p5 sketch beside a
-`composition.json`. No React, no registration. This is how new animations
-should arrive.
-
-**Hand-written** (`components/compositions/<name>/`) — the 23 that predate the
-declared form, each with its own React wrapper. They still work and nothing
-forces them to move.
+There is one name for each climate value, listed in
+`lib/gaia-composition-attributes.json`. No aliases: the old catalogue carried
+`windSpeed` in one entry and `windspeed` in another, and the second reached
+nothing. A misspelling is now an error with a suggestion.
 
 ### ➕ Adding a new animation
 
@@ -295,10 +294,9 @@ compositions/minha-animacao/
   "attributes": ["temperature", "rain"],
   "audio": {
     "kind": "mp3",
-    "by": "rain",
-    "steps": [
-      { "below": 0.1, "file": "" },
-      { "below": 3, "file": "leve.mp3" },
+    "rules": [
+      { "when": { "rain": { "max": 0 } }, "file": "" },
+      { "when": { "rain": { "below": 3 } }, "file": "leve.mp3" },
       { "file": "forte.mp3" }
     ]
   },
@@ -318,9 +316,15 @@ No wrapper is written, and no TypeScript is edited — the same shape the
 `gaia.*` vocabulary gave patches.
 
 `audio.kind` is `"mp3"` for files, `"patch"` when a Pure Data piece provides the
-sound, or `"none"` for silence. An `mp3` rule takes either a fixed `file` or
-`steps` over one attribute; `below` is exclusive, an empty `file` means silence,
-and the last step omits `below` to catch everything above.
+sound, or `"none"` for silence. An `mp3` rule is either a fixed `file` or a list
+of `rules`, where **the first one that fits decides** — like a sequence of `if`.
+
+Each rule's `when` holds conditions per attribute, combined with "and", so a
+rule can depend on two values at once: `bonfire` chooses among four files from
+how many fires there are *and* how many are within 50 km. The operators are
+`min` (≥), `max` (≤), `below` (<) and `above` (>). An empty `file` is declared
+silence, and the last rule omits `when` to catch everything else — the validator
+warns when it does not, because that leaves a state of the world with no sound.
 
 *(Optional)* add the key to the category arrays in `use-composition-queue.ts` so
 the climate can select it, and a preset location in `map3/map-constants.ts` for
