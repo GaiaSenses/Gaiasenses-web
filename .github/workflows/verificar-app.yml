@@ -65,6 +65,19 @@ jobs:
       - name: Testes de contrato
         run: npm test
 
+      # Só no push para main, nunca no pull request. Um envio que traz um patch
+      # ou uma animação nova deixa o registro gerado desatualizado por definição
+      # — é o robô que o regenera e commita durante o próprio pull request. Rodar
+      # isto antes disso reprova justamente o envio que o fluxo existe para
+      # aceitar, e com uma instrução (`npm run …`) que quem envia pelo navegador
+      # não tem como seguir.
+      #
+      # Depois do merge a situação se inverte: aí o registro tem de estar em dia,
+      # porque uma animação fora dele é uma animação que não existe no site.
+      - name: Registros gerados em dia
+        if: github.event_name == 'push'
+        run: npm run patches:check
+
       # The build loads every route module, and three of them fail closed when
       # their configuration is absent: lib/usersdb.js throws without the Supabase
       # service key, and web-push rejects VAPID keys that are not real EC keys.

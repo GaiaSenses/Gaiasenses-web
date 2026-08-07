@@ -1,0 +1,1636 @@
+<title>GaiaSenses — guia de quem cria</title>
+
+<style>
+  :root {
+    color-scheme: light dark;
+
+    --bg:        #eef1ec;
+    --surface:   #f7f9f6;
+    --surface-2: #e6eae4;
+    --fg:        #14191b;
+    --fg-muted:  #5b6668;
+    --fg-faint:  #869092;
+    --line:      #ccd4cd;
+    --line-soft: #dfe5df;
+    --accent:    #2f7d74;
+    --accent-fg: #ffffff;
+    --accent-soft:#dbe9e5;
+    --warn:      #a35a26;
+
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+    --serif: ui-serif, Georgia, "Iowan Old Style", "Times New Roman", serif;
+
+    --t-xs:   .72rem;
+    --t-sm:   .84rem;
+    --t-base: 1.0625rem;
+    --t-lg:   1.22rem;
+    --t-xl:   1.6rem;
+    --t-2xl:  2.25rem;
+    --t-3xl:  clamp(2.4rem, 6vw, 3.6rem);
+
+    --measure: 68ch;
+    --rail: 15rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:        #0d1315;
+      --surface:   #131b1d;
+      --surface-2: #1a2426;
+      --fg:        #e4ebe8;
+      --fg-muted:  #9aa8a6;
+      --fg-faint:  #6d7b79;
+      --line:      #26312f;
+      --line-soft: #1d2726;
+      --accent:    #63c2b1;
+      --accent-fg: #07110f;
+      --accent-soft:#14302c;
+      --warn:      #d98b52;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg:        #0d1315;
+    --surface:   #131b1d;
+    --surface-2: #1a2426;
+    --fg:        #e4ebe8;
+    --fg-muted:  #9aa8a6;
+    --fg-faint:  #6d7b79;
+    --line:      #26312f;
+    --line-soft: #1d2726;
+    --accent:    #63c2b1;
+    --accent-fg: #07110f;
+    --accent-soft:#14302c;
+    --warn:      #d98b52;
+  }
+
+  :root[data-theme="light"] {
+    --bg:        #eef1ec;
+    --surface:   #f7f9f6;
+    --surface-2: #e6eae4;
+    --fg:        #14191b;
+    --fg-muted:  #5b6668;
+    --fg-faint:  #869092;
+    --line:      #ccd4cd;
+    --line-soft: #dfe5df;
+    --accent:    #2f7d74;
+    --accent-fg: #ffffff;
+    --accent-soft:#dbe9e5;
+    --warn:      #a35a26;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--serif);
+    font-size: var(--t-base);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── plotting-paper ground ───────────────────────────────── */
+  .grid-bg {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background-image:
+      linear-gradient(to right, var(--line-soft) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--line-soft) 1px, transparent 1px);
+    background-size: 2.5rem 2.5rem;
+    opacity: .5;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 20%, transparent 75%);
+  }
+
+  .shell { position: relative; z-index: 1; }
+
+  /* ── typography ──────────────────────────────────────────── */
+  h1, h2, h3, h4 {
+    font-family: var(--mono);
+    font-weight: 600;
+    text-wrap: balance;
+    margin: 0;
+    letter-spacing: -.02em;
+  }
+  h1 { font-size: var(--t-3xl); line-height: 1.02; letter-spacing: -.045em; }
+  h2 { font-size: var(--t-2xl); line-height: 1.12; letter-spacing: -.035em; }
+  h3 { font-size: var(--t-xl); line-height: 1.2; letter-spacing: -.025em; }
+  h4 { font-size: var(--t-lg); line-height: 1.3; letter-spacing: -.015em; }
+
+  p { margin: 0; }
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: .18em; }
+  a:hover { text-decoration-thickness: 2px; }
+
+  strong { font-weight: 700; }
+
+  code {
+    font-family: var(--mono);
+    font-size: .88em;
+    background: var(--surface-2);
+    border: 1px solid var(--line-soft);
+    border-radius: 3px;
+    padding: .08em .34em;
+    white-space: nowrap;
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: var(--t-xs);
+    text-transform: uppercase;
+    letter-spacing: .18em;
+    color: var(--fg-faint);
+    font-weight: 500;
+  }
+
+  /* ── layout ──────────────────────────────────────────────── */
+  .page {
+    display: grid;
+    grid-template-columns: var(--rail) minmax(0, 1fr);
+    gap: 0;
+    max-width: 78rem;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
+
+  @media (max-width: 62rem) {
+    .page { grid-template-columns: minmax(0, 1fr); }
+  }
+
+  .rail {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    padding: 2.5rem 1.5rem 2rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
+    overflow-y: auto;
+    border-right: 1px solid var(--line);
+  }
+
+  .rail-nav { display: flex; flex-direction: column; gap: .1rem; }
+  .rail-nav a {
+    font-family: var(--mono);
+    font-size: var(--t-sm);
+    color: var(--fg-muted);
+    text-decoration: none;
+    padding: .32rem 0 .32rem .75rem;
+    border-left: 2px solid var(--line);
+    transition: color .15s, border-color .15s;
+  }
+  .rail-nav a:hover { color: var(--accent); border-left-color: var(--accent); }
+
+  @media (max-width: 62rem) {
+    .rail {
+      position: static;
+      height: auto;
+      border-right: 0;
+      border-bottom: 1px solid var(--line);
+      padding: 1.25rem 0;
+      gap: 1.1rem;
+      overflow: visible;
+    }
+    /* Deitada, a navegação cabe numa faixa em vez de empurrar o conteúdo uma
+       tela inteira para baixo. */
+    .rail-nav {
+      flex-direction: row;
+      gap: 0;
+      overflow-x: auto;
+      padding-bottom: .25rem;
+      scrollbar-width: thin;
+    }
+    .rail-nav a {
+      white-space: nowrap;
+      border-left: 0;
+      border-bottom: 2px solid var(--line);
+      padding: .3rem .7rem;
+    }
+    .rail-nav a:first-child { padding-left: 0; }
+    .rail-nav a:hover { border-left-color: transparent; border-bottom-color: var(--accent); }
+  }
+
+
+  main {
+    padding: 2.5rem 0 6rem 3rem;
+    min-width: 0;
+  }
+  @media (max-width: 62rem) { main { padding-left: 0; padding-top: 2rem; } }
+
+  section { margin-bottom: 4.5rem; scroll-margin-top: 1.5rem; }
+
+  .measure { max-width: var(--measure); }
+
+  .stack     { display: flex; flex-direction: column; gap: 1.1rem; }
+  .stack-sm  { display: flex; flex-direction: column; gap: .6rem; }
+  .stack-lg  { display: flex; flex-direction: column; gap: 2rem; }
+
+  /* ── section rule ────────────────────────────────────────── */
+  .rule {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.75rem;
+  }
+  .rule::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--line);
+  }
+
+  /* ── hero ────────────────────────────────────────────────── */
+  .hero { padding-top: 1rem; margin-bottom: 4rem; }
+
+  .hero-lede {
+    font-size: var(--t-lg);
+    color: var(--fg-muted);
+    max-width: 46ch;
+    margin-top: 1.25rem;
+  }
+
+  .instrument {
+    margin-top: 2.5rem;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .instrument-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .5rem .85rem;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-2);
+    font-family: var(--mono);
+    font-size: var(--t-xs);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--fg-faint);
+    flex-wrap: wrap;
+  }
+
+  .instrument-body { padding: 1rem; }
+
+  #demo-canvas {
+    display: block;
+    width: 100%;
+    height: 15rem;
+    border-radius: 2px;
+    background: #2a4a2a;
+  }
+
+  .dials {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: 1rem 1.75rem;
+    margin-top: 1rem;
+  }
+
+  .dial { display: flex; flex-direction: column; gap: .3rem; }
+  .dial-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-family: var(--mono);
+    font-size: var(--t-xs);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--fg-muted);
+  }
+  .dial-val { color: var(--fg); font-variant-numeric: tabular-nums; letter-spacing: 0; }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 1.5rem;
+    background: transparent;
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-runnable-track {
+    height: 2px; background: var(--line);
+  }
+  input[type="range"]::-moz-range-track { height: 2px; background: var(--line); }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: .85rem; height: .85rem;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-top: -.38rem;
+    border: 0;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: .85rem; height: .85rem; border-radius: 50%;
+    background: var(--accent); border: 0;
+  }
+  input[type="range"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+
+  /* ── path switch ─────────────────────────────────────────── */
+  .switch {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+  }
+  .switch button {
+    font-family: var(--mono);
+    font-size: var(--t-sm);
+    padding: .5rem .9rem;
+    background: var(--surface);
+    color: var(--fg-muted);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .switch button:hover { border-color: var(--accent); color: var(--fg); }
+  .switch button[aria-pressed="true"] {
+    background: var(--accent);
+    color: var(--accent-fg);
+    border-color: var(--accent);
+  }
+  .switch button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  [hidden] { display: none !important; }
+
+  /* ── code ────────────────────────────────────────────────── */
+  .code {
+    position: relative;
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    background: var(--surface);
+    overflow: hidden;
+  }
+  .code-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: .4rem .5rem .4rem .8rem;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-2);
+    font-family: var(--mono);
+    font-size: var(--t-xs);
+    letter-spacing: .08em;
+    color: var(--fg-faint);
+  }
+  .code pre {
+    margin: 0;
+    padding: .9rem 1rem;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: .82rem;
+    line-height: 1.6;
+    color: var(--fg);
+  }
+  .code pre code {
+    background: none; border: 0; padding: 0; font-size: inherit; white-space: pre;
+  }
+
+  .copy {
+    font-family: var(--mono);
+    font-size: var(--t-xs);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--fg-muted);
+    border-radius: 2px;
+    padding: .22rem .5rem;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .copy:hover { border-color: var(--accent); color: var(--accent); }
+  .copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .copy[data-done="1"] { color: var(--accent); border-color: var(--accent); }
+
+  /* ── tables ──────────────────────────────────────────────── */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 2px; }
+  table { border-collapse: collapse; width: 100%; font-size: var(--t-sm); }
+  th, td {
+    text-align: left;
+    padding: .55rem .8rem;
+    border-bottom: 1px solid var(--line-soft);
+    vertical-align: top;
+  }
+  th {
+    font-family: var(--mono);
+    font-size: var(--t-xs);
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--fg-faint);
+    font-weight: 500;
+    background: var(--surface-2);
+    white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--fg-muted); }
+
+  /* ── callouts ────────────────────────────────────────────── */
+  .note {
+    border-left: 2px solid var(--accent);
+    padding: .1rem 0 .1rem 1rem;
+    color: var(--fg-muted);
+    font-size: .95rem;
+  }
+  .note strong { color: var(--fg); }
+  .note.warn { border-left-color: var(--warn); }
+
+  /* ── steps ───────────────────────────────────────────────── */
+  ol.steps { list-style: none; margin: 0; padding: 0; counter-reset: s; }
+  ol.steps > li {
+    counter-increment: s;
+    display: grid;
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+    gap: 0 1rem;
+    padding-bottom: 1.75rem;
+  }
+  ol.steps > li::before {
+    content: counter(s, decimal-leading-zero);
+    font-family: var(--mono);
+    font-size: var(--t-sm);
+    color: var(--accent);
+    padding-top: .15rem;
+  }
+  ol.steps h4 { margin-bottom: .35rem; }
+  ol.steps > li > div { display: flex; flex-direction: column; gap: .6rem; min-width: 0; }
+
+  ul.plain { margin: 0; padding-left: 1.1rem; }
+  ul.plain li { margin-bottom: .5rem; }
+
+  /* ── builder ─────────────────────────────────────────────── */
+  .builder {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 1.25rem;
+  }
+  @media (max-width: 48rem) { .builder { grid-template-columns: minmax(0, 1fr); } }
+
+  .field { display: flex; flex-direction: column; gap: .3rem; margin-bottom: .9rem; }
+  .field > span {
+    font-family: var(--mono);
+    font-size: var(--t-xs);
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--fg-muted);
+  }
+  .field input[type="text"], .field select {
+    font-family: var(--mono);
+    font-size: var(--t-sm);
+    padding: .4rem .55rem;
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+  }
+  .field input:focus-visible, .field select:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 1px;
+  }
+
+  .checks { display: flex; flex-wrap: wrap; gap: .4rem; }
+  .checks label {
+    font-family: var(--mono);
+    font-size: var(--t-xs);
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .28rem .55rem;
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    cursor: pointer;
+    background: var(--bg);
+    transition: all .12s;
+  }
+  .checks label:hover { border-color: var(--accent); }
+  .checks input { accent-color: var(--accent); margin: 0; }
+  .checks label:has(input:checked) {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--fg);
+  }
+  .checks label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  /* ── rule simulator ──────────────────────────────────────── */
+  .rules { display: flex; flex-direction: column; gap: .3rem; margin-top: .9rem; }
+  .rule-row {
+    display: grid;
+    grid-template-columns: 1.6rem minmax(0, 1fr) auto;
+    gap: .6rem;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: var(--t-sm);
+    padding: .4rem .6rem;
+    border: 1px solid transparent;
+    border-radius: 2px;
+    color: var(--fg-faint);
+    transition: all .15s;
+  }
+  .rule-row .idx { font-size: var(--t-xs); }
+  .rule-row .out { font-size: var(--t-xs); text-align: right; }
+  .rule-row[data-state="win"] {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--fg);
+  }
+  .rule-row[data-state="skipped"] { text-decoration: line-through; opacity: .55; }
+
+  /* ── footer ──────────────────────────────────────────────── */
+  footer {
+    border-top: 1px solid var(--line);
+    padding-top: 1.5rem;
+    color: var(--fg-faint);
+    font-family: var(--mono);
+    font-size: var(--t-xs);
+    line-height: 1.8;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="grid-bg"></div>
+
+<div class="shell">
+<div class="page">
+
+  <aside class="rail">
+    <div class="stack-sm">
+      <span class="eyebrow">GaiaSenses</span>
+      <span style="font-family: var(--mono); font-size: var(--t-sm); color: var(--fg-muted); line-height:1.5;">Guia de quem cria</span>
+    </div>
+
+    <div class="stack-sm">
+      <span class="eyebrow">Eu faço</span>
+      <div class="switch" id="path-switch" role="group" aria-label="Escolha o seu caminho">
+        <button type="button" data-path="ambos" aria-pressed="true">Os dois</button>
+        <button type="button" data-path="som" aria-pressed="false">Som</button>
+        <button type="button" data-path="imagem" aria-pressed="false">Imagem</button>
+      </div>
+    </div>
+
+    <nav class="rail-nav" aria-label="Seções">
+      <a href="#comeco">Antes de tudo</a>
+      <a href="#patch" data-path="som">A · Patch de Pd</a>
+      <a href="#animacao" data-path="imagem">B · Animação p5</a>
+      <a href="#juntos">Os dois juntos</a>
+      <a href="#jornada">Do envio ao ar</a>
+      <a href="#problemas">Quando dá errado</a>
+      <a href="#perguntas">Perguntas</a>
+    </nav>
+  </aside>
+
+  <main>
+
+    <!-- ══ HERO ══ -->
+    <header class="hero">
+      <span class="eyebrow">Manual do artista · 2026</span>
+      <h1 style="margin-top:.6rem;">O clima de um<br>lugar real vira<br>a sua obra.</h1>
+      <p class="hero-lede">
+        Você aponta o globo para um ponto do planeta. O site busca a temperatura, a
+        chuva, os raios e as queimadas <em>daquele lugar, naquele momento</em>, e
+        entrega esses números para as obras que estão no ar. Este guia é para
+        colocar a sua lá dentro.
+      </p>
+
+      <div class="instrument">
+        <div class="instrument-bar">
+          <span>Demonstração ao vivo · exemploClima</span>
+          <span id="demo-readout">temp 24.0 °C · chuva 0.0 mm/h</span>
+        </div>
+        <div class="instrument-body">
+          <canvas id="demo-canvas" width="800" height="240"
+                  aria-label="Animação de exemplo reagindo à temperatura e à chuva"></canvas>
+          <div class="dials">
+            <label class="dial">
+              <span class="dial-head">
+                <span>temperature</span>
+                <span class="dial-val" id="v-temp">24.0 °C</span>
+              </span>
+              <input type="range" id="s-temp" min="-10" max="45" step="0.5" value="24">
+            </label>
+            <label class="dial">
+              <span class="dial-head">
+                <span>rain</span>
+                <span class="dial-val" id="v-rain">0.0 mm/h</span>
+              </span>
+              <input type="range" id="s-rain" min="0" max="12" step="0.1" value="0">
+            </label>
+          </div>
+          <p style="margin-top:1rem; font-size:var(--t-sm); color:var(--fg-muted); max-width:60ch;">
+            Isto é uma animação declarada, rodando. Ela pediu dois dados —
+            <code>temperature</code> e <code>rain</code> — e o site os entregou. Todo o
+            resto é o seu p5. O código está
+            <a href="#o-sketch">mais abaixo</a>, inteiro.
+          </p>
+        </div>
+      </div>
+    </header>
+
+    <!-- ══ ANTES DE TUDO ══ -->
+    <section id="comeco">
+      <div class="rule"><span class="eyebrow">Antes de tudo</span></div>
+      <div class="stack measure">
+        <h2>Três coisas, uma vez só</h2>
+
+        <ol class="steps" style="margin-top:1rem;">
+          <li><div>
+            <h4>Uma conta no GitHub</h4>
+            <p>É onde o projeto guarda tudo, e você vai usá-lo só pelo navegador.
+            Em <a href="https://github.com/signup">github.com/signup</a>: e-mail,
+            senha, um nome de usuário, e confirmar. Gratuito, uns três minutos.</p>
+          </div></li>
+          <li><div>
+            <h4>Um convite para o repositório</h4>
+            <p>Ter conta não basta — alguém da equipe precisa te dar acesso. Mande
+            o seu usuário e <strong>aceite o convite que chega por e-mail</strong>.
+            Sem isso, o botão de enviar arquivos nem aparece.</p>
+            <div class="code">
+              <div class="code-bar">
+                <span>mensagem pronta</span>
+                <button class="copy" type="button">Copiar</button>
+              </div>
+              <pre><code>Oi! Criei minha conta no GitHub, meu usuário é @seu-usuario.
+Pode me adicionar como colaborador no repositório
+Gaiasenses-web? Quero enviar uma obra.</code></pre>
+            </div>
+          </div></li>
+          <li><div>
+            <h4>A ferramenta da sua obra</h4>
+            <p><span data-path="som">Para som, o <strong>Pure Data vanilla</strong>, de
+            <a href="https://puredata.info">puredata.info</a>. </span><span data-path="imagem">Para
+            imagem, nada além de um editor de texto — o código que você já tem no
+            OpenProcessing ou no editor do p5 serve de ponto de partida.</span></p>
+          </div></li>
+        </ol>
+
+        <p class="note">
+          <strong>Você não instala mais nada.</strong> Nem Node, nem compilador, nem
+          servidor. O robô do projeto faz essa parte, e você recebe um link.
+        </p>
+      </div>
+    </section>
+
+    <!-- ══ CAMINHO A: PATCH ══ -->
+    <section id="patch" data-path="som">
+      <div class="rule"><span class="eyebrow">Caminho A · som</span></div>
+      <div class="stack-lg">
+
+        <div class="stack measure">
+          <h2>Um patch de Pure Data</h2>
+          <p>O seu patch escuta <strong>canais</strong>. Para receber um dado do mundo,
+          basta um objeto de <em>receive</em> com o nome dele. Não há arquivo de
+          configuração para preencher nem ninguém para avisar: quando você envia, o
+          sistema lê os objetos que você usou e liga tudo sozinho.</p>
+        </div>
+
+        <div class="code measure">
+          <div class="code-bar">
+            <span>é literalmente isto</span>
+            <button class="copy" type="button">Copiar</button>
+          </div>
+          <pre><code>[r gaia.temp]   ← a temperatura de onde o globo está apontando</code></pre>
+        </div>
+
+        <div class="stack">
+          <h3>Como a pasta precisa estar</h3>
+          <div class="code" style="max-width:var(--measure);">
+            <div class="code-bar">
+              <span>minha-peca/</span>
+              <button class="copy" type="button">Copiar</button>
+            </div>
+            <pre><code>minha-peca/
+├── main.pd          o patch principal, com esse nome exato
+├── patch.json       a ficha da obra
+├── Libs/            todas as suas abstrações .pd vão aqui
+│   ├── minhaAbs.pd
+│   └── outraAbs.pd
+├── Audios/          arquivos .wav ou .aif, se a peça usar
+└── Extras/          imagens e outros arquivos</code></pre>
+          </div>
+
+          <div class="stack-sm measure">
+            <p>Três regras causam quase todos os erros:</p>
+            <ul class="plain">
+              <li>O principal <strong>precisa se chamar <code>main.pd</code></strong> e ficar na raiz.</li>
+              <li>Toda abstração vai <strong>dentro de <code>Libs/</code></strong>. Nenhuma solta na raiz.</li>
+              <li>O <code>main.pd</code> precisa conter <code>[declare -path Libs]</code>, em qualquer lugar. Sem ele o Pd não acha as suas abstrações.</li>
+            </ul>
+          </div>
+
+          <p class="note warn measure">
+            <strong>A armadilha silenciosa: maiúsculas importam.</strong> Se o arquivo
+            é <code>MinhaAbs.pd</code> e você escreve <code>[minhaabs]</code>, funciona
+            no seu Mac e quebra no servidor. O sistema avisa — mas é melhor já nascer
+            certo.
+          </p>
+
+          <p class="note measure">
+            <strong>Limitação conhecida.</strong> O compilador aceita apenas
+            <strong>um <em>graph</em></strong> no patch principal — aquelas caixas com
+            “graph on parent” ligado. Se você usa várias, mova-as para abstrações em
+            <code>Libs/</code>.
+          </p>
+        </div>
+
+        <div class="stack">
+          <h3>Os canais disponíveis</h3>
+          <p class="measure">Os de clima mudam quando o público move o globo — não são
+          contínuos. Os do sensor só chegam com o Bolota conectado.</p>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Coloque no patch</th><th>O que chega</th><th>Faixa</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>[r gaia.lat]</code></td><td>Latitude do centro do mapa</td><td class="num">−90 a 90 °</td></tr>
+                <tr><td><code>[r gaia.lon]</code></td><td>Longitude do centro do mapa</td><td class="num">−180 a 180 °</td></tr>
+                <tr><td><code>[r gaia.speed]</code></td><td>Velocidade de rotação do globo</td><td class="num">0 a 180 °/s</td></tr>
+                <tr><td><code>[r gaia.temp]</code></td><td>Temperatura do ar</td><td class="num">−60 a 55 °C</td></tr>
+                <tr><td><code>[r gaia.humidity]</code></td><td>Umidade relativa</td><td class="num">0 a 100 %</td></tr>
+                <tr><td><code>[r gaia.clouds]</code></td><td>Cobertura de nuvens</td><td class="num">0 a 100 %</td></tr>
+                <tr><td><code>[r gaia.rain]</code></td><td>Chuva na última hora</td><td class="num">0 a 100 mm/h</td></tr>
+                <tr><td><code>[r gaia.wind.speed]</code></td><td>Velocidade do vento</td><td class="num">0 a 60 m/s</td></tr>
+                <tr><td><code>[r gaia.wind.deg]</code></td><td>Direção do vento</td><td class="num">0 a 360 °</td></tr>
+                <tr><td><code>[r gaia.lightning]</code></td><td>Raios detectados por perto</td><td class="num">0 a 500</td></tr>
+                <tr><td><code>[r gaia.fire]</code></td><td>Focos de queimada por perto</td><td class="num">0 a 500</td></tr>
+                <tr><td><code>[r gaia.acc.x]</code></td><td>Aceleração X · sensor Bolota</td><td class="num">−16 a 16 g</td></tr>
+                <tr><td><code>[r gaia.acc.y]</code></td><td>Aceleração Y · sensor Bolota</td><td class="num">−16 a 16 g</td></tr>
+                <tr><td><code>[r gaia.acc.z]</code></td><td>Aceleração Z · sensor Bolota</td><td class="num">−16 a 16 g</td></tr>
+                <tr><td><code>[r gaia.co2]</code></td><td>CO₂ medido pelo sensor</td><td class="num">400 a 5000 ppm</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="note measure">
+            <strong>O patch também fala de volta.</strong> Mande uma lista de dois
+            valores — latitude e longitude — para <code>[s gaia.out]</code> e o globo
+            vai para lá. É o som dirigindo o visual.
+          </p>
+        </div>
+
+        <div class="stack">
+          <h3>Um patch que funciona</h3>
+          <p class="measure">A temperatura vira a altura de uma nota: quanto mais quente
+          o lugar, mais aguda.</p>
+          <div class="code" style="max-width:var(--measure);">
+            <div class="code-bar">
+              <span>patches/exemplo-clima/main.pd</span>
+              <button class="copy" type="button">Copiar</button>
+            </div>
+            <pre><code>[r gaia.temp]
+|
+[clip -10 45]        ← protege contra valores absurdos
+|
+[* 8]
+|
+[+ 220]              ← 20 °C vira 380 Hz, 30 °C vira 460 Hz
+|
+[osc~]
+|
+[*~ 0.05]            ← volume baixo, cuide de quem escuta
+|
+[dac~]</code></pre>
+          </div>
+
+          <div class="stack-sm measure">
+            <h4>Três cuidados que valem a peça</h4>
+            <ul class="plain">
+              <li><strong>Sempre limite a entrada</strong> com <code>[clip]</code>. Um sensor com defeito pode mandar um número estranho, e você não quer isso virando estouro no alto-falante.</li>
+              <li><strong>Os dados chegam devagar.</strong> O clima só muda quando o público move o globo. Para movimento contínuo, use o dado como <em>destino</em> e interpole — com <code>[line]</code>, por exemplo.</li>
+              <li><strong>Comece baixo.</strong> A peça pode tocar numa exposição, com o volume do sistema alto.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="stack">
+          <h3>A ficha da obra: <code>patch.json</code></h3>
+          <div class="code" style="max-width:var(--measure);">
+            <div class="code-bar">
+              <span>minha-peca/patch.json</span>
+              <button class="copy" type="button">Copiar</button>
+            </div>
+            <pre><code>{
+  "$schema": "../../schemas/gaia.patch.schema.json",
+  "schemaVersion": 1,
+  "id": "minha-peca",
+  "label": "Minha Peça",
+  "description": "Uma frase sobre a obra.",
+  "author": { "name": "Seu Nome" },
+  "license": "CC-BY-4.0",
+  "build": { "initialMemory": 64 },
+  "activation": {
+    "moments": ["player"],
+    "compositions": ["lightningBolts"]
+  }
+}</code></pre>
+          </div>
+          <div class="stack-sm measure">
+            <ul class="plain">
+              <li><code>id</code> igual ao nome da pasta — minúsculas e hífen.</li>
+              <li><code>moments</code>: <code>"player"</code> se toca junto com uma animação, <code>"map"</code> se é a paisagem sonora do globo.</li>
+              <li><code>compositions</code>: com qual animação ela toca. Remova a linha se for som do globo.</li>
+              <li><code>initialMemory</code>: 64 MB serve para quase tudo. Suba para 128 ou 256 com muitas vozes ou samples grandes.</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ══ CAMINHO B: ANIMAÇÃO ══ -->
+    <section id="animacao" data-path="imagem">
+      <div class="rule"><span class="eyebrow">Caminho B · imagem</span></div>
+      <div class="stack-lg">
+
+        <div class="stack measure">
+          <h2>Uma animação p5.js</h2>
+          <p>Uma animação <strong>declara quais dados usa</strong>, e o site os entrega
+          prontos. Você não busca nada, não chama nenhuma API, não trata erro de rede:
+          os números chegam como propriedades do seu sketch.</p>
+        </div>
+
+        <div class="stack">
+          <h3>Dois arquivos</h3>
+          <div class="code" style="max-width:var(--measure);">
+            <div class="code-bar">
+              <span>compositions/minha-animacao/</span>
+              <button class="copy" type="button">Copiar</button>
+            </div>
+            <pre><code>compositions/minha-animacao/
+├── composition.json     a ficha da obra
+└── sketch.tsx           o seu p5</code></pre>
+          </div>
+          <p class="measure">A pasta usa <strong>minúsculas e hífen</strong>. Se a obra
+          tiver som próprio, os <code>.mp3</code> vão em <code>public/audios/</code>.</p>
+        </div>
+
+        <div class="stack">
+          <h3>Os onze dados que você pode pedir</h3>
+          <p class="measure">Peça só o que a obra realmente lê — pedir dado que não se
+          usa faz o site buscar informação à toa.</p>
+
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Nome</th><th>O que chega</th><th>Faixa</th></tr></thead>
+              <tbody>
+                <tr><td><code>temperature</code></td><td>Temperatura do ar</td><td class="num">−60 a 55 °C</td></tr>
+                <tr><td><code>humidity</code></td><td>Umidade relativa</td><td class="num">0 a 100 %</td></tr>
+                <tr><td><code>clouds</code></td><td>Cobertura de nuvens</td><td class="num">0 a 100 %</td></tr>
+                <tr><td><code>rain</code></td><td>Chuva na última hora</td><td class="num">0 a 100 mm/h</td></tr>
+                <tr><td><code>windSpeed</code></td><td>Velocidade do vento</td><td class="num">0 a 60 m/s</td></tr>
+                <tr><td><code>windDeg</code></td><td>Direção do vento</td><td class="num">0 a 360 °</td></tr>
+                <tr><td><code>lightningCount</code></td><td>Raios detectados por perto</td><td class="num">0 a 500</td></tr>
+                <tr><td><code>fireCount</code></td><td>Focos de queimada por perto</td><td class="num">0 a 500</td></tr>
+                <tr><td><code>closeFires</code></td><td>Focos a menos de 50 km</td><td class="num">0 a 500</td></tr>
+                <tr><td><code>lat</code></td><td>Latitude do centro do mapa</td><td class="num">−90 a 90 °</td></tr>
+                <tr><td><code>lon</code></td><td>Longitude do centro do mapa</td><td class="num">−180 a 180 °</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="note warn measure">
+            <strong>Cada dado tem um nome só.</strong> Não existe apelido nem grafia
+            alternativa: é <code>windSpeed</code>, nunca <code>windspeed</code>. Se
+            você errar, o sistema recusa o envio e sugere a grafia certa — em vez de
+            aceitar calado e deixar o valor parado em zero, que era o que acontecia
+            antes.
+          </p>
+        </div>
+
+        <!-- ── BUILDER ── -->
+        <div class="stack">
+          <h3>Monte a sua ficha</h3>
+          <p class="measure">Marque o que a obra usa e copie o resultado. É o arquivo
+          <code>composition.json</code>, pronto.</p>
+
+          <div class="instrument">
+            <div class="instrument-bar">
+              <span>Gerador de composition.json</span>
+              <span id="builder-status">válido</span>
+            </div>
+            <div class="instrument-body">
+              <div class="builder">
+                <div>
+                  <label class="field">
+                    <span>label · como aparece na tela</span>
+                    <input type="text" id="b-label" value="Chuva de Verão">
+                  </label>
+                  <label class="field">
+                    <span>id · gerado a partir do nome</span>
+                    <input type="text" id="b-id" value="chuvaDeVerao" readonly>
+                  </label>
+                  <label class="field">
+                    <span>author</span>
+                    <input type="text" id="b-author" value="Seu Nome">
+                  </label>
+                  <label class="field">
+                    <span>de onde vem o som</span>
+                    <select id="b-audio">
+                      <option value="none">Nenhum — obra silenciosa</option>
+                      <option value="patch">Um patch de Pure Data</option>
+                      <option value="mp3">Um arquivo de áudio fixo</option>
+                      <option value="rules">Arquivos que mudam com o clima</option>
+                    </select>
+                  </label>
+
+                  <label class="field" id="b-decisor-field" hidden>
+                    <span>qual dado decide o som</span>
+                    <select id="b-decisor"></select>
+                  </label>
+
+                  <div class="field">
+                    <span>attributes · os dados que ela usa</span>
+                    <div class="checks" id="b-attrs"></div>
+                  </div>
+                </div>
+
+                <div class="code" style="align-self:start;">
+                  <div class="code-bar">
+                    <span>composition.json</span>
+                    <button class="copy" type="button">Copiar</button>
+                  </div>
+                  <pre><code id="b-out"></code></pre>
+                </div>
+              </div>
+              <p style="margin-top:.9rem; font-size:var(--t-sm); color:var(--fg-muted); max-width:60ch;">
+                A pasta se chama <code id="b-folder">chuva-de-verao</code> — com hífen —
+                e o <code>id</code> vai em <code>camelCase</code>. Parece pegadinha, mas
+                a pasta é um nome de arquivo e o <code>id</code> vira um identificador
+                dentro do código.
+              </p>
+              <p style="margin-top:.6rem; font-size:var(--t-sm); color:var(--fg-muted); max-width:60ch;">
+                Se você escolheu regras, os <strong>limiares saem em branco de
+                propósito</strong>: quanto é “muita chuva” depende da sua obra, e um
+                número chutado daria um manifesto que valida e decide errado. Troque os
+                zeros e os nomes <code>AJUSTE-…</code> pelos seus.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── SKETCH ── -->
+        <div class="stack" id="o-sketch">
+          <h3>O sketch</h3>
+          <p class="measure">O contrato é curto: <strong>exporte um componente por
+          padrão, e ele recebe os dados que você declarou</strong> — cada um com o nome
+          exato do <code>attributes</code> — <strong>mais um <code>play</code></strong>.</p>
+
+          <div class="code">
+            <div class="code-bar">
+              <span>compositions/exemplo-clima/sketch.tsx · é o da abertura</span>
+              <button class="copy" type="button">Copiar</button>
+            </div>
+            <pre><code>"use client";
+import type { P5CanvasInstance, SketchProps } from "@p5-wrapper/react";
+import { NextReactP5Wrapper } from "@p5-wrapper/next";
+
+export type ChuvaDeVeraoProps = {
+  play: boolean;
+  temperature: number;
+  rain: number;
+};
+
+function sketch(p5: P5CanvasInstance&lt;SketchProps &amp; ChuvaDeVeraoProps&gt;) {
+  let temperature = 0;
+  let rain = 0;
+  let play = false;
+
+  p5.setup = () =&gt; {
+    p5.createCanvas(p5.windowWidth, p5.windowHeight);
+    p5.colorMode(p5.HSB, 255);
+    p5.noStroke();
+    if (!play) p5.noLoop();
+  };
+
+  // Chamado sempre que um dado muda — é por aqui que o clima entra.
+  p5.updateWithProps = (props: ChuvaDeVeraoProps) =&gt; {
+    if (!Number.isNaN(props.temperature)) temperature = props.temperature;
+    if (!Number.isNaN(props.rain)) rain = props.rain;
+    play = props.play;
+    if (play) p5.loop();
+    else p5.noLoop();
+  };
+
+  p5.draw = () =&gt; {
+    const matiz = p5.map(temperature, -10, 45, 160, 0, true);
+    p5.background(matiz, 180, 90);
+    p5.fill(matiz, 60, 255);
+    for (let i = 0; i &lt; rain * 4; i++) {
+      p5.circle(p5.random(p5.width), p5.random(p5.height), 3);
+    }
+  };
+}
+
+export default function ChuvaDeVeraoSketch(props: ChuvaDeVeraoProps) {
+  return &lt;NextReactP5Wrapper sketch={sketch} {...props} /&gt;;
+}</code></pre>
+          </div>
+
+          <div class="stack-sm measure">
+            <h4>Três coisas que salvam tempo</h4>
+            <ul class="plain">
+              <li><strong>Respeite o <code>play</code>.</strong> Quando é falso a obra está fora de cena: chame <code>p5.noLoop()</code>. Uma animação rodando escondida come bateria de quem só está olhando o mapa.</li>
+              <li><strong>Nunca confie no valor bruto.</strong> Use <code>p5.map(..., true)</code> com o quarto argumento, ou <code>p5.constrain</code>. Um dia de tempestade manda número muito maior do que você testou.</li>
+              <li><strong>Zero é um valor legítimo.</strong> Sem chuva, <code>rain</code> vale 0 — e a obra precisa continuar bonita assim, porque é o estado mais comum.</li>
+            </ul>
+          </div>
+
+          <div class="stack-sm measure">
+            <h4>Vindo do OpenProcessing?</h4>
+            <p>O código de lá quase sempre funciona com três ajustes: envolva tudo na
+            função <code>sketch(p5)</code> e ponha <code>p5.</code> na frente das
+            chamadas (<code>background(0)</code> vira <code>p5.background(0)</code>);
+            <code>function setup()</code> vira <code>p5.setup = () =&gt; {}</code>, o
+            mesmo para <code>draw</code>; e onde havia um slider para experimentar,
+            entra o dado do clima.</p>
+          </div>
+        </div>
+
+        <!-- ── ÁUDIO / REGRAS ── -->
+        <div class="stack">
+          <h3>De onde vem o som da animação</h3>
+          <p class="measure">Se a obra não usa Pd, você fornece os arquivos e diz
+          <strong>quando cada um toca</strong>. Vale a primeira regra que couber, de
+          cima para baixo — arraste e veja:</p>
+
+          <div class="instrument">
+            <div class="instrument-bar">
+              <span>Simulador de regras · a primeira que couber vence</span>
+              <span id="sim-out">—</span>
+            </div>
+            <div class="instrument-body">
+              <label class="dial" style="max-width:22rem;">
+                <span class="dial-head">
+                  <span>rain</span>
+                  <span class="dial-val" id="v-sim">0.0 mm/h</span>
+                </span>
+                <input type="range" id="s-sim" min="0" max="12" step="0.1" value="0">
+              </label>
+
+              <div class="rules" id="sim-rules"></div>
+
+              <p style="margin-top:.9rem; font-size:var(--t-sm); color:var(--fg-muted); max-width:60ch;">
+                A última regra não tem condição: ela cobre todo o resto.
+                <strong>Sem ela existe um estado do clima em que a obra fica muda</strong>,
+                e o sistema avisa.
+              </p>
+            </div>
+          </div>
+
+          <div class="stack-sm measure">
+            <h4>Os quatro operadores</h4>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Operador</th><th>Significa</th></tr></thead>
+                <tbody>
+                  <tr><td><code>min</code></td><td>maior ou igual a</td></tr>
+                  <tr><td><code>max</code></td><td>menor ou igual a</td></tr>
+                  <tr><td><code>above</code></td><td>estritamente maior que</td></tr>
+                  <tr><td><code>below</code></td><td>estritamente menor que</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <p class="measure">Uma regra pode olhar <strong>dois dados ao mesmo
+          tempo</strong>, e aí os dois precisam bater:</p>
+
+          <div class="code" style="max-width:var(--measure);">
+            <div class="code-bar">
+              <span>duas condições numa regra</span>
+              <button class="copy" type="button">Copiar</button>
+            </div>
+            <pre><code>{ "when": { "fireCount": { "min": 4 }, "closeFires": { "min": 2 } },
+  "file": "fogo-intenso.mp3" }</code></pre>
+          </div>
+
+          <p class="note warn measure">
+            <strong>A ordem importa mais do que parece.</strong> Duas animações do
+            projeto tinham a mesma condição escrita duas vezes; a segunda nunca era
+            alcançada, e um arquivo de áudio jamais tocou. O verificador agora reclama
+            quando uma regra torna outra inalcançável.
+          </p>
+
+          <p class="note measure">
+            Todo dado que aparece num <code>when</code> <strong>precisa estar em
+            <code>attributes</code></strong> — senão ele nunca seria buscado, valeria
+            zero, e a regra decidiria sempre errado. O sistema recusa o envio nesse caso.
+          </p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ══ JUNTOS ══ -->
+    <section id="juntos">
+      <div class="rule"><span class="eyebrow">Som + imagem</span></div>
+      <div class="stack measure">
+        <h2>Os dois juntos</h2>
+        <p>Se você tem a animação <strong>e</strong> o patch que a sonoriza, mande os
+        dois no <strong>mesmo pull request</strong>. A ligação é declarada de um lado
+        só, no <code>patch.json</code>:</p>
+
+        <div class="code">
+          <div class="code-bar">
+            <span>patch.json · a ligação</span>
+            <button class="copy" type="button">Copiar</button>
+          </div>
+          <pre><code>"activation": {
+  "moments": ["player"],
+  "compositions": ["chuvaDeVerao"]
+}</code></pre>
+        </div>
+
+        <p>Use ali o <code>id</code> da animação — o <code>camelCase</code>, não o nome
+        da pasta. E no <code>composition.json</code> dela, diga que o som vem de fora:
+        <code>"audio": { "kind": "patch" }</code>.</p>
+
+        <p class="note">
+          Pronto. O robô entende que os dois são <strong>uma obra só</strong> e manda
+          <strong>um link</strong>, que abre a animação já com o patch tocando.
+        </p>
+      </div>
+    </section>
+
+    <!-- ══ JORNADA ══ -->
+    <section id="jornada">
+      <div class="rule"><span class="eyebrow">Do envio ao ar</span></div>
+      <div class="stack-lg">
+        <div class="stack measure">
+          <h2>A jornada</h2>
+          <p>O caminho é o mesmo para patch, para animação, ou para os dois.</p>
+        </div>
+
+        <ol class="steps" style="max-width:var(--measure);">
+          <li><div>
+            <h4>Abra a pasta certa</h4>
+            <p><span data-path="som"><a href="https://github.com/GaiaSenses/Gaiasenses-web/tree/main/patches">…/tree/main/patches</a> para patches. </span><span data-path="imagem"><a href="https://github.com/GaiaSenses/Gaiasenses-web/tree/main/compositions">…/tree/main/compositions</a> para animações.</span></p>
+          </div></li>
+          <li><div>
+            <h4>“Add file” → “Upload files”</h4>
+            <p>No canto superior direito da lista de arquivos. Se o botão não aparece,
+            o convite ainda não foi aceito.</p>
+          </div></li>
+          <li><div>
+            <h4>Arraste a pasta inteira</h4>
+            <p>O GitHub preserva a estrutura, então <code>Libs/</code> continua no lugar
+            certo. Não descompacte nem reorganize antes. Arquivos de áudio da animação
+            vão em <code>public/audios/</code>.</p>
+          </div></li>
+          <li><div>
+            <h4>Crie uma <em>branch</em> e abra o <em>pull request</em></h4>
+            <p>No fim da página, escolha <strong>“Create a new branch for this commit
+            and start a pull request”</strong>. Dê um nome à branch e confirme.</p>
+            <p class="note"><strong>Traduzindo o jargão.</strong> Uma <em>branch</em> é
+            uma cópia paralela onde a sua obra vive até ser aprovada. Um <em>pull
+            request</em> é o pedido para incorporá-la. Nada disso afeta o site no ar até
+            alguém aprovar.</p>
+          </div></li>
+          <li><div>
+            <h4>Espere alguns minutos</h4>
+            <p>O robô assume daqui:</p>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Ele faz</th><th>Você vê</th></tr></thead>
+                <tbody>
+                  <tr><td>Confere a ficha da obra</td><td>✓ ou um erro explicado em português</td></tr>
+                  <tr><td>Compila o patch, se houver</td><td>Um comentário com tamanho e memória</td></tr>
+                  <tr><td>Registra a animação, se houver</td><td>Um commit do robô na sua branch</td></tr>
+                  <tr><td>Espera a Vercel publicar</td><td>—</td></tr>
+                  <tr><td>Escreve o link</td><td>O botão para ver e ouvir</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p>O commit do robô na sua branch é esperado: são arquivos que o site
+            precisa e que ninguém escreve à mão.</p>
+          </div></li>
+          <li><div>
+            <h4>Veja e ouça</h4>
+            <p><strong>São dois cliques até o som</strong>: primeiro
+            <strong>Iniciar</strong>, depois o botão com o nome da obra. Não é
+            burocracia — o navegador só libera áudio depois de um gesto seu, e um link
+            que já caísse dentro da animação mostraria a imagem e ficaria mudo.</p>
+            <p>Se a obra tem som de arquivo, procure ainda o <strong>Unmute</strong> no
+            canto: o som começa desligado.</p>
+          </div></li>
+          <li><div>
+            <h4>Ajuste quantas vezes quiser</h4>
+            <p>Suba o arquivo corrigido <strong>na mesma branch</strong> e o robô refaz
+            tudo sozinho. Não abra um pull request novo.</p>
+          </div></li>
+          <li><div>
+            <h4>Avise que está pronto</h4>
+            <p>Um comentário no pull request dizendo que a obra está do jeito que você
+            quer. Alguém da equipe revisa e publica.</p>
+            <p class="note"><strong>Um último passo é da equipe.</strong> Ver a obra
+            pelo link funciona assim que o robô termina. Mas para ela entrar no rodízio
+            automático — aquele em que o site escolhe sozinho o que mostrar conforme o
+            clima — alguém precisa incluí-la na lista de obras ativas. É decisão
+            curatorial, não técnica: peça no pull request.</p>
+          </div></li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ══ PROBLEMAS ══ -->
+    <section id="problemas">
+      <div class="rule"><span class="eyebrow">Quando dá errado</span></div>
+      <div class="stack-lg">
+
+        <div class="stack measure">
+          <h2>Diz que está tocando e não sai som</h2>
+          <p>Quatro causas, em ordem de frequência:</p>
+          <ol class="steps">
+            <li><div><h4>O som começa desligado</h4>
+              <p>Procure o <strong>Unmute</strong> no canto superior esquerdo. Enquanto
+              ele disser “Unmute”, está mudo.</p></div></li>
+            <li><div><h4>Faltou o clique</h4>
+              <p>O navegador só libera áudio depois de um gesto seu. Chegou por um link?
+              Clique em <strong>Iniciar</strong> e depois no nome da obra.</p></div></li>
+            <li><div><h4>O navegador bloqueou</h4>
+              <p>Se ele pedir permissão, aceite.</p></div></li>
+            <li><div><h4>A obra depende de um dado que agora vale zero</h4>
+              <p>Um patch de trovão só soa quando cai raio de verdade. Num dia calmo ele
+              fica em silêncio — e está certo.</p></div></li>
+          </ol>
+        </div>
+
+        <div class="stack">
+          <h3>Como testar quando o dado está zerado</h3>
+          <p class="measure">Com a obra tocando, abra o console do navegador — tecla
+          <strong>F12</strong>, aba <strong>Console</strong> — e mande o valor você
+          mesmo:</p>
+          <div class="code" style="max-width:var(--measure);">
+            <div class="code-bar">
+              <span>console do navegador</span>
+              <button class="copy" type="button">Copiar</button>
+            </div>
+            <pre><code>Pd4Web.sendBang("bolt")
+Pd4Web.sendFloat("gaia.temp", 38)
+Pd4Web.sendFloat("gaia.rain", 12)</code></pre>
+          </div>
+          <p class="measure">É a maneira mais rápida de separar “está funcionando, só
+          não tem dado” de “está quebrado”.</p>
+          <p class="measure" data-path="imagem">Para uma animação, o equivalente é abrir
+          o link do preview trocando o lugar: <code>?lat=-3.1&amp;lng=-60.0</code> põe o
+          globo em Manaus, onde chove muito mais.</p>
+        </div>
+
+        <div class="stack measure" data-path="imagem">
+          <h3>A animação abre em preto</h3>
+          <p>Quase sempre é o <code>play</code>: se o sketch chama
+          <code>p5.noLoop()</code> e nunca volta a chamar <code>p5.loop()</code> quando
+          <code>play</code> fica verdadeiro, ele desenha um quadro e para. Confira o
+          <code>updateWithProps</code> do exemplo.</p>
+        </div>
+
+        <div class="stack measure">
+          <h3>O robô reclamou de um nome</h3>
+          <p>Ele sugere a grafia certa. Os nomes são exatos, incluindo maiúsculas:
+          <code>windSpeed</code>, <code>lightningCount</code>, <code>closeFires</code>.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ PERGUNTAS ══ -->
+    <section id="perguntas">
+      <div class="rule"><span class="eyebrow">Perguntas</span></div>
+      <div class="stack measure">
+        <h2>As que sempre aparecem</h2>
+
+        <div class="stack-sm">
+          <h4>Quero um dado que não está na lista.</h4>
+          <p>Peça no pull request, dizendo qual e para quê. Acrescentar um dado novo é
+          trabalho de programação e leva alguns dias — mas depois fica disponível para
+          todo mundo, para sempre.</p>
+        </div>
+
+        <div class="stack-sm" data-path="som">
+          <h4>Meu patch usa uma biblioteca externa (else, cyclone…).</h4>
+          <p>Pode funcionar, pode não funcionar. O robô avisa se o objeto não existir no
+          compilador. Se for essencial, comente pedindo — dá para incluir, mas isso
+          aumenta o tamanho do site para todo visitante, então é decisão da equipe.</p>
+        </div>
+
+        <div class="stack-sm" data-path="imagem">
+          <h4>Minha animação usa uma biblioteca de p5 (p5.sound, addons…).</h4>
+          <p>Pergunte antes de contar com ela. O projeto carrega o p5 base; cada adição
+          pesa para todo visitante.</p>
+        </div>
+
+        <div class="stack-sm">
+          <h4>Minha obra não usa dado nenhum. Tem problema?</h4>
+          <p>Nenhum. O sistema avisa que ela não escuta nada, mas é só um aviso. Muitas
+          obras são assim.</p>
+        </div>
+
+        <div class="stack-sm">
+          <h4>Posso ver ou ouvir antes de enviar?</h4>
+          <p><span data-path="som">Um patch, sim, no Pd mesmo: os objetos
+          <code>[r gaia.*]</code> simplesmente não recebem nada localmente — ligue um
+          <code>[number]</code> neles para testar valores à mão. </span><span data-path="imagem">Uma
+          animação, no editor do p5 ou no OpenProcessing, trocando os dados do clima por
+          sliders enquanto compõe.</span></p>
+        </div>
+
+        <div class="stack-sm">
+          <h4>Enviei e não aconteceu nada.</h4>
+          <p>Confira se você criou mesmo o pull request, e não apenas subiu os arquivos.
+          Se criou e o robô não respondeu em quinze minutos, escreva um comentário
+          marcando alguém da equipe.</p>
+        </div>
+
+        <div class="stack-sm">
+          <h4>Posso usar áudio de terceiros?</h4>
+          <p>Só com licença compatível. O formulário de envio pede essa confirmação, e
+          ela é levada a sério: o GaiaSenses é público.</p>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      GaiaSenses · guia de quem cria<br>
+      O texto canônico vive em <code>docs/musico/README.md</code>, no repositório —
+      esta página é a mesma coisa, para ler e mexer.<br>
+      Dúvida que não está aqui? Abra uma issue com o formulário
+      <strong>🎬 Nova animação</strong> ou <strong>🎹 Novo patch</strong>.
+    </footer>
+
+  </main>
+</div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ── HSB → RGB, o mesmo mapeamento que o sketch usa ─────── */
+  function hsb(h, s, b) {
+    h = (h / 255) * 360; s /= 255; b /= 255;
+    var c = b * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = b - c;
+    var r = 0, g = 0, bl = 0;
+    if (h < 60)       { r = c; g = x; }
+    else if (h < 120) { r = x; g = c; }
+    else if (h < 180) { g = c; bl = x; }
+    else if (h < 240) { g = x; bl = c; }
+    else if (h < 300) { r = x; bl = c; }
+    else              { r = c; bl = x; }
+    return "rgb(" + Math.round((r + m) * 255) + "," +
+                    Math.round((g + m) * 255) + "," +
+                    Math.round((bl + m) * 255) + ")";
+  }
+
+  function mapc(v, a, b, c, d) {
+    var t = (v - a) / (b - a);
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    return c + t * (d - c);
+  }
+
+  /* ── demo canvas ─────────────────────────────────────────── */
+  var cv = document.getElementById("demo-canvas");
+  var ctx = cv.getContext("2d");
+  var sTemp = document.getElementById("s-temp");
+  var sRain = document.getElementById("s-rain");
+  var vTemp = document.getElementById("v-temp");
+  var vRain = document.getElementById("v-rain");
+  var readout = document.getElementById("demo-readout");
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function resize() {
+    var dpr = window.devicePixelRatio || 1;
+    var r = cv.getBoundingClientRect();
+    cv.width = Math.max(1, Math.round(r.width * dpr));
+    cv.height = Math.max(1, Math.round(r.height * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function draw() {
+    var t = parseFloat(sTemp.value), rn = parseFloat(sRain.value);
+    var w = cv.clientWidth, h = cv.clientHeight;
+    var matiz = mapc(t, -10, 45, 160, 0);
+
+    ctx.fillStyle = hsb(matiz, 180, 90);
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = hsb(matiz, 60, 255);
+
+    var n = Math.round(rn * 4);
+    for (var i = 0; i < n; i++) {
+      ctx.beginPath();
+      ctx.arc(Math.random() * w, Math.random() * h, 1.5, 0, 6.284);
+      ctx.fill();
+    }
+  }
+
+  function labels() {
+    var t = parseFloat(sTemp.value), rn = parseFloat(sRain.value);
+    vTemp.textContent = t.toFixed(1) + " °C";
+    vRain.textContent = rn.toFixed(1) + " mm/h";
+    readout.textContent = "temp " + t.toFixed(1) + " °C · chuva " + rn.toFixed(1) + " mm/h";
+  }
+
+  function loop() {
+    draw();
+    if (!reduced) requestAnimationFrame(loop);
+  }
+
+  window.addEventListener("resize", function () { resize(); draw(); });
+  sTemp.addEventListener("input", labels);
+  sRain.addEventListener("input", labels);
+  resize(); labels(); loop();
+
+  /* ── path switch ─────────────────────────────────────────── */
+  var sw = document.getElementById("path-switch");
+  function applyPath(p) {
+    var tagged = document.querySelectorAll("[data-path]");
+    for (var i = 0; i < tagged.length; i++) {
+      var el = tagged[i];
+      if (el.closest("#path-switch")) continue;
+      el.hidden = !(p === "ambos" || el.getAttribute("data-path") === p);
+    }
+    var btns = sw.querySelectorAll("button");
+    for (var j = 0; j < btns.length; j++) {
+      btns[j].setAttribute("aria-pressed",
+        btns[j].getAttribute("data-path") === p ? "true" : "false");
+    }
+  }
+  sw.addEventListener("click", function (e) {
+    var b = e.target.closest("button");
+    if (b) applyPath(b.getAttribute("data-path"));
+  });
+
+  /* ── copy buttons ────────────────────────────────────────── */
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".copy");
+    if (!b) return;
+    var box = b.closest(".code");
+    var pre = box && box.querySelector("pre");
+    if (!pre) return;
+    navigator.clipboard.writeText(pre.innerText).then(function () {
+      b.textContent = "Copiado";
+      b.setAttribute("data-done", "1");
+      setTimeout(function () {
+        b.textContent = "Copiar";
+        b.removeAttribute("data-done");
+      }, 1600);
+    });
+  });
+
+  /* ── composition.json builder ────────────────────────────── */
+  var ATTRS = ["temperature", "humidity", "clouds", "rain", "windSpeed",
+               "windDeg", "lightningCount", "fireCount", "closeFires", "lat", "lon"];
+  var wrap = document.getElementById("b-attrs");
+  ATTRS.forEach(function (a) {
+    var l = document.createElement("label");
+    var i = document.createElement("input");
+    i.type = "checkbox"; i.value = a;
+    if (a === "rain" || a === "temperature") i.checked = true;
+    l.appendChild(i);
+    l.appendChild(document.createTextNode(a));
+    wrap.appendChild(l);
+  });
+
+  var bLabel  = document.getElementById("b-label");
+  var bId     = document.getElementById("b-id");
+  var bAuthor = document.getElementById("b-author");
+  var bAudio  = document.getElementById("b-audio");
+  var bOut    = document.getElementById("b-out");
+  var bFolder = document.getElementById("b-folder");
+  var bStatus = document.getElementById("builder-status");
+  var bDecisor      = document.getElementById("b-decisor");
+  var bDecisorField = document.getElementById("b-decisor-field");
+
+  function slug(s) {
+    return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase().replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "") || "minha-animacao";
+  }
+  function camel(s) {
+    var parts = slug(s).split("-");
+    return parts[0] + parts.slice(1).map(function (p) {
+      return p.charAt(0).toUpperCase() + p.slice(1);
+    }).join("");
+  }
+
+  /**
+   * As regras saem com a forma certa e os limiares em branco, de propósito.
+   * Quanto é "muita chuva" ou "quente" depende da obra, e chutar um número
+   * daria a alguém um manifesto que valida e decide errado — foi assim que
+   * duas animações do projeto ficaram com um arquivo de áudio inalcançável.
+   */
+  function audioFor(kind, attrs, decisor) {
+    if (kind === "none")  return { kind: "none" };
+    if (kind === "patch") return { kind: "patch" };
+    if (kind === "mp3")   return { kind: "mp3", file: "meu-som.mp3" };
+    var d = decisor || (attrs.length ? attrs[0] : "rain");
+    var cond = {};
+    cond[d] = { below: 0 };
+    return {
+      kind: "mp3",
+      rules: [
+        { when: cond, file: "AJUSTE-abaixo-do-limite.mp3" },
+        { file: "AJUSTE-o-resto.mp3" }
+      ]
+    };
+  }
+
+  function render() {
+    var attrs = [];
+    var boxes = wrap.querySelectorAll("input");
+    for (var i = 0; i < boxes.length; i++) if (boxes[i].checked) attrs.push(boxes[i].value);
+
+    var name = bLabel.value.trim() || "Minha Animação";
+    var id = camel(name);
+    bId.value = id;
+    bFolder.textContent = slug(name);
+
+    // O seletor de decisor só existe quando há regras, e só oferece dados que
+    // a obra realmente pede — um `when` sobre dado não declarado é recusado.
+    var porRegras = bAudio.value === "rules";
+    bDecisorField.hidden = !porRegras || attrs.length === 0;
+    var anterior = bDecisor.value;
+    bDecisor.innerHTML = "";
+    attrs.forEach(function (a) {
+      var o = document.createElement("option");
+      o.value = a; o.textContent = a;
+      bDecisor.appendChild(o);
+    });
+    if (attrs.indexOf(anterior) !== -1) bDecisor.value = anterior;
+
+    var manifest = { id: id, label: name };
+    if (bAuthor.value.trim()) manifest.author = bAuthor.value.trim();
+    manifest.license = "CC-BY-4.0";
+    manifest.attributes = attrs;
+    manifest.audio = audioFor(bAudio.value, attrs, bDecisor.value);
+    manifest.thumb = slug(name) + ".png";
+
+    bOut.textContent = JSON.stringify(manifest, null, 2);
+
+    if (attrs.length === 0) {
+      bStatus.textContent = "válido — mas não reage ao clima";
+      bStatus.style.color = "var(--warn)";
+    } else if (porRegras) {
+      bStatus.textContent = "ajuste os limiares antes de enviar";
+      bStatus.style.color = "var(--warn)";
+    } else {
+      bStatus.textContent = "válido";
+      bStatus.style.color = "";
+    }
+  }
+
+  [bLabel, bAuthor, bAudio, bDecisor].forEach(function (el) {
+    el.addEventListener("input", render);
+    el.addEventListener("change", render);
+  });
+  wrap.addEventListener("change", render);
+  render();
+
+  /* ── rule simulator ──────────────────────────────────────── */
+  var SIM = [
+    { cond: "rain ≤ 0",  file: "(silêncio)", test: function (v) { return v <= 0; } },
+    { cond: "rain < 3",  file: "chuva-leve.mp3",  test: function (v) { return v < 3; } },
+    { cond: "rain < 6",  file: "chuva-media.mp3", test: function (v) { return v < 6; } },
+    { cond: "sem condição", file: "chuva-forte.mp3", test: function () { return true; } }
+  ];
+  var simWrap = document.getElementById("sim-rules");
+  var sSim = document.getElementById("s-sim");
+  var vSim = document.getElementById("v-sim");
+  var simOut = document.getElementById("sim-out");
+
+  SIM.forEach(function (r, i) {
+    var row = document.createElement("div");
+    row.className = "rule-row";
+    row.innerHTML = '<span class="idx">' + String(i + 1).padStart(2, "0") +
+                    '</span><span class="cond"></span><span class="out"></span>';
+    row.querySelector(".cond").textContent = r.cond;
+    row.querySelector(".out").textContent = r.file;
+    simWrap.appendChild(row);
+  });
+
+  function sim() {
+    var v = parseFloat(sSim.value);
+    vSim.textContent = v.toFixed(1) + " mm/h";
+    var won = false;
+    var rows = simWrap.children;
+    for (var i = 0; i < SIM.length; i++) {
+      if (!won && SIM[i].test(v)) {
+        rows[i].setAttribute("data-state", "win");
+        won = true;
+        simOut.textContent = "toca " + SIM[i].file;
+      } else if (won) {
+        rows[i].setAttribute("data-state", "unreached");
+      } else {
+        rows[i].setAttribute("data-state", "skipped");
+      }
+    }
+  }
+  sSim.addEventListener("input", sim);
+  sim();
+})();
+</script>
