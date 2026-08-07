@@ -30,6 +30,12 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 export const BUILD_MARKER = "<!-- gaia-build-bot -->";
 export const PREVIEW_MARKER = "<!-- gaia-preview-bot -->";
+/**
+ * Marcador próprio. Com o mesmo do patch, os dois comentários se sobrescreviam
+ * quando alguém envia patch e animação no mesmo pull request — que é
+ * justamente o caso que este fluxo existe para atender.
+ */
+export const COMPOSITION_PREVIEW_MARKER = "<!-- gaia-composition-preview-bot -->";
 
 function readManifest(slug) {
   const file = path.join(ROOT, "patches", slug, "patch.json");
@@ -140,9 +146,67 @@ export function renderPreviewComment(baseUrl, slugs) {
   return lines.join("\n");
 }
 
+/**
+ * O mesmo comentário de preview, para quem enviou uma animação.
+ *
+ * O link aponta direto para o player daquela animação, e não para o globo: uma
+ * animação declarada não é escolhida pelo clima até que alguém a acrescente às
+ * categorias, então o sorteio não a mostraria. Quem acabou de enviá-la quer vê-la
+ * na hora.
+ *
+ * Se a animação também tem um patch pareado, o link com `?patch=` já cobre os
+ * dois — o patch abre o player da animação dele sozinho. Por isso este
+ * comentário só lista animações que ninguém sonorizou neste mesmo envio.
+ */
+export function renderCompositionPreviewComment(baseUrl, slugs, pairedIds = []) {
+  const url = baseUrl.replace(/\/$/, "");
+  const lines = [COMPOSITION_PREVIEW_MARKER, "## 🎬 Veja a sua animação", ""];
+
+  for (const slug of slugs) {
+    const file = path.join(ROOT, "compositions", slug, "composition.json");
+    if (!fs.existsSync(file)) continue;
+
+    const manifest = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (pairedIds.includes(manifest.id)) continue;
+
+    const query = `?mode=player&composition=${encodeURIComponent(manifest.id)}&play=true`;
+    lines.push(
+      `- **[▶ Ver “${manifest.label}”](${url}/pt/map3${query})**` +
+        (manifest.attributes?.length
+          ? ` — usa ${manifest.attributes.map((a) => `\`${a}\``).join(", ")}`
+          : " — não usa dado nenhum"),
+    );
+  }
+
+  if (lines.length === 3) return "";
+
+  lines.push(
+    "",
+    "> A animação recebe o clima **do lugar para onde o link aponta**. Troque",
+    "> `lat` e `lon` na barra de endereço para ver como ela responde a outro",
+    "> tempo — um sketch de chuva fica parado num dia seco, e isso está certo.",
+    "",
+    "Quer ajustar? Suba o arquivo corrigido **nesta mesma branch** e eu republico.",
+    "",
+    "<sub>🤖 Robô do GaiaSenses · [guia do músico](docs/musico/README.md)</sub>",
+  );
+
+  return lines.join("\n");
+}
+
 function main() {
   const args = process.argv.slice(2);
   const mode = args[0];
+
+  if (mode === "--composition-preview") {
+    const [baseUrl, ...resto] = args.slice(1);
+    const corte = resto.indexOf("--paired");
+    const slugs = corte === -1 ? resto : resto.slice(0, corte);
+    const paired = corte === -1 ? [] : resto.slice(corte + 1);
+    if (!baseUrl || slugs.length === 0) process.exit(1);
+    process.stdout.write(renderCompositionPreviewComment(baseUrl, slugs, paired));
+    return;
+  }
 
   if (mode === "--build") {
     const slugs = args.slice(1);
@@ -161,7 +225,8 @@ function main() {
   console.error(
     "Usage:\n" +
       "  node scripts/render-preview-comment.mjs --build <slug> [...]\n" +
-      "  node scripts/render-preview-comment.mjs --preview <baseUrl> <slug> [...]",
+      "  node scripts/render-preview-comment.mjs --preview <baseUrl> <slug> [...]\n" +
+      "  node scripts/render-preview-comment.mjs --composition-preview <baseUrl> <slug> [...] [--paired <id> ...]",
   );
   process.exit(1);
 }

@@ -22,7 +22,25 @@ import RiverLines from "./river-lines/river-lines";
 import Attractor from "./attractor/attractor";
 import Pump from "./pump/pump";
 
-export type AvailableCompositionNames =
+import {
+  DECLARED_COMPOSITIONS,
+  DECLARED_COMPOSITION_MANIFESTS,
+  type DeclaredCompositionName,
+} from "./compositions-declared.generated";
+import type { CompositionManifest } from "./composition-runtime";
+
+/**
+ * As animações escritas à mão, cada uma com o seu wrapper React.
+ *
+ * `scripts/patch-manifest.mjs` lê esta união por expressão regular, para
+ * conferir que um patch só se declara par de uma animação que existe. Se o
+ * nome do tipo mudar, aquele script precisa mudar junto.
+ *
+ * Animações novas não entram aqui: elas se declaram em
+ * `compositions/<slug>/composition.json` e chegam pelo registro gerado, logo
+ * abaixo. Esta lista é o que havia antes disso, e só encolhe.
+ */
+type HandwrittenCompositionNames =
   | "lluvia"
   | "zigzag"
   | "colorFlower"
@@ -46,6 +64,10 @@ export type AvailableCompositionNames =
   | "riverLines"
   | "attractor"
   | "pump";
+
+export type AvailableCompositionNames =
+  | HandwrittenCompositionNames
+  | DeclaredCompositionName;
 
 export type AvailableCompositionComponents =
   | typeof Lluvia
@@ -72,7 +94,13 @@ export type AvailableCompositionComponents =
 export type CompositionInfo = {
   name: string;
   attributes: string[];
-  Component: AvailableCompositionComponents;
+  /**
+   * O componente que desenha. Uma animação escrita à mão traz o seu; uma
+   * declarada recebe o wrapper genérico que o `composition-runtime` monta a
+   * partir do manifesto. As duas são a mesma coisa para quem consome: uma
+   * função assíncrona que recebe lat, lon, today e play.
+   */
+  Component: AvailableCompositionComponents | DeclaredComposition;
   endpoints: string[];
   thumb: string;
   author?: string;
@@ -80,11 +108,17 @@ export type CompositionInfo = {
   keepMapPatch?: boolean;
 };
 
+type DeclaredComposition =
+  (typeof DECLARED_COMPOSITIONS)[keyof typeof DECLARED_COMPOSITIONS];
+
 export type CompositionsInfoType = {
   [K in AvailableCompositionNames]: CompositionInfo;
 };
 
-const CompositionsInfo: CompositionsInfoType = {
+const HandwrittenCompositions: Record<
+  HandwrittenCompositionNames,
+  CompositionInfo
+> = {
   lluvia: {
     name: "lluvia",
     attributes: ["rain"],
@@ -291,6 +325,44 @@ const CompositionsInfo: CompositionsInfoType = {
     author:
       "Roots Blower + GaiaSenses (temperatura + vento) Baseado no sketch de Metamere",
   },
+};
+
+/**
+ * As declaradas, convertidas para a mesma forma das antigas.
+ *
+ * A conversão existe para que nada além deste arquivo precise saber que há duas
+ * origens: o seletor, o sorteio por clima e a página montam qualquer entrada do
+ * mesmo jeito. `endpoints` fica vazio porque só as animações antigas o usam, e
+ * nenhuma delas o lê — é campo herdado.
+ */
+const DeclaredCompositions = {} as Record<
+  DeclaredCompositionName,
+  CompositionInfo
+>;
+
+const manifestosDeclarados = Object.entries(
+  DECLARED_COMPOSITION_MANIFESTS,
+) as [DeclaredCompositionName, CompositionManifest][];
+
+for (const [nome, manifest] of manifestosDeclarados) {
+  const id = nome;
+
+  DeclaredCompositions[nome] = {
+    name: id,
+    attributes: [...manifest.attributes],
+    Component: DECLARED_COMPOSITIONS[nome],
+    // Campo herdado das animações antigas; nenhuma delas o lê.
+    endpoints: [],
+    thumb: manifest.thumb,
+    author: manifest.author,
+    openProcessingLink: manifest.openProcessingLink,
+    keepMapPatch: manifest.keepMapPatch,
+  };
+}
+
+const CompositionsInfo: CompositionsInfoType = {
+  ...HandwrittenCompositions,
+  ...DeclaredCompositions,
 };
 
 export default CompositionsInfo;

@@ -63,36 +63,83 @@ jobs:
               ),
             ].filter((slug) => fs.existsSync(`patches/${slug}/patch.json`));
 
-            if (slugs.length === 0) {
-              core.info("Nenhum patch alterado neste pull request.");
+            // As animações declaradas seguem o mesmo caminho: quem envia uma
+            // quer o link para vê-la, do mesmo jeito que quem envia um patch
+            // quer o link para ouvi-lo.
+            const compositionSlugs = [
+              ...new Set(
+                files
+                  .map((f) => f.filename.match(/^compositions\/([^/]+)\//))
+                  .filter(Boolean)
+                  .map((m) => m[1]),
+              ),
+            ].filter((slug) =>
+              fs.existsSync(`compositions/${slug}/composition.json`),
+            );
+
+            if (slugs.length === 0 && compositionSlugs.length === 0) {
+              core.info("Nem patch nem animação alterados neste pull request.");
               return;
             }
 
             const baseUrl = process.env.PREVIEW_URL.replace(/\/$/, "");
-            const body = execFileSync(
-              "node",
-              ["scripts/render-preview-comment.mjs", "--preview", baseUrl, ...slugs],
-              { encoding: "utf8" },
-            );
 
-            const { data: comments } = await github.rest.issues.listComments({
-              ...context.repo,
-              issue_number: pr.number,
-              per_page: 100,
-            });
-            const previous = comments.find((c) =>
-              c.body.includes("<!-- gaia-preview-bot -->"),
-            );
-            if (previous) {
-              await github.rest.issues.updateComment({
-                ...context.repo,
-                comment_id: previous.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
+            // Ids das animações que um patch deste mesmo envio já sonoriza: o
+            // link do patch abre o player delas, então listá-las de novo só
+            // duplicaria.
+            const paired = slugs
+              .map((slug) =>
+                JSON.parse(fs.readFileSync(`patches/${slug}/patch.json`, "utf8")),
+              )
+              .flatMap((m) => m.activation?.compositions ?? []);
+
+            const publicar = async (marker, body) => {
+              if (!body.trim()) return;
+              const { data: comments } = await github.rest.issues.listComments({
                 ...context.repo,
                 issue_number: pr.number,
-                body,
+                per_page: 100,
               });
+              const previous = comments.find((c) => c.body.includes(marker));
+              if (previous) {
+                await github.rest.issues.updateComment({
+                  ...context.repo,
+                  comment_id: previous.id,
+                  body,
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  ...context.repo,
+                  issue_number: pr.number,
+                  body,
+                });
+              }
+            };
+
+            if (slugs.length > 0) {
+              await publicar(
+                "<!-- gaia-preview-bot -->",
+                execFileSync(
+                  "node",
+                  ["scripts/render-preview-comment.mjs", "--preview", baseUrl, ...slugs],
+                  { encoding: "utf8" },
+                ),
+              );
+            }
+
+            if (compositionSlugs.length > 0) {
+              await publicar(
+                "<!-- gaia-composition-preview-bot -->",
+                execFileSync(
+                  "node",
+                  [
+                    "scripts/render-preview-comment.mjs",
+                    "--composition-preview",
+                    baseUrl,
+                    ...compositionSlugs,
+                    ...(paired.length ? ["--paired", ...paired] : []),
+                  ],
+                  { encoding: "utf8" },
+                ),
+              );
             }

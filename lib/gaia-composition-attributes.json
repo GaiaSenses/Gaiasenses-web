@@ -1,0 +1,90 @@
+{
+  "$comment": "Os dados que uma animação pode pedir no composition.json. É o equivalente visual do vocabulário gaia.* dos patches: a animação declara o que precisa, e o runtime busca. Este arquivo é a fonte única — o validador, o gerador de registro e o runtime leem daqui.",
+  "attributes": {
+    "temperature": {
+      "label": "Temperatura do ar",
+      "unit": "°C",
+      "source": "weather",
+      "path": "main.temp",
+      "range": [-60, 55]
+    },
+    "humidity": {
+      "label": "Umidade relativa",
+      "unit": "%",
+      "source": "weather",
+      "path": "main.humidity",
+      "range": [0, 100]
+    },
+    "clouds": {
+      "label": "Cobertura de nuvens",
+      "unit": "%",
+      "source": "weather",
+      "path": "clouds",
+      "range": [0, 100]
+    },
+    "rain": {
+      "label": "Chuva na última hora",
+      "unit": "mm/h",
+      "source": "weather",
+      "path": "rain.1h",
+      "range": [0, 100]
+    },
+    "windSpeed": {
+      "label": "Velocidade do vento",
+      "unit": "m/s",
+      "source": "weather",
+      "path": "wind.speed",
+      "range": [0, 60]
+    },
+    "windDeg": {
+      "label": "Direção do vento",
+      "unit": "°",
+      "source": "weather",
+      "path": "wind.deg",
+      "range": [0, 360]
+    },
+    "lightningCount": {
+      "label": "Raios detectados por perto",
+      "unit": "",
+      "source": "lightning",
+      "path": "count",
+      "range": [0, 500]
+    },
+    "fireCount": {
+      "label": "Focos de queimada por perto",
+      "unit": "",
+      "source": "fire",
+      "path": "count",
+      "range": [0, 500]
+    },
+    "closeFires": {
+      "label": "Focos a menos de 50 km",
+      "unit": "",
+      "source": "fire",
+      "path": "closeCount",
+      "range": [0, 500]
+    },
+    "lat": {
+      "label": "Latitude do centro do mapa",
+      "unit": "°",
+      "source": "position",
+      "path": "lat",
+      "range": [-90, 90]
+    },
+    "lon": {
+      "label": "Longitude do centro do mapa",
+      "unit": "°",
+      "source": "position",
+      "path": "lon",
+      "range": [-180, 180]
+    }
+  },
+  "aliases": {
+    "$comment": "Grafias que apareceram no catálogo antigo e continuam aceitas, para uma animação migrada não precisar ser reescrita.",
+    "windspeed": "windSpeed",
+    "winddeg": "windDeg",
+    "lightning": "lightningCount",
+    "fire": "fireCount",
+    "temp": "temperature"
+  }
+}

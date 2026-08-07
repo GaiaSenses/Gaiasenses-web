@@ -56,6 +56,12 @@ jobs:
       # Contract tests for the data layer. No test framework: Node 22 strips the
       # types itself and scripts/ts-resolve-hook.mjs supplies the extensionless
       # and @/ resolution that Next does and plain Node does not.
+      # Um manifesto de animação que pede um dado inexistente compila e roda —
+      # o valor fica em zero e a animação parece só estar parada. O validador é
+      # quem transforma isso em erro com sugestão de grafia.
+      - name: Validar animações declaradas
+        run: npm run compositions:validate
+
       - name: Testes de contrato
         run: npm test
 
