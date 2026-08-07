@@ -203,12 +203,11 @@ app/
 ├─ [locale]/               ← i18n routes (pt = default, en)
 │  ├─ map3/                ← ★ CORE: main page + ~20 modules (map, BLE, Pd4Web, panels)
 │  ├─ gaiaball/            ← BLE sensor test bench (streams to a Pd WebSocket)
-│  ├─ controller/ + host/  ← WebRTC remote-control pair (QR-code pairing)
 │  └─ notifications/       ← push-subscription component
-├─ api/
-│  ├─ satellite/           ← consolidated climate JSON (no internal consumers)
-│  └─ notifications/       ← triggered by Vercel Cron (daily, 12:00 UTC)
-└─ old-main/               ← legacy gallery page (contains dead links — pending removal)
+└─ api/
+   └─ notifications/       ← triggered by Vercel Cron (daily, 12:00 UTC)
+
+patches/                    ← ★ Pd sources: main.pd + Libs/ + patch.json, one folder per patch
 
 components/
 ├─ compositions/           ← 23 compositions (one folder each) + compositions-info.tsx (catalog)
@@ -288,15 +287,27 @@ sequenceDiagram
 
 ## 🔊 Audio Subsystem (Pd4Web)
 
-Pure Data patches are compiled to WebAssembly with [pd4web](https://charlesneimog.github.io/pd4web/) and loaded from `public/<bundleFolder>/`:
+Pure Data patches live as sources in `patches/<slug>/` and are compiled to
+WebAssembly with [pd4web](https://charlesneimog.github.io/pd4web/) by
+`npm run patches:build`. The output is split in two:
 
 ```
-public/<bundleFolder>/
-├─ pd4web.js      ← Emscripten loader (sets window.Pd4WebModule)
-├─ pd4web.wasm    ← the patch + libpd compiled
-├─ pd4web.data    ← audio assets/abstractions
-└─ index.pd       ← patch entry point
+public/patches/<slug>/
+├─ pd4web.js         ← Emscripten loader (sets window.Pd4WebModule)
+├─ pd4web.data       ← the patch itself, abstractions and assets
+└─ build-info.json   ← which runtime it needs, and how it was built
+
+public/pd4web-runtime/<hash>/
+└─ pd4web.wasm       ← libpd compiled, shared by every patch with identical code
 ```
+
+The wasm is addressed by content hash and lives outside the patch folder on
+purpose: patches that compile to the same binary share one 2 MB file instead of
+carrying a copy each. `index.pd` is not shipped as a file either: the patch is
+already inside `pd4web.data`, and `openPatch("index.pd")` reads it from the
+in-memory filesystem, never from disk. `pd4web.threads.js` is dropped for a
+different reason — it is byte-identical across bundles and served once from
+`public/pd4webShared/`.
 
 **Compile flags:** `--export-es6-module --nogui` (optionally `-m 64` for 64 MB of memory).
 **Runtime requirement:** WASM threads need `SharedArrayBuffer`, which requires the **COOP/COEP headers** already configured in `next.config.js` — do not remove them.
@@ -341,10 +352,11 @@ own copy of the binding names, and that copy is what went stale. A shape of it:
 | Patch → app | `[s gaia.out]` — send a list of two floats and the globe moves there |
 | Animation events | `[r bolt]` (lightningBolts), `[r start]` / `[s paint]` (lluvia) |
 
-Older patches used names of their own — `latitude`, `aceX`, `co2`, `input`,
-`output`. Those still work: the manifest resolves them as aliases of the
-canonical channel, so nothing had to be rewritten when the vocabulary arrived.
-New patches should use `gaia.*`.
+Every patch in the repository is on the vocabulary. The manifest still resolves
+the old names — `latitude`, `aceX`, `co2`, `input`, `output` — as aliases, so a
+patch written before it arrived keeps working, but none is left that needs them.
+A patch that a musician sends in with old names will run; standardising it is a
+rename of the send and receive objects, nothing more.
 
 A typo does **not** fail silently the way it used to. `npm run patches:validate`
 reads the patch, and anything in the `gaia.` namespace that is not a real
@@ -459,8 +471,14 @@ the patches.
 | `npm run dev-remote` | Dev server bound to a LAN IP | ⚠️ The IP is hardcoded — edit it for your machine (useful to test BLE from a phone) |
 | `npm run build` / `npm start` | Production build / serve | Run `build` before opening a PR |
 | `npm run lint` | ESLint (Next config) | |
+| `npm test` | Contract tests | `node --test`, no framework — see `tests/` |
 | `npm run sensor:ws` | Standalone sensor WebSocket relay | `SENSOR_WS_HOST` / `SENSOR_WS_PORT` (defaults `0.0.0.0:3001`) |
-| `npm run normalize:pd4web` | Normalize a Pd4Web bundle in `public/` | Only when adding/updating audio patches |
+| `npm run patches:validate` | Check manifests and `gaia.*` channel spelling | First thing to run on a patch |
+| `npm run patches:build [slug]` | Compile patches with pd4web | Omit the slug to build all |
+| `npm run patches:codegen` | Regenerate registry, musician vocabulary, issue template | After changing a patch or its manifest |
+| `npm run patches:check` | Verify the generated files are current | Runs in CI; a forgotten codegen fails here |
+| `npm run patches:gc` | Remove wasm runtimes no patch references | Each machine that builds leaves ~2 MB behind |
+| `npm run patches:extract` | Pull `.pd` sources out of a compiled bundle | For patches that arrived pre-compiled |
 
 ---
 
@@ -473,10 +491,10 @@ the patches.
 | Visuals play but **no audio** | The Start button was skipped — browsers require a user gesture to create an `AudioContext` | Click **Start** / the sound button |
 | No audio on Linux/WSL2 browsers | The browser has no audio backend (e.g., WSL distro missing `libpulse0`; `enumerateDevices()` returns 0 outputs) | Use the host OS browser at `localhost:3000`, **or** install the PulseAudio client library (`sudo apt install libpulse0`) and fully restart the browser |
 | Console: `…run Pd4Web.init() from a click event!` | Audio init attempted without a real user gesture | Expected under automation; click manually |
-| Patch starts but is silent | Wrong `bundleFolder` or missing `pd4web.wasm` | Verify the bundle folder contents in `public/` |
+| Patch starts but is silent | Data-driven patch with nothing arriving — several only sound when the globe moves | Rotate the globe, or send a value from the console: `Pd4Web.sendFloat("gaia.lat", -23.55)` |
+| Patch does not load at all | The runtime the bundle asks for is missing | Check `build-info.json` against `public/pd4web-runtime/`, then `npm run patches:build` |
 | Wrong patch stays active after switching compositions | Patch/composition wiring | Inspect `compositions-info.tsx` (`patchId`, `keepMapPatch`), `composition-dropdown.tsx`, `toggle-play-button.tsx` |
 | BLE sensor won't connect | Non-Chromium browser, or Bluetooth belongs to the host OS | Use Chrome/Edge; on WSL2 run the browser on Windows. Without hardware, use the CO₂ simulator |
-| Lightning always shows `count: 1` | Known pitfall: `getData.ts` returns a mock on lightning API failure | Check connectivity to the AWS API Gateway (tracked as tech debt) |
 | Stale/weird build errors after switching branches | Next.js cache | `rm -rf .next` and restart |
 | Port 3000 busy | Another process | `npx next dev -p 3001` |
 
@@ -513,13 +531,11 @@ AWS CDK (TypeScript) project that provisions the satellite-data backend consumed
 
 ## ⚠️ Known Issues & Tech Debt
 
-- 🔌 **Nobody knows who owns the OpenWeather account**, and the Render service behind `/pt/controller` answers 404 — it is gone. Both in [`docs/contas-e-servicos.md`](docs/contas-e-servicos.md), which asks of every external service the question that matters: if this account is closed tomorrow, can the team act?
 - 🗺️ **The Mapbox token belongs to someone who left the project.** Every Mapbox token is a JWT with the owner in its payload, and the one in use decodes to a personal account. Nobody on the team can restrict it by URL, rotate it, or see its quota, and the globe goes down with that account. Opening a new Mapbox account requires a credit card, so this is a decision for the research team — see `docs/mapa-alternativas.md`, which has a working MapLibre spike and side-by-side screenshots.
-- 🔔 **`CRON_SECRET` is not set in production**, so `/api/notifications` answers 503 to everyone including Vercel's own cron. No push notification has been sent since it started failing closed; four of the five subscribers have been stranded since July 2026.
+- 🔔 **The daily push cron answers 401 to Vercel.** `CRON_SECRET` is set and the route accepts the right token — verified by hand — but the scheduled invocation is not carrying it. The job runs on time and is rejected. Under investigation.
 - 📦 ~~Several declared dependencies have zero imports~~ — removed (HIG-01): `mongodb`, `joy-con-webhid`, `@mediapipe/tasks-vision`, `@xenova/transformers`, `react-webcam`, `react-h5-audio-player`, `react-three-map`, `react-geolocated`. Note that `tone` was **not** dead: `components/compositions/airports/discrete.tsx` loads it with a dynamic `await import("tone")`, which a plain import grep misses.
 - 🗂️ `public/` carries ~191 MB, and `public/audios/` is 176 MB of it — 92% of the repository, with no owner and no plan. git-lfs does not fit the free quota and a CDN runs into the `require-corp` COEP header that Pd4Web needs.
 - 🐘 Postgres is on `15.8.1.111`, which Supabase flags as having outstanding security patches. The free-plan upgrade path is Pause & Restore; it was run and the version did not move.
-- 🎛️ `/pt/controller` answers 200 and the server it talks to is gone — remove it or bring it back.
 - 🧪 No tagged releases. Contract tests for the data layer exist under `tests/`; the rest is uncovered.
 - 🛰️ UI "about" texts mention older satellites (GOES-16/17); the backend now reads **GOES-19**.
 
