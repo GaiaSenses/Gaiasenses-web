@@ -32,8 +32,23 @@ function primeiroQueExiste(base, specifier) {
 export async function resolve(specifier, context, nextResolve) {
   const temExtensao = /\.[a-z]+$/i.test(specifier);
 
-  if (specifier.startsWith("@/") && !temExtensao) {
-    const encontrado = primeiroQueExiste(ROOT, specifier.slice(2));
+  if (specifier.startsWith("@/")) {
+    // O alias vale sempre, com extensão ou sem. A versão anterior só o tratava
+    // quando não havia extensão, então `@/lib/x.json` escapava e o Node saía
+    // procurando um pacote chamado `@/lib`.
+    //
+    // Tentar o caminho literal primeiro e só então adivinhar a extensão cobre
+    // os dois casos e mais um: um nome como `x.generated` casa com a regra de
+    // "tem extensão" sem ter nenhuma, e resolver só pelo literal o deixaria de
+    // fora.
+    const relativo = specifier.slice(2);
+    const literal = resolvePath(ROOT, relativo);
+
+    if (temExtensao && existsSync(literal)) {
+      return nextResolve(pathToFileURL(literal).href, context);
+    }
+
+    const encontrado = primeiroQueExiste(ROOT, relativo);
     if (encontrado) return nextResolve(encontrado, context);
   }
 

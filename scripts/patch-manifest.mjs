@@ -46,8 +46,16 @@ const ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9-]{1,39}$/;
 
 /**
  * Composition keys are the source of truth for what a patch may pair with.
- * Parsed straight from the union in compositions-info.tsx so the two can never
- * drift; a typo there becomes a tsc error anyway, but failing here is friendlier.
+ *
+ * They now come from two places, because animations do. The ones written by
+ * hand are parsed from the union in compositions-info.tsx; the declared ones
+ * are read from `compositions/*[/]composition.json`, the same folders the
+ * registry generator reads.
+ *
+ * Both have to be here. A patch that names a declared animation is exactly the
+ * case this whole thing exists for — a musician sending a sketch and the piece
+ * that sounds with it — and validating against only half the catalogue would
+ * reject it as a typo.
  */
 export function readCompositionNames() {
   const source = fs.readFileSync(
@@ -55,14 +63,28 @@ export function readCompositionNames() {
     "utf8",
   );
   const union = source.match(
-    /export type AvailableCompositionNames\s*=([\s\S]*?);/,
+    /type HandwrittenCompositionNames\s*=([\s\S]*?);/,
   );
   if (!union) {
     throw new Error(
-      "Could not parse AvailableCompositionNames from compositions-info.tsx",
+      "Could not parse HandwrittenCompositionNames from compositions-info.tsx",
     );
   }
-  return [...union[1].matchAll(/"([^"]+)"/g)].map((match) => match[1]);
+
+  const handwritten = [...union[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+
+  const dir = path.join(ROOT, "compositions");
+  const declared = !fs.existsSync(dir)
+    ? []
+    : fs
+        .readdirSync(dir, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => path.join(dir, entry.name, "composition.json"))
+        .filter((file) => fs.existsSync(file))
+        .map((file) => JSON.parse(fs.readFileSync(file, "utf8")).id)
+        .filter(Boolean);
+
+  return [...handwritten, ...declared];
 }
 
 /** Levenshtein distance, used to turn a typo into "você quis dizer X?". */

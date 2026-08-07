@@ -208,6 +208,7 @@ app/
    └─ notifications/       ← triggered by Vercel Cron (daily, 12:00 UTC)
 
 patches/                    ← ★ Pd sources: main.pd + Libs/ + patch.json, one folder per patch
+compositions/               ← ★ declared animations: sketch + composition.json, one folder per animation
 
 components/
 ├─ compositions/           ← 23 compositions (one folder each) + compositions-info.tsx (catalog)
@@ -266,20 +267,65 @@ sequenceDiagram
 
 ## 🎨 Composition Catalog
 
-**Source of truth:** `components/compositions/compositions-info.tsx` — 23 registered compositions, each mapping to a folder under `components/compositions/`. Every entry declares `name`, `attributes` (climate inputs), `Component`, `endpoints`, `thumb`, and optionally `author`, `openProcessingLink`, `patchId`, `keepMapPatch`.
+Animations come from two places, and `compositions-info.tsx` merges them into
+one catalogue so nothing downstream needs to know which is which.
 
-### ➕ Adding a new composition (checklist)
+**Declared** (`compositions/<slug>/`) — a plain p5 sketch beside a
+`composition.json`. No React, no registration. This is how new animations
+should arrive.
 
-1. **Create the component** at `components/compositions/<new-composition>/<new-composition>.tsx` (plus a `*-sketch.tsx` for the p5.js sketch).
-2. **Register it** in `compositions-info.tsx`:
-   - import the component;
-   - add the key to the `AvailableCompositionNames` union;
-   - add the component type to the `AvailableCompositionComponents` union if needed;
-   - add the entry to the `CompositionsInfo` object.
-3. **Selectors update automatically** — `CompositionDropdown` iterates `Object.entries(CompositionsInfo)`.
-4. *(Optional)* add the key to the category arrays in `use-composition-queue.ts` for climate auto-selection.
-5. *(Optional)* add a preset location in `map3/map-constants.ts` for auto-mode targeting.
-6. *(Optional)* attach a dedicated audio patch — see [Pattern A](#pattern-a--dedicated-player-patch) below.
+**Hand-written** (`components/compositions/<name>/`) — the 23 that predate the
+declared form, each with its own React wrapper. They still work and nothing
+forces them to move.
+
+### ➕ Adding a new animation
+
+```
+compositions/minha-animacao/
+├── sketch.tsx           ← o p5, recebendo as props que o manifesto pede
+└── composition.json     ← identidade, dados, áudio
+```
+
+```jsonc
+{
+  "id": "minhaAnimacao",
+  "label": "Minha Animação",
+  "author": "Seu Nome",
+  "license": "CC-BY-4.0",
+  "attributes": ["temperature", "rain"],
+  "audio": {
+    "kind": "mp3",
+    "by": "rain",
+    "steps": [
+      { "below": 0.1, "file": "" },
+      { "below": 3, "file": "leve.mp3" },
+      { "file": "forte.mp3" }
+    ]
+  },
+  "thumb": "minha-animacao.png"
+}
+```
+
+1. `npm run compositions:validate` — checks the manifest, the attribute names
+   and the audio ranges. A misspelling is an error with a suggestion, not a
+   value silently stuck at zero.
+2. `npm run compositions:codegen` — regenerates the registry.
+
+That is the whole procedure. `attributes` is the declaration: it says which
+climate values the sketch consumes, and `composition-runtime.tsx` fetches
+exactly those, chooses the audio from the declared rule and mounts the sketch.
+No wrapper is written, and no TypeScript is edited — the same shape the
+`gaia.*` vocabulary gave patches.
+
+`audio.kind` is `"mp3"` for files, `"patch"` when a Pure Data piece provides the
+sound, or `"none"` for silence. An `mp3` rule takes either a fixed `file` or
+`steps` over one attribute; `below` is exclusive, an empty `file` means silence,
+and the last step omits `below` to catch everything above.
+
+*(Optional)* add the key to the category arrays in `use-composition-queue.ts` so
+the climate can select it, and a preset location in `map3/map-constants.ts` for
+auto-mode. Selectors update on their own — `CompositionDropdown` iterates the
+merged catalogue.
 
 > 💡 Most compositions play pre-rendered **MP3/WAV** files (`public/audios/`, singleton player with crossfade in `my-player.tsx`). A few drive **Pd4Web patches**, and `airports` uses **Tone.js** (an implementation of Brian Eno's *Discrete Music*, 1975).
 
@@ -413,11 +459,18 @@ listeners `onBangReceived`, `onFloatReceived`, `onListReceived`,
 ### Binding patterns
 
 #### Pattern A — dedicated player patch
-Patch runs only for one composition in player mode.
-1. Declare `activation.moments: ["player"]` and `activation.compositions: ["<compositionKey>"]` in `patches/<slug>/patch.json`, then run `npm run patches:codegen`.
-2. Set `patchId` on the composition entry in `compositions-info.tsx`; leave `keepMapPatch` unset (or `false`).
+Patch runs only for one composition in player mode. **One step, in one file:**
+declare `activation.moments: ["player"]` and
+`activation.compositions: ["<compositionKey>"]` in `patches/<slug>/patch.json`,
+then run `npm run patches:codegen`.
 
-*Runtime behavior:* when the composition is selected and player mode opens, `composition-dropdown.tsx` **stops the current map patch** (if active and `keepMapPatch` is false) and **starts the patch referenced by `patchId`**. `toggle-play-button.tsx` handles restoring/stopping patches when returning from the player to the map.
+There is nothing to set on the composition side. An earlier version of this
+document said to add a `patchId` to `compositions-info.tsx`; that field no
+longer exists anywhere in the codebase — the pairing is derived from the patch
+manifest alone, which is why a musician can pair a piece with an animation
+without a developer.
+
+*Runtime behavior:* when the composition is selected and player mode opens, `composition-dropdown.tsx` **stops the current map patch** (if active and `keepMapPatch` is false) and **starts the patch whose manifest names that composition**. `toggle-play-button.tsx` handles restoring/stopping patches when returning from the player to the map.
 
 #### Pattern B — keep the map patch
 Composition keeps the map's audio running: set `keepMapPatch: true` on the composition entry.
@@ -479,6 +532,8 @@ the patches.
 | `npm run patches:check` | Verify the generated files are current | Runs in CI; a forgotten codegen fails here |
 | `npm run patches:gc` | Remove wasm runtimes no patch references | Each machine that builds leaves ~2 MB behind |
 | `npm run patches:extract` | Pull `.pd` sources out of a compiled bundle | For patches that arrived pre-compiled |
+| `npm run compositions:validate` | Check animation manifests and attribute spelling | First thing to run on a new animation |
+| `npm run compositions:codegen` | Regenerate the animation registry and the attribute table | After changing a `composition.json` |
 
 ---
 
@@ -493,7 +548,7 @@ the patches.
 | Console: `…run Pd4Web.init() from a click event!` | Audio init attempted without a real user gesture | Expected under automation; click manually |
 | Patch starts but is silent | Data-driven patch with nothing arriving — several only sound when the globe moves | Rotate the globe, or send a value from the console: `Pd4Web.sendFloat("gaia.lat", -23.55)` |
 | Patch does not load at all | The runtime the bundle asks for is missing | Check `build-info.json` against `public/pd4web-runtime/`, then `npm run patches:build` |
-| Wrong patch stays active after switching compositions | Patch/composition wiring | Inspect `compositions-info.tsx` (`patchId`, `keepMapPatch`), `composition-dropdown.tsx`, `toggle-play-button.tsx` |
+| Wrong patch stays active after switching compositions | Patch/composition wiring | Check `activation.compositions` in the patch manifest and `keepMapPatch` in the catalogue, then `composition-dropdown.tsx` and `toggle-play-button.tsx` |
 | BLE sensor won't connect | Non-Chromium browser, or Bluetooth belongs to the host OS | Use Chrome/Edge; on WSL2 run the browser on Windows. Without hardware, use the CO₂ simulator |
 | Stale/weird build errors after switching branches | Next.js cache | `rm -rf .next` and restart |
 | Port 3000 busy | Another process | `npx next dev -p 3001` |

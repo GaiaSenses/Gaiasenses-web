@@ -1,0 +1,101 @@
+name: "🎬 Nova animação"
+description: "Enviar uma animação p5.js para o GaiaSenses"
+title: "Nova animação: "
+labels: ["animação"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Este formulário é para **combinar** o envio. Ele não recebe arquivos — os
+        arquivos vão num *pull request*, e o passo a passo está no
+        [guia do músico](../blob/main/docs/musico/README.md).
+
+        Se você também tem um patch do Pure Data para tocar junto, use o
+        formulário **Novo patch** para ele. Os dois podem ir no mesmo pull
+        request, e a ligação entre eles é declarada no `patch.json`.
+
+  - type: input
+    id: nome
+    attributes:
+      label: Nome da animação
+      description: Como ela deve aparecer na tela.
+      placeholder: Chuva de Verão
+    validations:
+      required: true
+
+  - type: input
+    id: autoria
+    attributes:
+      label: Autoria
+      description: Quem assina. Aparece junto da obra.
+    validations:
+      required: true
+
+  - type: input
+    id: openprocessing
+    attributes:
+      label: Link no OpenProcessing
+      description: Se a animação já existe lá, cole o endereço. Ajuda na revisão.
+      placeholder: https://openprocessing.org/sketch/…
+
+  - type: checkboxes
+    id: dados
+    attributes:
+      label: Quais dados a animação usa
+      description: |
+        O que você marcar aqui vai para o campo `attributes` do
+        `composition.json`, e é o que o site busca e entrega ao seu sketch.
+        Marque só o que a animação realmente lê — pedir dado que não se usa
+        gera chamada de rede à toa.
+      options:
+        - label: "`temperature` — temperatura do ar (−60 a 55 °C)"
+        - label: "`humidity` — umidade relativa (0 a 100 %)"
+        - label: "`clouds` — cobertura de nuvens (0 a 100 %)"
+        - label: "`rain` — chuva na última hora (0 a 100 mm/h)"
+        - label: "`windSpeed` — velocidade do vento (0 a 60 m/s)"
+        - label: "`windDeg` — direção do vento (0 a 360°)"
+        - label: "`lightningCount` — raios por perto"
+        - label: "`fireCount` — focos de queimada por perto"
+        - label: "`closeFires` — focos a menos de 50 km"
+        - label: "`lat` / `lon` — para onde o globo aponta"
+
+  - type: dropdown
+    id: som
+    attributes:
+      label: De onde vem o som
+      options:
+        - "Um patch do Pure Data (vou enviar separado)"
+        - "Arquivos de áudio que eu forneço"
+        - "Nenhum — a animação é silenciosa"
+    validations:
+      required: true
+
+  - type: textarea
+    id: audio
+    attributes:
+      label: Se for áudio, quando cada arquivo toca
+      description: |
+        Descreva em palavras e eu transformo na regra do manifesto. Por
+        exemplo: "sem chuva, silêncio; até 3 mm/h o leve; acima disso o forte".
+      placeholder: |
+        chuva = 0        → silêncio
+        chuva até 3      → leve.mp3
+        chuva acima de 3 → forte.mp3
+
+  - type: textarea
+    id: descricao
+    attributes:
+      label: Sobre a obra
+      description: Uma frase ou duas. Aparece junto da animação.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: licenca
+    attributes:
+      label: Autorização
+      options:
+        - label: "A animação é minha, ou eu tenho autorização de quem a fez"
+          required: true
+        - label: "Concordo que ela seja publicada no GaiaSenses sob CC-BY-4.0"
+          required: true

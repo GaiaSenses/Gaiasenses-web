@@ -1,0 +1,18 @@
+{
+  "id": "exemploClima",
+  "label": "Exemplo — clima",
+  "description": "Animação mínima de referência: círculos cuja cor vem da temperatura e cujo tamanho vem da chuva. Existe para mostrar a forma de uma animação declarada, e para o CI ter o que verificar.",
+  "author": "GaiaSenses",
+  "license": "CC-BY-4.0",
+  "attributes": ["temperature", "rain"],
+  "audio": {
+    "kind": "mp3",
+    "by": "rain",
+    "steps": [
+      { "below": 3, "file": "NRlight.mp3" },
+      { "below": 6, "file": "NRmedium.mp3" },
+      { "file": "NRheavy.mp3" }
+    ]
+  },
+  "thumb": "lluvia.png"
+}
