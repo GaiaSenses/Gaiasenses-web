@@ -1,0 +1,79 @@
+name: Registrar animações
+
+# O equivalente, para animações, do que o job `publish` de patch-build.yml faz
+# para patches — e a peça que faltava para o envio de animação funcionar de
+# ponta a ponta.
+#
+# Uma animação declarada são dois arquivos: `composition.json` e o `sketch`. Mas
+# o site não os lê de disco em tempo de execução; ele importa
+# `compositions-declared.generated.ts`, que um script gera. Um bundler não
+# consegue seguir `import(variável)`, então os imports precisam estar escritos.
+#
+# Sem este workflow o envio passava inteiro no verde e mesmo assim não aparecia
+# nada: o validador aprovava o manifesto, o build compilava, o robô postava o
+# link de preview — e o link abria um site que nunca tinha ouvido falar daquela
+# animação. Um resultado pior do que uma falha, porque parecia sucesso.
+#
+# Quem envia pelo navegador não tem `npm`. Ou o robô regenera, ou a promessa de
+# "sem instalar nada e sem depender de um programador" não é verdade.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "compositions/**"
+      - "lib/gaia-composition-attributes.json"
+
+concurrency:
+  group: registrar-animacao-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  registrar:
+    name: Regenerar o registro de animações
+    runs-on: ubuntu-24.04
+    # Pull requests vindos de fork rodam com token de leitura. O envio continua
+    # sendo validado; um mantenedor aplica o registro à mão. Mesma regra do
+    # publish de patch-build.yml, e pelo mesmo motivo.
+    if: >
+      github.actor != 'github-actions[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          # O GITHUB_TOKEN padrão é proposital: push feito com ele não dispara
+          # workflow, e é isso que impede o commit do robô de chamar este mesmo
+          # workflow de novo, para sempre.
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --prefer-offline --no-audit
+
+      # Antes de gerar. Um manifesto que pede um dado inexistente geraria um
+      # registro que compila e nunca reage — o validador transforma isso em erro
+      # com sugestão de grafia, e é a mensagem que a pessoa precisa ler.
+      - run: npm run compositions:validate
+
+      - run: npm run compositions:codegen
+
+      - name: Commitar o registro
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add components/compositions/compositions-declared.generated.ts \
+                  lib/gaia-composition-attributes.generated.ts
+          if git diff --cached --quiet; then
+            echo "O registro já estava em dia."
+            exit 0
+          fi
+          git commit -m "build(compositions): registrar animações do PR [skip ci]"
+          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
