@@ -1,0 +1,11 @@
+{
+  "$schema": "../../schemas/gaia.patch.schema.json",
+  "schemaVersion": 1,
+  "id": "rain2",
+  "label": "Night Rain",
+  "description": "Sons de estática para a animação NightRain.",
+  "author": { "name": "Equipe GaiaSenses" },
+  "license": "CC-BY-4.0",
+  "build": { "initialMemory": 64 },
+  "activation": { "moments": ["player"], "compositions": ["nightRain"] }
+}
