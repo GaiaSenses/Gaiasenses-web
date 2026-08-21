@@ -1,0 +1,11 @@
+{
+  "$schema": "../../schemas/gaia.patch.schema.json",
+  "schemaVersion": 1,
+  "id": "PDteste1",
+  "label": "Teste1",
+  "description": "Teste",
+  "author": { "name": "Equipe GaiaSenses" },
+  "license": "CC-BY-4.0",
+  "build": { "initialMemory": 64 },
+  "activation": { "moments": ["player"], "compositions": ["lluvia"] }
+}
