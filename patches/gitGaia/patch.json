@@ -1,0 +1,14 @@
+{
+"$schema": "../../schemas/gaia.patch.schema.json",
+"schemaVersion": 1,
+"id": "gitGaia",
+"label": "Minha Peça",
+"description": "Uma frase sobre a obra.",
+"author": { "name": "Seu Nome" },
+"license": "CC-BY-4.0",
+"build": { "initialMemory": 64 },
+"activation": {
+"moments": ["map"],
+"compositions": ["lightningBolts"]
+}
+}

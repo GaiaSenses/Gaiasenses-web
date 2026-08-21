@@ -41,6 +41,24 @@ export const GENERATED_MAP3_PD4WEB_PATCHES = [
     tuning: { pollMs: 100, epsilon: 0.0001, accEpsilon: 0.05 },
   },
   {
+    id: "gitGaia",
+    label: "Minha Peça",
+    bundleFolder: "patches/gitGaia",
+    runtime: "ade2e09dc894",
+    activation: {
+      moments: ["map"],
+      compositions: ["lightningBolts"],
+    },
+    channels: {
+      receivers: {
+        "gaia.lat": "gaia.lat",
+        "gaia.temp": "gaia.temp",
+      },
+      senders: {},
+    },
+    tuning: { pollMs: 100, epsilon: 0.0001, accEpsilon: 0.05 },
+  },
+  {
     id: "paraisoGaia43",
     label: "Map sound 43",
     bundleFolder: "patches/paraisoGaia43",
