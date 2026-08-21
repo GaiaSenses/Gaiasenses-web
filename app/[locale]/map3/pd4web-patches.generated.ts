@@ -10,6 +10,23 @@ import type { Map3Pd4WebPatch } from "./pd4web-patches";
 
 export const GENERATED_MAP3_PD4WEB_PATCHES = [
   {
+    id: "PDteste1",
+    label: "Teste1",
+    bundleFolder: "patches/PDteste1",
+    runtime: "ade2e09dc894",
+    activation: {
+      moments: ["map"],
+      compositions: ["lluvia"],
+    },
+    channels: {
+      receivers: {
+        "gaia.temp": "gaia.temp",
+      },
+      senders: {},
+    },
+    tuning: { pollMs: 100, epsilon: 0.0001, accEpsilon: 0.05 },
+  },
+  {
     id: "bubble1",
     label: "Bubble 1",
     bundleFolder: "patches/bubble1",
