@@ -12,15 +12,13 @@ export type ClimaData = {
   rain: number;
 };
 
+// 5 macro-categorias (substitui as 8 categorias antigas)
 type CompositionScores = {
-  void: number;
-  aeolus: number;
-  spark: number;
-  flow: number;
-  ethereal: number;
-  infernus: number;
-  thermal: number;
-  downpour: number;
+  atmosphere: number; // Vento, Nuvens e Fenômenos Aéreos
+  fulmen: number; // Raios e Tempestade Elétrica
+  pyro: number; // Fogo, Queimadas e Calor Extremo
+  hydros: number; // Chuva, Umidade e Temperatura
+  entropy: number; // Localização (Lat/Long) e Abstrações (Estado Padrão) - piso fixo, nunca zera
 };
 
 export type CompositionDecisionTrace = {
@@ -35,60 +33,33 @@ export function getCompositionDecisionTrace(
   clima: ClimaData,
 ): CompositionDecisionTrace {
   const scores: CompositionScores = {
-    void: 25,
-    aeolus: 0,
-    spark: 0,
-    flow: 0,
-    ethereal: 0,
-    infernus: 0,
-    thermal: 0,
-    downpour: 0,
+    atmosphere: 0,
+    fulmen: 0,
+    pyro: 0,
+    hydros: 0,
+    entropy: 25, // piso fixo — não é zerado por nenhuma regra
   };
 
   const regras = {
-    //raios
-    spark: () => {
-      if (clima.lightnings > 0) {
-        scores.spark += 85;
-        scores.void = 0;
-      }
+    // Raios (separado de fogo para não sobrescrever erroneamente uma animação pela outra)
+    fulmen: () => {
+      if (clima.lightnings > 0) scores.fulmen += 90;
     },
-    //vento
-    aeolus: () => {
-      scores.aeolus += clima.windSpeed * 2.5;
-      if (clima.windSpeed > 8) scores.void = 0;
+    // Fogo/Queimadas e Calor Extremo
+    pyro: () => {
+      if (clima.fireSpots > 0) scores.pyro += 100;
+      if (clima.temperature > 35) scores.pyro += 40;
     },
-    //humidade
-    flow: () => {
-      scores.flow += clima.humidity * 0.5;
-      if (clima.humidity > 80) scores.void = 0;
+    // Vento e Nuvens
+    atmosphere: () => {
+      scores.atmosphere += clima.windSpeed * 4;
+      if (clima.clouds > 50) scores.atmosphere += 30;
     },
-    //visibilidade
-    ethereal: () => {
-      if (clima.clouds > 70) {
-        scores.ethereal += 45;
-      }
-    },
-    //chuva
-    downpour: () => {
-    if (clima.rain > 0) {
-      scores.downpour += 75;
-      }
-    },
-    //temperatura
-    thermal: () => {
-      if (clima.fireSpots > 0) {
-        scores.infernus += 100;
-        scores.void = 0;
-        return;
-      }
-
-      if (clima.temperature > 32) {
-        scores.infernus += 30;
-        scores.thermal += clima.temperature * 0.5;
-      } else {
-        scores.thermal += clima.temperature * 0.8;
-      }
+    // Chuva, Umidade e Temperatura
+    hydros: () => {
+      scores.hydros += clima.rain * 5;
+      scores.hydros += clima.humidity * 0.5;
+      scores.hydros += clima.temperature * 0.3;
     },
   };
 
@@ -100,72 +71,68 @@ export function getCompositionDecisionTrace(
     const after = { ...scores };
 
     ruleDeltas[ruleName] = {
-      void: after.void - before.void,
-      aeolus: after.aeolus - before.aeolus,
-      spark: after.spark - before.spark,
-      flow: after.flow - before.flow,
-      ethereal: after.ethereal - before.ethereal,
-      infernus: after.infernus - before.infernus,
-      thermal: after.thermal - before.thermal,
-      downpour: after.downpour - before.downpour,
+      atmosphere: after.atmosphere - before.atmosphere,
+      fulmen: after.fulmen - before.fulmen,
+      pyro: after.pyro - before.pyro,
+      hydros: after.hydros - before.hydros,
+      entropy: after.entropy - before.entropy,
     };
   };
 
   // Executa regras in a fixed order for predictable debugging output
-  applyRuleWithDelta("spark", regras.spark);
-  applyRuleWithDelta("aeolus", regras.aeolus);
-  applyRuleWithDelta("flow", regras.flow);
-  applyRuleWithDelta("ethereal", regras.ethereal);
-  applyRuleWithDelta("thermal", regras.thermal);
-  applyRuleWithDelta("downpour", regras.downpour);
+  applyRuleWithDelta("fulmen", regras.fulmen);
+  applyRuleWithDelta("pyro", regras.pyro);
+  applyRuleWithDelta("atmosphere", regras.atmosphere);
+  applyRuleWithDelta("hydros", regras.hydros);
+
   const composicoes: Record<string, string[]> = {
-    void: [CompositionsInfo.zigzag.name, CompositionsInfo.attractor.name],
-    aeolus: [
+    // Fenômenos: Vento (windLines), Nuvens (cloudBubble), Clima (weatherTree),
+    // Direção do vento (stormEye), Roots Blower / temperatura+vento (pump)
+    atmosphere: [
       CompositionsInfo.windLines.name,
+      CompositionsInfo.cloudBubble.name,
+      CompositionsInfo.weatherTree.name,
       CompositionsInfo.stormEye.name,
-      CompositionsInfo.riverLines.name,
+      CompositionsInfo.pump.name,
     ],
-    spark: [
+    // Fenômenos: Raios (lightningTrees, lightningBolts, attractor, zigzag),
+    // Tempestade (stormEye)
+    fulmen: [
+      CompositionsInfo.lightningTrees.name,
       CompositionsInfo.lightningBolts.name,
       CompositionsInfo.attractor.name,
       CompositionsInfo.zigzag.name,
       CompositionsInfo.stormEye.name,
-      CompositionsInfo.lightningTrees.name,
     ],
-    flow: [
+    // Fenômenos: Fogo/Queimadas (bonfire, burningTrees)
+    pyro: [
+      CompositionsInfo.bonfire.name,
+      CompositionsInfo.burningTrees.name,
+    ],
+    // Fenômenos: Chuva (lluvia, zigzag, curves, digitalOrganism, rectangles, nightRain),
+    // Temperatura (colorFlower, mudflatScatter, generativeStrings, riverLines), Umidade (paintBrush)
+    hydros: [
       CompositionsInfo.lluvia.name,
-      CompositionsInfo.digitalOrganism.name,
-      CompositionsInfo.riverLines.name,
       CompositionsInfo.zigzag.name,
       CompositionsInfo.curves.name,
+      CompositionsInfo.digitalOrganism.name,
+      CompositionsInfo.rectangles.name,
+      CompositionsInfo.nightRain.name,
+      CompositionsInfo.colorFlower.name,
+      CompositionsInfo.mudflatScatter.name,
+      CompositionsInfo.generativeStrings.name,
+      CompositionsInfo.riverLines.name,
       CompositionsInfo.paintBrush.name,
     ],
-    ethereal: [CompositionsInfo.cloudBubble.name],
-    infernus: [
-      CompositionsInfo.burningTrees.name,
-      CompositionsInfo.bonfire.name,
-    ],
-    thermal: [
-      CompositionsInfo.colorFlower.name,
-      CompositionsInfo.generativeStrings.name,
-      CompositionsInfo.curves.name,
-      CompositionsInfo.riverLines.name,
-      CompositionsInfo.mudflatScatter.name,
-    ],
-    downpour: [
-      CompositionsInfo.nightRain.name,
-      CompositionsInfo.rectangles.name,
-    ],
+    // Fenômenos: Localização/Latitude/Longitude (chaosTree, airports)
+    entropy: [CompositionsInfo.chaosTree.name, CompositionsInfo.airports.name],
   };
 
   const categoria = (Object.keys(scores) as (keyof typeof scores)[]).reduce(
     (a, b) => (scores[a] > scores[b] ? a : b),
   );
   const options = composicoes[categoria];
-  const escolha =
-    composicoes[categoria][
-      Math.floor(Math.random() * composicoes[categoria].length)
-    ];
+  const escolha = options[Math.floor(Math.random() * options.length)];
 
   return {
     clima,
@@ -179,13 +146,6 @@ export function getCompositionDecisionTrace(
 export function getCompositionForClima(clima: ClimaData): [string, any] {
   const trace = getCompositionDecisionTrace(clima);
 
-  //checar no terminal:
-  console.log("————————————————————————————————————————————————————");
-  console.log("Scores:", trace.scores);
-  console.log("Categoria escolhida:", trace.categoria);
-  console.log("Composição escolhida:", trace.escolha);
-  console.log("————————————————————————————————————————————————————");
-
   // Find the composition info
   const compositionInfo =
     CompositionsInfo[trace.escolha as keyof typeof CompositionsInfo];
@@ -198,6 +158,12 @@ export function getCompositionForClima(clima: ClimaData): [string, any] {
     );
     return [defaultComp, CompositionsInfo[defaultComp]];
   }
+  //checar no terminal:
+  console.log("————————————————————————————————————————————————————");
+  console.log("Scores:", trace.scores);
+  console.log("Categoria escolhida:", trace.categoria);
+  console.log("Composição escolhida:", trace.escolha);
+  console.log("————————————————————————————————————————————————————");
   return [trace.escolha, compositionInfo];
 }
 
