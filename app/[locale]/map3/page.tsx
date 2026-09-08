@@ -61,6 +61,7 @@ type PageProps = {
 
 export default async function Page({ params, searchParams }: PageProps) {
   const t = await getTranslations("Index");
+  const tPrivacidade = await getTranslations("Privacy");
 
   const lat = parseFloat(searchParams.lat ?? "0");
   const lng = parseFloat(searchParams.lng ?? "0");
@@ -334,6 +335,14 @@ export default async function Page({ params, searchParams }: PageProps) {
                   </Link>
                 </div>
               ))}
+            </div>
+            <div className="pt-4">
+              <Link
+                className="underline"
+                href={`/${params.locale}/privacidade`}
+              >
+                {tPrivacidade("title")}
+              </Link>
             </div>
           </div>
         </InfoModal>

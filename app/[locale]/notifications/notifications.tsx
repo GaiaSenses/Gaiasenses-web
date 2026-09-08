@@ -7,7 +7,7 @@ import { DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 
 export default function PushNotificationManager() {
 	const [isSupported, setIsSupported] = useState(false);
@@ -17,7 +17,8 @@ export default function PushNotificationManager() {
 	const [frequency, setFrequency] = useState('');
 	const [errors, setErrors] = useState<{ name?: string; email?: string; frequency?: string }>({});
 	const [isLoading, setIsLoading] = useState(false);
-	const t = useTranslations("Notification"); 
+	const t = useTranslations("Notification");
+	const locale = useLocale();
 
 	function urlBase64ToUint8Array(base64String: string) {
 		const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -238,8 +239,8 @@ export default function PushNotificationManager() {
 						</div>
 
 						{/* Botão de Subscribe */}
-						<Button 
-							className='w-full' 
+						<Button
+							className='w-full'
 							onClick={subscribeToPush}
 							disabled={isLoading}
 						>
@@ -247,6 +248,16 @@ export default function PushNotificationManager() {
 						</Button>
 					</div>
 				)}
+			</p>
+			<p className='text-sm mt-4'>
+				<a
+					href={`/${locale}/privacidade`}
+					target='_blank'
+					rel='noreferrer'
+					className='underline'
+				>
+					{t("notificationPrivacyLink")}
+				</a>
 			</p>
 		</div>
 	);

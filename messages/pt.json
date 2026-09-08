@@ -65,6 +65,25 @@
     "notificationErrorEmail": "Email é obrigatório",
     "notificationErrorEmailInvalid": "Formato de email inválido",
     "notificationErrorFrequency": "Por favor, selecione a frequência",
-    "notificationErrorSubscribe": "Falha ao inscrever. Por favor, tente novamente."
+    "notificationErrorSubscribe": "Falha ao inscrever. Por favor, tente novamente.",
+    "notificationPrivacyLink": "Política de Privacidade — como tratamos seus dados"
+  },
+  "Privacy": {
+    "title": "Política de Privacidade",
+    "updated": "Atualizada em 8 de setembro de 2026",
+    "intro": "O GaiaSenses é um projeto de pesquisa em arte e ciência que transforma dados climáticos do lugar onde você está em composições audiovisuais. Para isso, ele usa alguns dados — esta página descreve quais, para quê e por quanto tempo.",
+    "locationTitle": "Sua localização",
+    "locationP1": "Ao abrir o site, a plataforma de hospedagem (Vercel) estima sua cidade a partir do seu endereço IP. É uma localização aproximada — nível de cidade —, usada apenas para apontar o globo e escolher uma composição que corresponda ao clima de onde você está. Nós não gravamos o seu IP.",
+    "locationP2": "Essa estimativa fica em um cookie chamado userLocation por 24 horas, inacessível aos scripts da página (HttpOnly) e transmitido só por HTTPS. Usar o GPS do aparelho é opcional: só acontece se você tocar no botão de localização e autorizar no navegador, e o resultado não é armazenado por nós.",
+    "corpusTitle": "Registro de pesquisa",
+    "corpusP1": "Quando uma composição toca, registramos: o nome da composição, os valores de clima naquele momento (temperatura, umidade, vento, raios, focos de fogo), o tempo de exibição e as coordenadas envolvidas — reduzidas a uma célula de aproximadamente 4 km antes de serem gravadas. Esse registro não contém nome, conta, e-mail nem endereço IP.",
+    "corpusP2": "Esses dados alimentam a pesquisa do projeto: entender como o clima molda as composições que o público experimenta.",
+    "pushTitle": "Notificações (opcional)",
+    "pushP1": "Se você se inscrever para receber notificações, guardamos o nome e o e-mail informados, a frequência escolhida e o endereço técnico de entrega do navegador — somente para enviar essas notificações. O botão de descadastro remove a inscrição. O limite de tentativas de cadastro é contado na borda da hospedagem, sem guardar seu IP em nosso banco de dados.",
+    "thirdTitle": "Serviços de terceiros",
+    "thirdP1": "Para desenhar o mapa e buscar o clima, o site consulta Mapbox (mapa), Open-Meteo (clima), OpenWeather (nome do lugar) e o nosso backend de satélite (focos de fogo e raios, com dados públicos NASA/NOAA). Esses serviços recebem as coordenadas consultadas — as do ponto que o globo está olhando —, nunca a sua identidade.",
+    "rightsTitle": "Seus direitos",
+    "rightsP1": "Nos termos da LGPD (Lei nº 13.709/2018), você pode pedir acesso, correção ou remoção dos seus dados — por exemplo, da inscrição de notificações — escrevendo para gaiasenses.cti@gmail.com.",
+    "backToMap": "Voltar ao mapa"
   }
 }

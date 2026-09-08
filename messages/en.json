@@ -65,6 +65,25 @@
     "notificationErrorEmail": "Email is required",
     "notificationErrorEmailInvalid": "Invalid email format",
     "notificationErrorFrequency": "Please select a frequency",
-    "notificationErrorSubscribe": "Failed to subscribe. Please try again."
+    "notificationErrorSubscribe": "Failed to subscribe. Please try again.",
+    "notificationPrivacyLink": "Privacy Policy — how we handle your data"
+  },
+  "Privacy": {
+    "title": "Privacy Policy",
+    "updated": "Updated on September 8, 2026",
+    "intro": "GaiaSenses is an art-science research project that turns the climate data of where you are into audiovisual compositions. To do that it uses some data — this page describes what, why, and for how long.",
+    "locationTitle": "Your location",
+    "locationP1": "When you open the site, the hosting platform (Vercel) estimates your city from your IP address. It is an approximate, city-level location, used only to point the globe and pick a composition matching the weather where you are. We do not store your IP.",
+    "locationP2": "That estimate lives in a cookie named userLocation for 24 hours, unreachable by page scripts (HttpOnly) and sent only over HTTPS. Using the device GPS is optional: it only happens if you tap the location button and allow it in the browser, and the result is not stored by us.",
+    "corpusTitle": "Research record",
+    "corpusP1": "When a composition plays, we record: the composition name, the climate values at that moment (temperature, humidity, wind, lightning, fire spots), the time on display, and the coordinates involved — reduced to a cell of roughly 4 km before being written. This record holds no name, account, e-mail or IP address.",
+    "corpusP2": "This data feeds the project's research: understanding how climate shapes the compositions the audience experiences.",
+    "pushTitle": "Notifications (optional)",
+    "pushP1": "If you subscribe to notifications, we keep the name and e-mail you enter, the chosen frequency and the browser's technical delivery address — only to send those notifications. The unsubscribe button removes the subscription. Sign-up attempts are rate-limited at the hosting edge, without storing your IP in our database.",
+    "thirdTitle": "Third-party services",
+    "thirdP1": "To draw the map and fetch the weather, the site queries Mapbox (map), Open-Meteo (weather), OpenWeather (place name) and our satellite backend (fire spots and lightning, from public NASA/NOAA data). These services receive the queried coordinates — the point the globe is looking at — never your identity.",
+    "rightsTitle": "Your rights",
+    "rightsP1": "Under the Brazilian data protection law (LGPD, Law 13,709/2018), you can request access, correction or removal of your data — the notification subscription, for instance — by writing to gaiasenses.cti@gmail.com.",
+    "backToMap": "Back to the map"
   }
 }
