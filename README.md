@@ -192,6 +192,8 @@ aws apigateway get-api-key --api-key <id> --include-value --query value --output
 ```
 
 > 🔎 **Fire, lightning and rain now need a key.** The backend used to answer anyone who asked, with no throttle and no spending ceiling. It sits behind an API key, a 10 rps throttle and a 50,000 request monthly quota — see `satellite-fetcher-aws`.
+> 🛡️ **The push sign-up is rate-limited at the edge, not in code.** The subscribe form is a server action hosted on the `map3` page, so it travels as `POST /<locale>/map3`. A Vercel WAF rule (dashboard → Firewall, not in this repo) limits POSTs to 10/min per IP and answers 429 beyond that — nothing IP-related is stored in our database.
+> 🩺 **Is the satellite backend up?** `GET /api/health` answers per source: `200 {status:"ok"}` or `503 {status:"degraded"}` with `sources.fire` / `sources.lightning` detailed individually.
 > 🧹 `MONGODB_URI` appears in older docs but is **not read by any code** — MongoDB is a leftover dependency. Do not bother setting it.
 
 ---
@@ -205,6 +207,7 @@ app/
 │  ├─ gaiaball/            ← BLE sensor test bench (streams to a Pd WebSocket)
 │  └─ notifications/       ← push-subscription component
 └─ api/
+   ├─ health/              ← per-source status probe (fire + lightning): 200 ok / 503 degraded
    └─ notifications/       ← triggered by Vercel Cron (daily, 12:00 UTC)
 
 patches/                    ← ★ Pd sources: main.pd + Libs/ + patch.json, one folder per patch
@@ -554,6 +557,7 @@ the patches.
 | Patch does not load at all | The runtime the bundle asks for is missing | Check `build-info.json` against `public/pd4web-runtime/`, then `npm run patches:build` |
 | Wrong patch stays active after switching compositions | Patch/composition wiring | Check `activation.compositions` in the patch manifest and `keepMapPatch` in the catalogue, then `composition-dropdown.tsx` and `toggle-play-button.tsx` |
 | BLE sensor won't connect | Non-Chromium browser, or Bluetooth belongs to the host OS | Use Chrome/Edge; on WSL2 run the browser on Windows. Without hardware, use the CO₂ simulator |
+| Popups say a source is unavailable | Satellite backend degraded, or `SATELLITE_API_URL`/`SATELLITE_API_KEY` unset | `GET /api/health` reports each source individually |
 | Stale/weird build errors after switching branches | Next.js cache | `rm -rf .next` and restart |
 | Port 3000 busy | Another process | `npx next dev -p 3001` |
 
@@ -594,7 +598,7 @@ AWS CDK (TypeScript) project that provisions the satellite-data backend consumed
 - 📦 ~~Several declared dependencies have zero imports~~ — removed (HIG-01): `mongodb`, `joy-con-webhid`, `@mediapipe/tasks-vision`, `@xenova/transformers`, `react-webcam`, `react-h5-audio-player`, `react-three-map`, `react-geolocated`. Note that `tone` was **not** dead: `components/compositions/airports/discrete.tsx` loads it with a dynamic `await import("tone")`, which a plain import grep misses.
 - 🗂️ `public/` carries ~191 MB, and `public/audios/` is 176 MB of it — 92% of the repository, with no owner and no plan. git-lfs does not fit the free quota and a CDN runs into the `require-corp` COEP header that Pd4Web needs.
 - 🐘 Postgres is on `15.8.1.111`, which Supabase flags as having outstanding security patches. The free-plan upgrade path is Pause & Restore; it was run and the version did not move.
-- 🧪 No tagged releases. Contract tests for the data layer exist under `tests/`; the rest is uncovered.
+- 🧪 Test coverage is thin: 54 contract tests cover the data layer and the health endpoint (`tests/`, plain `node --test`); components, hooks and the audio pipeline are uncovered. Releases are tagged since [`v1.0.0`](https://github.com/GaiaSenses/Gaiasenses-web/releases/tag/v1.0.0) (2026-09-08).
 
 ---
 

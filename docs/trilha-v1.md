@@ -6,7 +6,7 @@ no [projeto Kanban da organização](https://github.com/orgs/GaiaSenses/projects
 O dossiê completo (planos, pareceres, relatórios) está em
 [gaiasenses-docs](https://github.com/GaiaSenses/gaiasenses-docs).
 
-**29/50 tasks concluídas** (gerado do estado vivo das issues em 2026-09-08).
+**30/50 tasks concluídas** (gerado do estado vivo das issues em 2026-09-08).
 Marcos do dia: backend deployado na conta do projeto com Blocos 1 e 3 valendo em
 produção; as duas credenciais vazadas rotacionadas e verificadas (T11); custo
 US$ 0,00 com ECR de volta ao free tier e faxina automática; alarmes de saúde e
@@ -49,7 +49,7 @@ esperando decisão de terceiros (e de quem); *Indireta* = destrava quando outra 
 | [x] | T30 | Testar o alarme de custo + runbook (OPS-05) | [Gaiasenses-web#124](https://github.com/GaiaSenses/Gaiasenses-web/issues/124) | T24 (confirmação SNS) | Não |
 | [x] | T31 | Rate-limit do cadastro de push via WAF da Vercel | [Gaiasenses-web#125](https://github.com/GaiaSenses/Gaiasenses-web/issues/125) | — | Não |
 | [ ] | T32 | Arquivar o repo legado satellite-fetcher | [Gaiasenses-web#126](https://github.com/GaiaSenses/Gaiasenses-web/issues/126) | T11 | Não |
-| [ ] | T33 | Primeira release v1.0.0 nos 2 repos | [Gaiasenses-web#127](https://github.com/GaiaSenses/Gaiasenses-web/issues/127) | Blocos 0·1·3 | Não |
+| [x] | T33 | Primeira release v1.0.0 nos 2 repos | [Gaiasenses-web#127](https://github.com/GaiaSenses/Gaiasenses-web/issues/127) | Blocos 0·1·3 | Não |
 | [x] | T34 | Criar as labels de governança nos 2 repos | [Gaiasenses-web#110](https://github.com/GaiaSenses/Gaiasenses-web/issues/110) | — | Não |
 | [x] | T35 | Milestones + issues 1:1 + tabela-espelho | [Gaiasenses-web#111](https://github.com/GaiaSenses/Gaiasenses-web/issues/111) | T34 | Não |
 | [x] | T36 | Template genérico de Pull Request | [Gaiasenses-web#128](https://github.com/GaiaSenses/Gaiasenses-web/issues/128) | T34 | Não |
