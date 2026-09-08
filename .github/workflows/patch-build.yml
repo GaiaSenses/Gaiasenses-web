@@ -168,6 +168,8 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      # para o gh workflow run do passo "Redisparar o verificar"
+      actions: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -214,6 +216,18 @@ jobs:
           git commit -m "build(patches): artefatos de ${{ join(fromJSON(needs.detect.outputs.slugs), ', ') }} [skip ci]"
           git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
           echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      # O push acima usa o GITHUB_TOKEN, que por regra anti-recursão não dispara
+      # eventos de pull_request — o check obrigatório "verificar" ficaria
+      # aguardando para sempre no commit novo (foi o que travou o PR #102).
+      # workflow_dispatch é a exceção documentada: redispara o verificar no
+      # branch, e ele publica um commit status no SHA novo, que o merge box
+      # aceita. Sem risco de loop: o verificar não escreve nada em lugar nenhum.
+      - name: Redisparar o verificar no commit do robô
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run verificar-app.yml --ref "${{ github.event.pull_request.head.ref }}"
 
       - name: Comentar no PR
         uses: actions/github-script@v7
