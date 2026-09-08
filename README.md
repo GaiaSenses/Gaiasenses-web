@@ -591,13 +591,11 @@ AWS CDK (TypeScript) project that provisions the satellite-data backend consumed
 ## ⚠️ Known Issues & Tech Debt
 
 - 🗺️ **The Mapbox token belongs to someone who left the project.** Every Mapbox token is a JWT with the owner in its payload, and the one in use decodes to a personal account. Nobody on the team can restrict it by URL, rotate it, or see its quota, and the globe goes down with that account. Opening a new Mapbox account requires a credit card, so this is a decision for the research team — see `docs/mapa-alternativas.md`, which has a working MapLibre spike and side-by-side screenshots.
-- 🔔 **The daily push cron answers 401 to Vercel.** `CRON_SECRET` is set and the route accepts the right token — verified by hand — but the scheduled invocation is not carrying it. The job runs on time and is rejected. Under investigation.
 - 📦 ~~Several declared dependencies have zero imports~~ — removed (HIG-01): `mongodb`, `joy-con-webhid`, `@mediapipe/tasks-vision`, `@xenova/transformers`, `react-webcam`, `react-h5-audio-player`, `react-three-map`, `react-geolocated`. Note that `tone` was **not** dead: `components/compositions/airports/discrete.tsx` loads it with a dynamic `await import("tone")`, which a plain import grep misses.
 - 🗂️ `public/` carries ~191 MB, and `public/audios/` is 176 MB of it — 92% of the repository, with no owner and no plan. git-lfs does not fit the free quota and a CDN runs into the `require-corp` COEP header that Pd4Web needs.
 - 🐘 Postgres is on `15.8.1.111`, which Supabase flags as having outstanding security patches. The free-plan upgrade path is Pause & Restore; it was run and the version did not move.
 - 🧪 No tagged releases. Contract tests for the data layer exist under `tests/`; the rest is uncovered.
-- 🛰️ UI "about" texts mention older satellites (GOES-16/17); the backend now reads **GOES-19**.
 
 ---
 
-*This README consolidates the original teammate handoff guide with a verified local-setup guide (validated on a clean environment, Node 22, July 2026). For a deeper architecture dossier, ask the team for the internal technical report.*
+*This README consolidates the original teammate handoff guide with a verified local-setup guide (validated on a clean environment, Node 22, July 2026). The architecture dossier — diagnosis, plans, status reports and technical opinions — lives in [gaiasenses-docs](https://github.com/GaiaSenses/gaiasenses-docs); the live status of every remaining item above is tracked in [docs/trilha-v1.md](docs/trilha-v1.md) and the [organization Kanban](https://github.com/orgs/GaiaSenses/projects/1).*
