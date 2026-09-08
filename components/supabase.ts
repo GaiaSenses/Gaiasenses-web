@@ -1,4 +1,5 @@
 import { supabase } from "./supabaseClient";
+import { minimizarLocalizacao } from "./localizacao";
 
 /**
  * Which deployment produced this log row.
@@ -65,6 +66,15 @@ export async function insertSatelliteData({
   };
   timeSpent: number;
 }) {
+  // O corpus precisa da região da sessão, não da casa do visitante: toda
+  // coordenada é gravada na célula de ~4 km (LGPD-01). O dado climático da
+  // linha já vem de um raio de 100 km, então a célula não muda a análise.
+  const pinnedMinimizada = minimizarLocalizacao(pinnedlocation);
+  const userMinimizada = minimizarLocalizacao({
+    lat: userlocation.userlat,
+    lng: userlocation.userlng,
+  });
+
   const row = {
     name,
     temperature,
@@ -73,8 +83,11 @@ export async function insertSatelliteData({
     lightning_count,
     fireSpots_count: fire_count,
     date_timeplayed,
-    pinnedlocation,
-    userlocation,
+    pinnedlocation: pinnedMinimizada,
+    userlocation: {
+      userlat: userMinimizada.lat,
+      userlng: userMinimizada.lng,
+    },
     timeSpent,
   };
 
