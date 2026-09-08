@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { lerLocalizacaoDoCookie } from "@/components/localizacao";
 import GaiasensesMap from "./gaiasenses-map";
 import PopupContent from "./popup-content";
 import Link from "next/link";
@@ -66,16 +67,13 @@ export default async function Page({ params, searchParams }: PageProps) {
   const lng = parseFloat(searchParams.lng ?? "0");
   const isInfoOpen = stringToBoolean(searchParams.info);
 
-  let userLocation = { lat: 0, lng: 0 };
+  // Cookie forjado (shape errado, faixa impossível, payload extra) cai no
+  // fallback aqui e nunca alcança o GaiaLogs. A leitura também normaliza os
+  // valores para número — em produção o request.geo do Vercel entrega strings.
   const cookieStore = cookies();
-  const userLocationCookie = cookieStore.get("userLocation");
-  if (userLocationCookie) {
-    try {
-      userLocation = JSON.parse(userLocationCookie.value);
-    } catch {
-      userLocation = { lat: 0, lng: 0 };
-    }
-  }
+  const userLocation = lerLocalizacaoDoCookie(
+    cookieStore.get("userLocation")?.value,
+  ) ?? { lat: 0, lng: 0 };
 
   //Stubs
   // const weatherData = {
