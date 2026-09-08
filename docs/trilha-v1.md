@@ -6,7 +6,7 @@ no [projeto Kanban da organização](https://github.com/orgs/GaiaSenses/projects
 O dossiê completo (planos, pareceres, relatórios) está em
 [gaiasenses-docs](https://github.com/GaiaSenses/gaiasenses-docs).
 
-**30/50 tasks concluídas** (gerado do estado vivo das issues em 2026-09-08).
+**37/50 tasks concluídas** (gerado do estado vivo das issues em 2026-09-08).
 Marcos do dia: backend deployado na conta do projeto com Blocos 1 e 3 valendo em
 produção; as duas credenciais vazadas rotacionadas e verificadas (T11); custo
 US$ 0,00 com ECR de volta ao free tier e faxina automática; alarmes de saúde e
@@ -29,11 +29,11 @@ esperando decisão de terceiros (e de quem); *Indireta* = destrava quando outra 
 | [x] | T10 | Redigir a FIRMS_MAP_KEY do log de URL | [satellite-fetcher-aws#10](https://github.com/GaiaSenses/satellite-fetcher-aws/issues/10) | T04 | Não |
 | [x] | T11 | Rotacionar as 2 credenciais expostas (após T09/T10) | [Gaiasenses-web#113](https://github.com/GaiaSenses/Gaiasenses-web/issues/113) | T09·T10 | Não |
 | [x] | T12 | reservedConcurrentExecutions: 10 na Lambda | [satellite-fetcher-aws#11](https://github.com/GaiaSenses/satellite-fetcher-aws/issues/11) | T04 | Não |
-| [ ] | T13 | Validar o cookie de localização antes do insert | [Gaiasenses-web#114](https://github.com/GaiaSenses/Gaiasenses-web/issues/114) | T03·T06 | Não |
-| [ ] | T14 | Minimizar coordenadas no GaiaLogs (célula ~4 km) | [Gaiasenses-web#115](https://github.com/GaiaSenses/Gaiasenses-web/issues/115) | T06 | Não |
+| [x] | T13 | Validar o cookie de localização antes do insert | [Gaiasenses-web#114](https://github.com/GaiaSenses/Gaiasenses-web/issues/114) | T03·T06 | Não |
+| [x] | T14 | Minimizar coordenadas no GaiaLogs (célula ~4 km) | [Gaiasenses-web#115](https://github.com/GaiaSenses/Gaiasenses-web/issues/115) | T06 | Não |
 | [x] | T15 | Cookie userLocation com httpOnly+secure+sameSite | [Gaiasenses-web#116](https://github.com/GaiaSenses/Gaiasenses-web/issues/116) | T03 | Não |
 | [x] | T16 | TTL de 24h na localização (REC-03 parcial) | [Gaiasenses-web#117](https://github.com/GaiaSenses/Gaiasenses-web/issues/117) | T15 | Não |
-| [ ] | T17 | Página de política de privacidade (pt+en) | [Gaiasenses-web#118](https://github.com/GaiaSenses/Gaiasenses-web/issues/118) | T14 | Não |
+| [x] | T17 | Página de política de privacidade (pt+en) | [Gaiasenses-web#118](https://github.com/GaiaSenses/Gaiasenses-web/issues/118) | T14 | Não |
 | [x] | T18 | Pinar requirements.txt + digest no Dockerfile | [satellite-fetcher-aws#12](https://github.com/GaiaSenses/satellite-fetcher-aws/issues/12) | T04 | Não |
 | [x] | T19 | Corrigir Point(lat,lon) invertido E a compensação juntos (BUG-03) | [satellite-fetcher-aws#13](https://github.com/GaiaSenses/satellite-fetcher-aws/issues/13) | T18 | Não |
 | [x] | T20 | Entrada inválida → 400; dist com default único e clamp | [satellite-fetcher-aws#14](https://github.com/GaiaSenses/satellite-fetcher-aws/issues/14) | T18 | Não |
@@ -42,13 +42,13 @@ esperando decisão de terceiros (e de quem); *Indireta* = destrava quando outra 
 | [x] | T23 | Fallback para o slot GOES anterior | [satellite-fetcher-aws#17](https://github.com/GaiaSenses/satellite-fetcher-aws/issues/17) | T18 | Não |
 | [x] | T24 | Access log + alarmes 5xx/Throttles/Duration → e-mail | [satellite-fetcher-aws#18](https://github.com/GaiaSenses/satellite-fetcher-aws/issues/18) | T12·T18 | Não |
 | [x] | T25 | Health-check das fontes /fire e /lightning no web | [Gaiasenses-web#119](https://github.com/GaiaSenses/Gaiasenses-web/issues/119) | T11·T24 | Não |
-| [ ] | T26 | Reverificar e remover a dependência tone | [Gaiasenses-web#120](https://github.com/GaiaSenses/Gaiasenses-web/issues/120) | T01·T06 | Não |
+| [x] | T26 | Reverificar e remover a dependência tone | [Gaiasenses-web#120](https://github.com/GaiaSenses/Gaiasenses-web/issues/120) | T01·T06 | Não |
 | [x] | T27 | dev-remote sem IP fixo | [Gaiasenses-web#121](https://github.com/GaiaSenses/Gaiasenses-web/issues/121) | T03 | Não |
-| [ ] | T28 | Corrigir vazamento de timers do modo automático | [Gaiasenses-web#122](https://github.com/GaiaSenses/Gaiasenses-web/issues/122) | T06 | Não |
+| [x] | T28 | Corrigir vazamento de timers do modo automático | [Gaiasenses-web#122](https://github.com/GaiaSenses/Gaiasenses-web/issues/122) | T06 | Não |
 | [ ] | T29 | Remover console.log de scores do player | [Gaiasenses-web#123](https://github.com/GaiaSenses/Gaiasenses-web/issues/123) | T06 | Não |
 | [x] | T30 | Testar o alarme de custo + runbook (OPS-05) | [Gaiasenses-web#124](https://github.com/GaiaSenses/Gaiasenses-web/issues/124) | T24 (confirmação SNS) | Não |
 | [x] | T31 | Rate-limit do cadastro de push via WAF da Vercel | [Gaiasenses-web#125](https://github.com/GaiaSenses/Gaiasenses-web/issues/125) | — | Não |
-| [ ] | T32 | Arquivar o repo legado satellite-fetcher | [Gaiasenses-web#126](https://github.com/GaiaSenses/Gaiasenses-web/issues/126) | T11 | Não |
+| [x] | T32 | Arquivar o repo legado satellite-fetcher | [Gaiasenses-web#126](https://github.com/GaiaSenses/Gaiasenses-web/issues/126) | T11 | Não |
 | [x] | T33 | Primeira release v1.0.0 nos 2 repos | [Gaiasenses-web#127](https://github.com/GaiaSenses/Gaiasenses-web/issues/127) | Blocos 0·1·3 | Não |
 | [x] | T34 | Criar as labels de governança nos 2 repos | [Gaiasenses-web#110](https://github.com/GaiaSenses/Gaiasenses-web/issues/110) | — | Não |
 | [x] | T35 | Milestones + issues 1:1 + tabela-espelho | [Gaiasenses-web#111](https://github.com/GaiaSenses/Gaiasenses-web/issues/111) | T34 | Não |
@@ -57,7 +57,7 @@ esperando decisão de terceiros (e de quem); *Indireta* = destrava quando outra 
 | [ ] | T38 | Upgrade next 14→15 + next-intl 3→4 | [Gaiasenses-web#130](https://github.com/GaiaSenses/Gaiasenses-web/issues/130) | T03·T06·T07·T26 | Não |
 | [ ] | T39 | npm audit no CI (+ smoke e2e opcional) | [Gaiasenses-web#131](https://github.com/GaiaSenses/Gaiasenses-web/issues/131) | T38 | Não |
 | [x] | T40 | Versionar o dossiê my-docs | [Gaiasenses-web#112](https://github.com/GaiaSenses/Gaiasenses-web/issues/112) | — | Não |
-| [ ] | T41 | Reescrever o README do fetcher (hoje: boilerplate CDK) | [satellite-fetcher-aws#19](https://github.com/GaiaSenses/satellite-fetcher-aws/issues/19) | T11·T18 | Não |
+| [x] | T41 | Reescrever o README do fetcher (hoje: boilerplate CDK) | [satellite-fetcher-aws#19](https://github.com/GaiaSenses/satellite-fetcher-aws/issues/19) | T11·T18 | Não |
 | [x] | T42 | Corrigir Known Issues + linkar o dossiê no README | [Gaiasenses-web#132](https://github.com/GaiaSenses/Gaiasenses-web/issues/132) | T40 | Não |
 | [ ] | T43 | DECISÃO 8.1: multicanal 4.1/5.1 (REC-07) | [Gaiasenses-web#133](https://github.com/GaiaSenses/Gaiasenses-web/issues/133) | — | **Sim** — grupo GaiaSenses |
 | [ ] | T44 | DECISÃO 8.2: /rain — ratificar manter ou remover | [Gaiasenses-web#134](https://github.com/GaiaSenses/Gaiasenses-web/issues/134) | — | **Sim** — grupo GaiaSenses |
