@@ -32,7 +32,22 @@ export default async function middleware(request: NextRequest){
    if (!request.cookies.get("userLocation")) {
     response.cookies.set(
       "userLocation", JSON.stringify({ lat: userLat, lng: userLng }),
-      { path: "/", maxAge: 60 * 60 * 24 * 7 } 
+      {
+        path: "/",
+        // 24 h, não 7 dias: o cookie só é gravado quando não existe, então o
+        // maxAge é também o prazo de revalidação — expirou, a próxima visita
+        // recria a partir do IP atual. Com 7 dias, quem viajava continuava
+        // vendo (e o GaiaLogs continuava registrando) a cidade da semana
+        // anterior. O GPS segue sendo o refinamento opt-in pelo botão.
+        maxAge: 60 * 60 * 24,
+        // Localização é dado pessoal: nenhum script da página precisa ler este
+        // cookie (só o middleware escreve e só server component lê — conferido
+        // antes de ligar o httpOnly), então ele fica fora do alcance de
+        // qualquer JS, viaja só por HTTPS e não acompanha navegação cross-site.
+        httpOnly: true,
+        secure: true,
+        sameSite: "lax",
+      }
     );
   }
   response.headers.set("x-your-custom-locale", defaultLocale);
