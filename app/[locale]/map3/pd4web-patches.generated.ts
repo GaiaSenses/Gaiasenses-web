@@ -68,6 +68,7 @@ export const GENERATED_MAP3_PD4WEB_PATCHES = [
     id: "rain2",
     label: "Night Rain",
     bundleFolder: "patches/rain2",
+    runtime: "ade2e09dc894",
     activation: {
       moments: ["player"],
       compositions: ["nightRain"],
