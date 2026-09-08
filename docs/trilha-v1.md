@@ -6,7 +6,7 @@ no [projeto Kanban da organização](https://github.com/orgs/GaiaSenses/projects
 O dossiê completo (planos, pareceres, relatórios) está em
 [gaiasenses-docs](https://github.com/GaiaSenses/gaiasenses-docs).
 
-**26/50 tasks concluídas** (gerado do estado vivo das issues em 2026-09-08).
+**27/50 tasks concluídas** (gerado do estado vivo das issues em 2026-09-08).
 Marcos do dia: backend deployado na conta do projeto com Blocos 1 e 3 valendo em
 produção; as duas credenciais vazadas rotacionadas e verificadas (T11); custo
 US$ 0,00 com ECR de volta ao free tier e faxina automática; alarmes de saúde e
@@ -41,7 +41,7 @@ esperando decisão de terceiros (e de quem); *Indireta* = destrava quando outra 
 | [x] | T22 | Vetorizar o laço flash-a-flash do /lightning | [satellite-fetcher-aws#16](https://github.com/GaiaSenses/satellite-fetcher-aws/issues/16) | T18·T19 | Não |
 | [x] | T23 | Fallback para o slot GOES anterior | [satellite-fetcher-aws#17](https://github.com/GaiaSenses/satellite-fetcher-aws/issues/17) | T18 | Não |
 | [x] | T24 | Access log + alarmes 5xx/Throttles/Duration → e-mail | [satellite-fetcher-aws#18](https://github.com/GaiaSenses/satellite-fetcher-aws/issues/18) | T12·T18 | Não |
-| [ ] | T25 | Health-check das fontes /fire e /lightning no web | [Gaiasenses-web#119](https://github.com/GaiaSenses/Gaiasenses-web/issues/119) | T11·T24 | Não |
+| [x] | T25 | Health-check das fontes /fire e /lightning no web | [Gaiasenses-web#119](https://github.com/GaiaSenses/Gaiasenses-web/issues/119) | T11·T24 | Não |
 | [ ] | T26 | Reverificar e remover a dependência tone | [Gaiasenses-web#120](https://github.com/GaiaSenses/Gaiasenses-web/issues/120) | T01·T06 | Não |
 | [x] | T27 | dev-remote sem IP fixo | [Gaiasenses-web#121](https://github.com/GaiaSenses/Gaiasenses-web/issues/121) | T03 | Não |
 | [ ] | T28 | Corrigir vazamento de timers do modo automático | [Gaiasenses-web#122](https://github.com/GaiaSenses/Gaiasenses-web/issues/122) | T06 | Não |
