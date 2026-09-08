@@ -2,10 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ViewStateChangeEvent, MapRef } from "react-map-gl/mapbox";
 import { locations, type MapLocation } from "./map-constants";
+import {
+  criarCicloDoModoAutomatico,
+  type CicloDoModoAutomatico,
+} from "./auto-mode-timers";
 
-const TIMEOUT_1_PAUSE = 5000;
-const TIMEOUT_2_PAUSE = 20000;
-const TIMEOUT_3_PAUSE = 5000;
 const AUTO_MODE_LOCATIONS_STORAGE_KEY = "map3-auto-mode-locations";
 
 function isValidLocation(item: unknown): item is MapLocation {
@@ -40,19 +41,30 @@ export function useAutoMode(mapRef: React.RefObject<MapRef>) {
   const [autoLocationIndex, setAutoLocationIndex] = useState(0);
   const [autoLocations, setAutoLocations] = useState<MapLocation[]>(locations);
 
-  const timeout1 = useRef<NodeJS.Timeout | null>(null);
-  const timeout2 = useRef<NodeJS.Timeout | null>(null);
-  const timeout3 = useRef<NodeJS.Timeout | null>(null);
+  const cicloRef = useRef<CicloDoModoAutomatico | null>(null);
+  if (cicloRef.current === null) {
+    cicloRef.current = criarCicloDoModoAutomatico();
+  }
+  const ciclo = cicloRef.current;
 
-  const onAutoActivateToggle = useCallback((state: boolean) => {
-    console.log(`Setting automode: ${state}`);
-    setAutoActive(state);
-    if (!state) {
-      if (timeout1.current) clearTimeout(timeout1.current);
-      if (timeout2.current) clearTimeout(timeout2.current);
-      if (timeout3.current) clearTimeout(timeout3.current);
-    }
-  }, []);
+  const onAutoActivateToggle = useCallback(
+    (state: boolean) => {
+      console.log(`Setting automode: ${state}`);
+      setAutoActive(state);
+      if (!state) {
+        ciclo.cancelar();
+      }
+    },
+    [ciclo],
+  );
+
+  // Fechar o mapa (troca de rota, unmount) não pode deixar a cadeia viva
+  // disparando router.replace numa página que já não existe.
+  useEffect(() => {
+    return () => {
+      ciclo.cancelar();
+    };
+  }, [ciclo]);
 
   const saveAutoLocations = useCallback((nextLocations: MapLocation[]) => {
     const sanitized = nextLocations.filter(isValidLocation);
@@ -100,24 +112,29 @@ export function useAutoMode(mapRef: React.RefObject<MapRef>) {
 
       const [lng, lat] = autoLocations[autoLocationIndex].coords;
       console.log("Auto move end, ", autoActive);
-      timeout1.current = setTimeout(() => {
-        const params = new URLSearchParams(searchParams.toString());
-        params.set("lat", lat.toString());
-        params.set("lng", lng.toString());
-        params.set("mode", "player");
-        params.set("composition", autoLocations[autoLocationIndex].composition);
-        router.replace(`${pathname}?${params.toString()}`);
-        timeout2.current = setTimeout(() => {
+      const params = new URLSearchParams(searchParams.toString());
+      ciclo.iniciar({
+        mostrarPlayer: () => {
+          params.set("lat", lat.toString());
+          params.set("lng", lng.toString());
+          params.set("mode", "player");
+          params.set(
+            "composition",
+            autoLocations[autoLocationIndex].composition,
+          );
+          router.replace(`${pathname}?${params.toString()}`);
+        },
+        voltarAoMapa: () => {
           params.set("mode", "map");
           router.replace(`${pathname}?${params.toString()}`);
-          timeout3.current = setTimeout(() => {
-            setAutoLocationIndex((prev) => {
-              const next = prev + 1;
-              return next > autoLocations.length - 1 ? 0 : next;
-            });
-          }, TIMEOUT_3_PAUSE);
-        }, TIMEOUT_2_PAUSE);
-      }, TIMEOUT_1_PAUSE);
+        },
+        avancarDestino: () => {
+          setAutoLocationIndex((prev) => {
+            const next = prev + 1;
+            return next > autoLocations.length - 1 ? 0 : next;
+          });
+        },
+      });
     },
     [
       autoLocationIndex,
@@ -126,6 +143,7 @@ export function useAutoMode(mapRef: React.RefObject<MapRef>) {
       pathname,
       searchParams,
       router,
+      ciclo,
     ],
   );
 
