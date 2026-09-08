@@ -15,9 +15,9 @@ esperando decisão de terceiros (e de quem); *Indireta* = destrava quando outra 
 | [x] | T02 | Auditar os commits da onda de alunos | [Gaiasenses-web#104](https://github.com/GaiaSenses/Gaiasenses-web/issues/104) | T01 | Não |
 | [x] | T03 | Religar o check obrigatório na main do web | [Gaiasenses-web#105](https://github.com/GaiaSenses/Gaiasenses-web/issues/105) | T01 | Não |
 | [x] | T04 | Check obrigatório na main do fetcher | [satellite-fetcher-aws#8](https://github.com/GaiaSenses/satellite-fetcher-aws/issues/8) | — | Não |
-| [x] | T05 | Parecer do PR #101 (reescrita do scoring) — decisão pendente | [Gaiasenses-web#106](https://github.com/GaiaSenses/Gaiasenses-web/issues/106) | T01·T02 | **Sim** — Nycholas + orientador FAPESP |
+| [ ] | T05 | Parecer do PR #101 (reescrita do scoring) — decisão pendente | [Gaiasenses-web#106](https://github.com/GaiaSenses/Gaiasenses-web/issues/106) | T01·T02 | **Sim** — Nycholas + orientador FAPESP |
 | [ ] | T06 | Executar a decisão sobre o PR #101 | [Gaiasenses-web#107](https://github.com/GaiaSenses/Gaiasenses-web/issues/107) | T03·T05 | Indireta — executa a decisão do T05 |
-| [ ] | T07 | Mover rain2 para patches/ e remover testeGit (PR #102) | [Gaiasenses-web#108](https://github.com/GaiaSenses/Gaiasenses-web/issues/108) | T02·T03 | Não |
+| [x] | T07 | Mover rain2 para patches/ e remover testeGit (PR #102) | [Gaiasenses-web#108](https://github.com/GaiaSenses/Gaiasenses-web/issues/108) | T02·T03 | Não |
 | [x] | T08 | Triagem dos 12 PRs de teste (#87–#100) | [Gaiasenses-web#109](https://github.com/GaiaSenses/Gaiasenses-web/issues/109) | T01 | Não |
 | [ ] | T09 | CRÍTICA: parar de logar o event do proxy (x-api-key + IP) | [satellite-fetcher-aws#9](https://github.com/GaiaSenses/satellite-fetcher-aws/issues/9) | T04 | Não |
 | [ ] | T10 | Redigir a FIRMS_MAP_KEY do log de URL | [satellite-fetcher-aws#10](https://github.com/GaiaSenses/satellite-fetcher-aws/issues/10) | T04 | Não |
