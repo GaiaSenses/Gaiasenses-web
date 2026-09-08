@@ -48,3 +48,4 @@ next-env.d.ts
 # Capturas do Playwright MCP. Registram a página inteira, inclusive
 # tokens que aparecem em atributos e URLs — nunca devem ser versionadas.
 .playwright-mcp/
+.env*
