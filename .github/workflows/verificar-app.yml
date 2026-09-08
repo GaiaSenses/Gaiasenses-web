@@ -26,12 +26,41 @@ concurrency:
 
 permissions:
   contents: read
+  # O passo final publica um commit status chamado "verificar". Motivo: quando o
+  # robô do pipeline commita artefatos no branch do PR, o push dele (GITHUB_TOKEN
+  # + [skip ci]) não dispara eventos de pull_request — e o check obrigatório fica
+  # "aguardando" um run que nunca vem. O patch-build então redispara este
+  # workflow por workflow_dispatch (a única exceção que o GitHub permite ao
+  # GITHUB_TOKEN), mas um run de dispatch não entra no merge box do PR. Um
+  # commit STATUS no SHA entra — é ele que destrava o merge.
+  statuses: write
 
 jobs:
   verificar:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+
+      # Guarda de lugar: patch de Pure Data só entra por patches/. Foi por fora
+      # dela que rain2/ e testeGit/ pararam na raiz da main em agosto — o
+      # workflow de patches só observa patches/**, então um patch fora do lugar
+      # simplesmente não aciona validação nenhuma e nada fica vermelho. Este
+      # passo torna o erro visível na hora, com a instrução do caminho certo.
+      # Remoções não contam: apagar um arquivo perdido não pode reprovar.
+      - name: "Patch de Pd só entra por patches/"
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          fora=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" --paginate             --jq '.[] | select(.status != "removed") | .filename
+                  | select((endswith(".pd") or test("(^|/)patch\\.json$")) and (startswith("patches/") | not) and (startswith("public/") | not))')
+          if [ -n "$fora" ]; then
+            echo "::error::Arquivos de patch fora de patches/:"
+            echo "$fora"
+            echo "::error::Cada patch mora em patches/<nome>/ (main.pd + patch.json). Guia: docs/musico/README.md"
+            exit 1
+          fi
+          echo "ok: nenhum arquivo de patch fora de patches/"
 
       - uses: actions/setup-node@v4
         with:
@@ -101,3 +130,15 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: chave-anon-de-build
           SUPABASE_SERVICE_ROLE_KEY: chave-service-de-build
           CRON_SECRET: segredo-de-build
+
+      # Ver o comentário em permissions: este status é o que destrava o merge
+      # box quando o run nasceu de um workflow_dispatch (redisparo pós-commit do
+      # robô). Nos runs de pull_request ele coexiste com o check run homônimo.
+      - name: Publicar o status "verificar" no commit
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/statuses/${{ github.sha }}" \
+            -f state=success -f context=verificar \
+            -f description="tipos, lint, validações, testes e build verdes"
