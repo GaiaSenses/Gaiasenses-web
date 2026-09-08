@@ -65,6 +65,20 @@ export const GENERATED_MAP3_PD4WEB_PATCHES = [
     tuning: { pollMs: 64, epsilon: 0.5, accEpsilon: 0.05 },
   },
   {
+    id: "rain2",
+    label: "Night Rain",
+    bundleFolder: "patches/rain2",
+    activation: {
+      moments: ["player"],
+      compositions: ["nightRain"],
+    },
+    channels: {
+      receivers: {},
+      senders: {},
+    },
+    tuning: { pollMs: 100, epsilon: 0.0001, accEpsilon: 0.05 },
+  },
+  {
     id: "thunder4",
     label: "Thunder 4",
     bundleFolder: "patches/thunder4",
@@ -90,6 +104,7 @@ export const GENERATED_MAP3_PD4WEB_PATCHES = [
 export const COMPOSITION_PATCH_ID = {
   lightningBolts: "thunder4",
   lluvia: "bubble1",
+  nightRain: "rain2",
 } as const satisfies Partial<
   Record<AvailableCompositionNames, string>
 >;
