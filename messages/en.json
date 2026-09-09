@@ -79,7 +79,7 @@
     "corpusP1": "When a composition plays, we record: the composition name, the climate values at that moment (temperature, humidity, wind, lightning, fire spots), the time on display, and the coordinates involved — reduced to a cell of roughly 4 km before being written. This record holds no name, account, e-mail or IP address.",
     "corpusP2": "This data feeds the project's research: understanding how climate shapes the compositions the audience experiences.",
     "pushTitle": "Notifications (optional)",
-    "pushP1": "If you subscribe to notifications, we keep the name and e-mail you enter, the chosen frequency and the browser's technical delivery address — only to send those notifications. The unsubscribe button removes the subscription. Sign-up attempts are rate-limited at the hosting edge, without storing your IP in our database.",
+    "pushP1": "If you subscribe to notifications, we keep the name, e-mail and frequency you choose, together with the browser's technical delivery address. Notifications are delivered by browser push; the e-mail identifies your subscription and lets us contact you about it. The unsubscribe button removes that subscription. Sign-up attempts are rate-limited at the hosting edge, without storing your IP in our database.",
     "thirdTitle": "Third-party services",
     "thirdP1": "To draw the map and fetch the weather, the site queries Mapbox (map), Open-Meteo (weather), OpenWeather (place name) and our satellite backend (fire spots and lightning, from public NASA/NOAA data). These services receive the queried coordinates — the point the globe is looking at — never your identity.",
     "rightsTitle": "Your rights",
