@@ -96,6 +96,19 @@ flowchart LR
 | 📍 Place names | **OpenWeather** reverse geocoding | `components/getData.ts` | The only remaining OpenWeather usage |
 | 🗄️ Session telemetry & push subscriptions | **Supabase** (`GaiaLogs`, `GaiaSubs` tables) | `components/supabase.ts`, `lib/notifications.js` | Anon client (browser) + service-role client (server) |
 
+### Two rain data products (they are not the same)
+
+Rain reaches the app from **Open-Meteo** — this is the `gaia.rain` channel a Pd patch receives (`lib/gaia-vocabulary.json`). The satellite backend also exposes a **second, distinct** rain product at `GET /prod/rain` — **GOES-19 RRQPE**, a satellite rainfall-rate estimate — that the site does **not** consume today. It is finer in both space and time, which is exactly its artistic value:
+
+| | `/rain` — GOES-19 RRQPE | Open-Meteo (`gaia.rain`) |
+|---|---|---|
+| Meaning | instantaneous satellite rain **rate** (mm/h) | last-hour accumulated precipitation (mm) |
+| **Spatial resolution** | ~2 km at nadir (coarser over southern Brazil) | ~11 km (global ICON model over Brazil; ~25 km if best_match picks GFS) |
+| **Temporal resolution** | ~10 min (ABI full-disk scan, Mode 6) | hourly (`rain["1h"]`) |
+| Wired to the app? | no | yes |
+
+Resolutions are the documented nominal figures. Exposing the satellite product to Pd patches would add a `gaia.rain.sat` channel — see [Gaiasenses-web#134](https://github.com/GaiaSenses/Gaiasenses-web/issues/134) for the wiring.
+
 ---
 
 ## 🚀 Quick Start
