@@ -282,17 +282,12 @@ export default function GaiasensesMap({
     }
     router.replace(`${pathname}?${nextSearchParams.toString()}`);
   }, [composition, pathname, router, searchParams]);
-
+/*T29: tirar scores (basta comentar os console.log's useEffect abaixo)
   useEffect(() => {
-    const trace = getCompositionDecisionTrace(clima);
-
-    //checar no terminal:
-    console.log("————————————————————————————————————————————————————");
-    console.log("Scores:", trace.scores);
-    console.log("Categoria escolhida:", trace.categoria);
-    console.log("Composição escolhida:", trace.escolha);
-    console.log("————————————————————————————————————————————————————");
-  }, [clima]);
+    console.log("—————————————————————————");
+    console.log("Composição ativa:", composition);
+    console.log("—————————————————————————");
+  }, [composition]);*/
 
   const {
     latlng,
