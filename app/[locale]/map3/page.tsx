@@ -76,49 +76,20 @@ export default async function Page({ params, searchParams }: PageProps) {
     cookieStore.get("userLocation")?.value,
   ) ?? { lat: 0, lng: 0 };
 
-  //Stubs
-  // const weatherData = {
-  //   city: "Open Weather API",
-  //   clouds: 30,
-  //   lat: 0,
-  //   lon: 0,
-  //   main: {
-  //     feels_like: 24,
-  //     humidity: 30,
-  //     pressure: 20,
-  //     temp: 24,
-  //     grnd_level: 0,
-  //   },
-  //   rain: {},
-  //   state: "Open weather API",
-
-  //   visibility: 100,
-  //   weather: [
-  //     {
-  //       description: "indisponível",
-  //       icon: "indisponível",
-  //       main: "indisponível",
-  //     },
-  //   ],
-  //   wind: {
-  //     deg: 90,
-  //     gust: 40,
-  //     speed: 30,
-  //   },
-  // };
-  // const lightningData = { count: 0 };
-  // const fireSpotsData = { count: 0 };
   const [weatherData, lightningData, fireSpotsData] = await Promise.all([
     getWeather(lat, lng),
     getLightning(lat.toString(), lng.toString(), 100),
     getFireSpots(lat.toString(), lng.toString(), 100),
   ]);
 
-  const rainData = weatherData.rain as { "1h"?: number } | undefined;
+  const rainData = weatherData?.rain as { "1h"?: number } | undefined;
 
-  const temp = weatherData.main.temp;
-  const speed = weatherData.wind.speed;
-  const humidity = weatherData.main.humidity;
+  // NaN = clima indisponível: o painel imprime "--", o patch não recebe o
+  // valor (há um Number.isFinite na frente de cada envio) e o registro grava
+  // null — ninguém toca um 24 °C que não foi medido.
+  const temp = weatherData?.main.temp ?? NaN;
+  const speed = weatherData?.wind.speed ?? NaN;
+  const humidity = weatherData?.main.humidity ?? NaN;
   // null = a fonte não respondeu. Distinto de 0, que significa "consultamos e não
   // há nada". Antes os dois casos colapsavam em 0, e uma queda do backend ficava
   // indistinguível de céu calmo — inclusive no registro de pesquisa.
@@ -129,10 +100,10 @@ export default async function Page({ params, searchParams }: PageProps) {
   // como zero aqui é deliberado e conservador: sem sinal, nenhuma obra de
   // tempestade ou de fogo dispara. Quem conta a verdade ao público é o painel.
   const clima = {
-    windSpeed: speed,
-    humidity,
-    clouds: weatherData.clouds,
-    temperature: temp,
+    windSpeed: Number.isFinite(speed) ? speed : 0,
+    humidity: Number.isFinite(humidity) ? humidity : 0,
+    clouds: weatherData?.clouds ?? 0,
+    temperature: Number.isFinite(temp) ? temp : 0,
     lightnings: lightningcount ?? 0,
     fireSpots: firecount ?? 0,
     rain: rainData?.["1h"] ?? 0,
@@ -218,14 +189,16 @@ export default async function Page({ params, searchParams }: PageProps) {
             fireSpotsCount={firecount}
             weatherSummary={{
               description:
-                weatherData.weather[0]?.description ?? "indisponivel",
-              temperature: weatherData.main.temp,
-              humidity: weatherData.main.humidity,
-              clouds: weatherData.clouds,
-              windSpeed: weatherData.wind.speed,
-              windDeg: weatherData.wind.deg,
-              windGust: weatherData.wind.gust ?? weatherData.wind.speed,
-              rain1h: rainData?.["1h"] ?? 0,
+                weatherData?.weather[0]?.description ?? "indisponivel",
+              temperature: temp,
+              humidity,
+              clouds: weatherData?.clouds ?? NaN,
+              windSpeed: speed,
+              windDeg: weatherData?.wind.deg ?? NaN,
+              windGust: weatherData?.wind.gust ?? speed,
+              // 0 é "sem chuva medida"; sem clima nenhum, NaN vira "--" no
+              // painel e o patch não recebe o canal.
+              rain1h: weatherData ? rainData?.["1h"] ?? 0 : NaN,
             }}
           >
             <Suspense

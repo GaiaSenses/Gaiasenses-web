@@ -30,7 +30,80 @@ type GetOpenMeteoParams = {
   lon: string | number;
 };
 
-export default async function getOpenMeteo({ lat, lon }: GetOpenMeteoParams) {
+/** The current-conditions block, one field per variable in `params.current`. */
+export type OpenMeteoCurrent = {
+  time: Date;
+  temperature2m: number;
+  relativeHumidity2m: number;
+  apparentTemperature: number;
+  precipitation: number;
+  rain: number;
+  showers: number;
+  snowfall: number;
+  weatherCode: number;
+  cloudCover: number;
+  windSpeed10m: number;
+  windDirection10m: number;
+  windGusts10m: number;
+  surfacePressure: number;
+  pressureMsl: number;
+  isDay: number;
+};
+
+export type OpenMeteoResult = {
+  /** Coordinates as Open-Meteo resolved them, not as the caller sent them. */
+  lat: number;
+  lon: number;
+  current: OpenMeteoCurrent;
+};
+
+/**
+ * Builds the typed current block from the response values, kept pure so the
+ * contract tests can pin it without simulating flatbuffers.
+ *
+ * `epochSeconds` is `current.time()` as the API sends it: pure UTC epoch. The
+ * SDK's own example adds `utcOffsetSeconds` to DISPLAY local time — doing that
+ * here and calling toISOString() on top produced local time with a Z suffix,
+ * an observedAt false by the timezone offset (−3 h in São Paulo) on every
+ * healthy response. The offset stays out of this timestamp.
+ */
+export function montarCurrent(
+  valores: number[],
+  epochSeconds: number,
+): OpenMeteoCurrent {
+  return {
+    time: new Date(epochSeconds * 1000),
+    temperature2m: valores[0],
+    relativeHumidity2m: valores[1],
+    apparentTemperature: valores[2],
+    precipitation: valores[3],
+    rain: valores[4],
+    showers: valores[5],
+    snowfall: valores[6],
+    weatherCode: valores[7],
+    cloudCover: valores[8],
+    windSpeed10m: valores[9],
+    windDirection10m: valores[10],
+    windGusts10m: valores[11],
+    surfacePressure: valores[12],
+    pressureMsl: valores[13],
+    isDay: valores[14],
+  };
+}
+
+/**
+ * Current weather from Open-Meteo, or `null` when it could not be reached.
+ *
+ * The catch used to answer with a whole invented forecast — 24 °C, 30 m/s of
+ * wind — with description "indisponível" as the only hint. An outage became a
+ * mild afternoon in São Paulo, including for the research record. `null` is
+ * the vocabulary BUG-02 established for the satellite sources, and the weather
+ * earns no exception: the callers decide what an unknown means for them.
+ */
+export default async function getOpenMeteo({
+  lat,
+  lon,
+}: GetOpenMeteoParams): Promise<OpenMeteoResult | null> {
   try {
     // A lib aceita fetchOptions como 6º argumento e repassa ao fetch do Next.
     // Sem isso a chamada ficava sujeita ao default do App Router e era refeita a
@@ -53,100 +126,19 @@ export default async function getOpenMeteo({ lat, lon }: GetOpenMeteoParams) {
       { next: { revalidate: 900 } },
     );
     const response = responses[0];
-
-    // Attributes for timezone and location
-    const utcOffsetSeconds = response.utcOffsetSeconds();
-    const timezone = response.timezone();
-    const timezoneAbbreviation = response.timezoneAbbreviation();
-    const latitude = response.latitude();
-    const longitude = response.longitude();
-
     const current = response.current()!;
 
-    // Note: The order of weather variables in the URL query and the indices below need to match!
-    const weatherData = {
-      current: {
-        time: new Date((Number(current.time()) + utcOffsetSeconds) * 1000),
-        temperature2m: current.variables(0)!.value(),
-        relativeHumidity2m: current.variables(1)!.value(),
-        apparentTemperature: current.variables(2)!.value(),
-        precipitation: current.variables(3)!.value(),
-        rain: current.variables(4)!.value(),
-        showers: current.variables(5)!.value(),
-        snowfall: current.variables(6)!.value(),
-        weatherCode: current.variables(7)!.value(),
-        cloudCover: current.variables(8)!.value(),
-        windSpeed10m: current.variables(9)!.value(),
-        windDirection10m: current.variables(10)!.value(),
-        windGusts10m: current.variables(11)!.value(),
-        surfacePressure: current.variables(12)!.value(),
-        pressureMsl: current.variables(13)!.value(),
-        isDay: current.variables(14)!.value(),
-      },
-    };
-    console.log(weatherData.current);
-    const transformedData = {
-      city: "Open Weather API",
-      clouds: parseFloat(weatherData.current.cloudCover.toFixed(1)),
-      lat: latitude,
-      lon: longitude,
-      main: {
-        feels_like: parseFloat(
-          weatherData.current.apparentTemperature.toFixed(1)
-        ),
-        humidity: weatherData.current.relativeHumidity2m,
-        pressure: weatherData.current.surfacePressure,
-        temp: parseFloat(weatherData.current.temperature2m.toFixed(1)),
-        grnd_level: 0,
-      },
-      rain: {
-        "1h":
-          weatherData.current.showers ||
-          weatherData.current.rain ||
-          weatherData.current.precipitation,
-      },
-      state: "Open weather API",
+    // The order of weather variables in `params.current` and the indices here
+    // need to match!
+    const valores = params.current.map((_, i) => current.variables(i)!.value());
 
-      visibility: parseFloat(weatherData.current.cloudCover.toFixed(1)),
-      weather: [{ description: "", icon: "", main: "" }],
-      wind: {
-        deg: parseFloat(weatherData.current.windDirection10m.toFixed(1)),
-        gust: parseFloat(weatherData.current.windGusts10m.toFixed(1)),
-        speed: parseFloat(weatherData.current.windSpeed10m.toFixed(1)),
-      },
+    return {
+      lat: response.latitude(),
+      lon: response.longitude(),
+      current: montarCurrent(valores, Number(current.time())),
     };
-    return transformedData;
   } catch (error) {
-    console.log("Error fetching Open Meteo data:", error);
-    const transformedData = {
-      city: "Open Weather API",
-      clouds: 30,
-      lat: 0,
-      lon: 0,
-      main: {
-        feels_like: 24,
-        humidity: 30,
-        pressure: 20,
-        temp: 24,
-        grnd_level: 0,
-      },
-      rain: {},
-      state: "Open weather API",
-
-      visibility: 100,
-      weather: [
-        {
-          description: "indisponível",
-          icon: "indisponível",
-          main: "indisponível",
-        },
-      ],
-      wind: {
-        deg: 90,
-        gust: 40,
-        speed: 30,
-      },
-    };
-    return transformedData;
+    console.error("[weather] Open-Meteo indisponível —", error);
+    return null;
   }
 }

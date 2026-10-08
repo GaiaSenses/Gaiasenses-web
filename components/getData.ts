@@ -1,4 +1,4 @@
-import getOpenMeteo from "./getOpenMeteo";
+import getOpenMeteo, { type OpenMeteoResult } from "./getOpenMeteo";
 
 export type FireSpotsResponseData = {
   city: string;
@@ -43,6 +43,27 @@ export type LightningResponseData = {
   count: number;
   events: { lat: string; lon: string; dist?: number }[];
   state: string;
+};
+
+/** O /rain do backend devolve a taxa de chuva (mm/h) no campo `count`. */
+export type RainResponseData = {
+  count: number;
+};
+
+/**
+ * Options for a satellite call.
+ *
+ * `credential` picks which API Gateway key goes in `x-api-key`: "site" is the
+ * map's key, "public" is the public /api/v1 route's key, each on its own usage
+ * plan in AWS so public traffic never spends the site's quota. There is no
+ * fallback between them — see satelliteHeaders.
+ *
+ * `timeoutMs` aborts the fetch, so a hung backend (a /lightning cold start can
+ * take ~25 s) cannot hold a public response open until the platform kills it.
+ */
+export type SatelliteOpts = {
+  credential?: "site" | "public";
+  timeoutMs?: number;
 };
 
 /**
@@ -93,13 +114,22 @@ function satelliteApiUrl(): string | null {
  * same way it handles any unreachable source. Refusing to send would turn a
  * misconfiguration into silence, which is harder to diagnose than a 403 in the
  * logs.
+ *
+ * Each credential reads only its own variable, and a missing public key never
+ * falls back to the site's. The two keys exist to keep two meters apart: a
+ * fallback would quietly route public traffic through the map's quota, which
+ * is the shared ceiling HIG-03 removed this route's predecessor for.
  */
-function satelliteHeaders(): HeadersInit | undefined {
-  const key = process.env.SATELLITE_API_KEY?.trim();
+function satelliteHeaders(
+  credential: "site" | "public" = "site",
+): HeadersInit | undefined {
+  const variavel =
+    credential === "public" ? "SATELLITE_API_KEY_PUBLIC" : "SATELLITE_API_KEY";
+  const key = process.env[variavel]?.trim();
 
   if (!key) {
     console.error(
-      "[satellite] SATELLITE_API_KEY não está definida — o API Gateway vai " +
+      `[satellite] ${variavel} não está definida — o API Gateway vai ` +
         "responder 403. Defina-a no ambiente (Vercel: Settings → Environment " +
         "Variables; local: .env.local). O valor sai de: aws apigateway " +
         "get-api-key --api-key <id> --include-value --query value --output text",
@@ -160,6 +190,7 @@ export default async function getData<T>(
   lat: string,
   lon: string,
   dist?: number,
+  opts?: SatelliteOpts,
 ): Promise<T | null> {
   const url = satelliteEndpoint(endpoint, lat, lon, dist);
 
@@ -174,7 +205,13 @@ export default async function getData<T>(
 
   try {
     const res = await fetch(url, {
-      headers: satelliteHeaders(),
+      headers: satelliteHeaders(opts?.credential),
+      // Um timeout estourado cai no catch abaixo e vira null, o mesmo
+      // vocabulário de qualquer fonte inalcançável.
+      signal:
+        opts?.timeoutMs !== undefined
+          ? AbortSignal.timeout(opts.timeoutMs)
+          : undefined,
       next: { revalidate: 7200 },
     });
 
@@ -200,20 +237,75 @@ export async function getFireSpots(
   lat: string,
   lon: string,
   dist?: number,
+  opts?: SatelliteOpts,
 ): Promise<FireSpotsResponseData | null> {
-  return await getData<FireSpotsResponseData>("fire", lat, lon, dist);
+  return await getData<FireSpotsResponseData>("fire", lat, lon, dist, opts);
 }
 
+/**
+ * Rain rate (mm/h) from the GOES RRQPEF product, or `null` when the pipeline
+ * could not be reached. The backend answers `{count: <mm/h>}` — `count` is a
+ * historical misnomer this layer passes through untouched.
+ */
+export async function getRain(
+  lat: string,
+  lon: string,
+  opts?: SatelliteOpts,
+): Promise<RainResponseData | null> {
+  return await getData<RainResponseData>("rain", lat, lon, undefined, opts);
+}
+
+/**
+ * Current weather in the OpenWeather-like shape the map was written against,
+ * or `null` when Open-Meteo could not be reached — same contract as the
+ * satellite sources above: indisponível é null, nunca um número plausível.
+ */
 export async function getWeather(
   lat: string | number,
   lon: string | number,
   options = { lang: "pt_br" },
-): Promise<RainfallResponseData> {
+): Promise<RainfallResponseData | null> {
   if (options && options.lang === "en") options.lang = "en_us";
   if (options && options.lang === "pt") options.lang = "pt_br";
 
   const resp = await getOpenMeteo({ lat, lon });
-  return resp;
+  if (resp === null) return null;
+  return toRainfallResponse(resp);
+}
+
+/**
+ * The legacy adapter, kept pure and exported so the contract tests can pin the
+ * mapping without simulating Open-Meteo's flatbuffer responses.
+ *
+ * Two quirks are preserved on purpose, because the map renders this shape
+ * today: `visibility` carries cloud cover (there is no visibility variable in
+ * the request), and `city`/`state` are the historical placeholder strings —
+ * the real place name comes from reverseGeocode.
+ */
+export function toRainfallResponse(resp: OpenMeteoResult): RainfallResponseData {
+  const c = resp.current;
+  return {
+    city: "Open Weather API",
+    clouds: parseFloat(c.cloudCover.toFixed(1)),
+    lat: resp.lat,
+    lon: resp.lon,
+    main: {
+      feels_like: parseFloat(c.apparentTemperature.toFixed(1)),
+      humidity: c.relativeHumidity2m,
+      pressure: c.surfacePressure,
+      temp: parseFloat(c.temperature2m.toFixed(1)),
+      grnd_level: 0,
+    },
+    rain: { "1h": c.showers || c.rain || c.precipitation },
+    state: "Open weather API",
+    visibility: parseFloat(c.cloudCover.toFixed(1)),
+    weather: [{ description: "", icon: "", main: "" }],
+    wind: {
+      deg: parseFloat(c.windDirection10m.toFixed(1)),
+      gust: parseFloat(c.windGusts10m.toFixed(1)),
+      speed: parseFloat(c.windSpeed10m.toFixed(1)),
+    },
+  };
 }
 
 /**
@@ -229,8 +321,9 @@ export async function getLightning(
   lat: string,
   lon: string,
   dist: number,
+  opts?: SatelliteOpts,
 ): Promise<LightningResponseData | null> {
-  return await getData<LightningResponseData>("lightning", lat, lon, dist);
+  return await getData<LightningResponseData>("lightning", lat, lon, dist, opts);
 }
 
 export async function reverseGeocode(
