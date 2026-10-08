@@ -17,16 +17,23 @@ export const CORS = {
 } as const;
 
 /**
- * O TTL da CDN acompanha o estado da resposta: saudável aguenta 10 min (menos
+ * O TTL da CDN acompanha o estado dos DADOS: saudáveis aguentam 10 min (menos
  * que o revalidate de 15 min do clima, então staleness máxima ~25 min);
- * degradada cai para 1 min, para a recuperação da fonte aparecer rápido em
+ * degradados caem para 1 min, para a recuperação da fonte aparecer rápido em
  * vez de ficar presa num cache longo.
+ *
+ * O geocoding fica fora do critério de propósito: a OpenWeather devolve []
+ * para qualquer célula sem lugar nomeado — todo o oceano —, e incluí-lo
+ * derrubava o TTL para 60 s em consultas perfeitamente saudáveis: 10× mais
+ * invocações queimando a cota pública à toa (achado da revisão).
  */
+const FONTES_DE_DADOS = ["weather", "rainSatellite", "lightning", "fire"] as const;
+
 export function cacheControlFor(
   sources: Record<string, SourceStatus>,
 ): string {
-  const tudoOk = Object.values(sources).every((s) => s === "ok");
-  return tudoOk
+  const dadosOk = FONTES_DE_DADOS.every((fonte) => sources[fonte] === "ok");
+  return dadosOk
     ? "public, s-maxage=600, stale-while-revalidate=1800"
     : "public, s-maxage=60";
 }
@@ -110,9 +117,14 @@ export function mapFireEvents(events: unknown) {
   }));
 }
 
-/** O /rain guarda a taxa (mm/h) num campo chamado `count`; aqui ela ganha nome. */
-export function mapRain(resp: { count: number }) {
-  return { rateMmH: resp.count };
+/**
+ * O /rain guarda a taxa (mm/h) num campo chamado `count`; aqui ela ganha nome.
+ * Sem count numérico não há dado: um 200 fora do shape (o /rain nunca rodou em
+ * produção) vira null — fonte degradada —, nunca lixo com cara de dado.
+ */
+export function mapRain(resp: unknown): { rateMmH: number } | null {
+  const taxa = numeroOuNull((resp as Record<string, unknown> | null)?.count);
+  return taxa === null ? null : { rateMmH: taxa };
 }
 
 export { numeroOuNull };

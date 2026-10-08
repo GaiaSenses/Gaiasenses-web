@@ -106,6 +106,11 @@ describe("validação — erro de entrada não gasta rede", () => {
     ["lat não numérico", "?lat=abc&lon=-46.63"],
     ["lat fora da faixa", "?lat=91&lon=-46.63"],
     ["lon fora da faixa", "?lat=-23.55&lon=181"],
+    // Achado da revisão: `?lat=&lon=...` passava — Number("") é 0 — e a API
+    // respondia clima do Golfo da Guiné para um template de URL não preenchido.
+    ["lat vazio", "?lat=&lon=-46.63"],
+    ["lon só espaços", "?lat=-23.55&lon=%20%20"],
+    ["lat hexadecimal", "?lat=0x10&lon=-46.63"],
   ] as const) {
     test(`${caso} → 400 sem nenhuma chamada`, async () => {
       responder(fontesSaudaveis);
@@ -234,6 +239,35 @@ describe("degradação por fonte — null, nunca dado inventado", () => {
     assert.ok(!JSON.stringify(corpo).includes('"temp":24'));
   });
 
+  /**
+   * Achado da revisão: um 200 fora do shape esperado não pode virar dado.
+   * O /rain nunca rodou em produção — é a fonte menos provada do sistema — e
+   * um {message: ...} com status 200 virava {"rateMmH": undefined} com fonte
+   * "ok"; um /lightning 200 vazio virava count 0, o céu calmo fabricado que o
+   * contrato proíbe.
+   */
+  test("/rain 200 sem count numérico degrada em vez de publicar lixo", async () => {
+    responder((url) =>
+      url.includes("/rain") ? json({ message: "oops" }) : fontesSaudaveis(url),
+    );
+    const corpo = await (
+      await GET(new Request(`${NOW}?lat=-23.55&lon=-46.63`))
+    ).json();
+    assert.equal(corpo.rainSatellite, null);
+    assert.equal(corpo.sources.rainSatellite, "unavailable");
+  });
+
+  test("/lightning 200 sem count nem events degrada em vez de zerar", async () => {
+    responder((url) =>
+      url.includes("/lightning") ? json({}) : fontesSaudaveis(url),
+    );
+    const corpo = await (
+      await GET(new Request(`${NOW}?lat=-23.55&lon=-46.63`))
+    ).json();
+    assert.equal(corpo.lightning, null);
+    assert.equal(corpo.sources.lightning, "unavailable");
+  });
+
   test("fonte pendurada vira 'timeout' e a resposta volta assim mesmo", async () => {
     process.env.API_V1_TIMEOUT_SATELLITE_MS = "50";
     process.env.API_V1_TIMEOUT_WEATHER_MS = "50";
@@ -260,7 +294,7 @@ describe("headers — CORS sempre, cache por estado", () => {
     assert.match(res.headers.get("access-control-allow-methods") ?? "", /GET/);
   });
 
-  test("todas as fontes ok → s-maxage=600; qualquer degradação → 60", () => {
+  test("fontes de dados ok → s-maxage=600; dado degradado → 60", () => {
     const tudoOk = {
       weather: "ok",
       rainSatellite: "ok",
@@ -271,8 +305,16 @@ describe("headers — CORS sempre, cache por estado", () => {
     assert.match(cacheControlFor(tudoOk), /s-maxage=600\b/);
     assert.match(cacheControlFor(tudoOk), /stale-while-revalidate=1800\b/);
     assert.match(
-      cacheControlFor({ ...tudoOk, geocoding: "unavailable" }),
+      cacheControlFor({ ...tudoOk, fire: "unavailable" }),
       /s-maxage=60\b/,
+    );
+    // Achado da revisão: geocoding fora do critério. Oceano não tem lugar
+    // nomeado — a OpenWeather devolve [] para qualquer célula marítima — e
+    // isso derrubava o TTL de 600 para 60 em consultas perfeitamente
+    // saudáveis: 10× mais invocações queimando a cota pública à toa.
+    assert.match(
+      cacheControlFor({ ...tudoOk, geocoding: "unavailable" }),
+      /s-maxage=600\b/,
     );
   });
 });
@@ -338,6 +380,12 @@ describe("mapeadores puros — o caminho feliz que o stub não alcança", () => 
   test("mapRain traduz o count histórico para rateMmH", () => {
     assert.deepEqual(mapRain({ count: 1.8 }), { rateMmH: 1.8 });
   });
+
+  test("mapRain sem count numérico é null, não lixo com cara de dado", () => {
+    assert.equal(mapRain({ message: "oops" }), null);
+    assert.equal(mapRain(null), null);
+    assert.equal(mapRain({ count: "não-número" }), null);
+  });
 });
 
 describe("GET /api/v1 — self-description", () => {
@@ -347,6 +395,13 @@ describe("GET /api/v1 — self-description", () => {
     const corpo = await res.json();
     assert.equal(corpo.version, "1.0");
     assert.ok(corpo.endpoints["/api/v1/now"]);
+    // Achado da revisão, verificado ao vivo: a Open-Meteo responde vento em
+    // km/h (não m/s, a convenção que todo mundo assume) e neve em cm. Sem as
+    // unidades declaradas, quem consome erra por 3,6×.
+    const unidades = corpo.endpoints["/api/v1/now"].units;
+    assert.equal(unidades["weather.wind"], "km/h");
+    assert.equal(unidades["weather.snowfall"], "cm");
+    assert.equal(unidades["rainSatellite.rateMmH"], "mm/h");
     assert.equal(res.headers.get("access-control-allow-origin"), "*");
     assert.match(res.headers.get("cache-control") ?? "", /s-maxage=86400\b/);
   });

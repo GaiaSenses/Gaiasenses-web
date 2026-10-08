@@ -58,6 +58,40 @@ export type OpenMeteoResult = {
 };
 
 /**
+ * Builds the typed current block from the response values, kept pure so the
+ * contract tests can pin it without simulating flatbuffers.
+ *
+ * `epochSeconds` is `current.time()` as the API sends it: pure UTC epoch. The
+ * SDK's own example adds `utcOffsetSeconds` to DISPLAY local time — doing that
+ * here and calling toISOString() on top produced local time with a Z suffix,
+ * an observedAt false by the timezone offset (−3 h in São Paulo) on every
+ * healthy response. The offset stays out of this timestamp.
+ */
+export function montarCurrent(
+  valores: number[],
+  epochSeconds: number,
+): OpenMeteoCurrent {
+  return {
+    time: new Date(epochSeconds * 1000),
+    temperature2m: valores[0],
+    relativeHumidity2m: valores[1],
+    apparentTemperature: valores[2],
+    precipitation: valores[3],
+    rain: valores[4],
+    showers: valores[5],
+    snowfall: valores[6],
+    weatherCode: valores[7],
+    cloudCover: valores[8],
+    windSpeed10m: valores[9],
+    windDirection10m: valores[10],
+    windGusts10m: valores[11],
+    surfacePressure: valores[12],
+    pressureMsl: valores[13],
+    isDay: valores[14],
+  };
+}
+
+/**
  * Current weather from Open-Meteo, or `null` when it could not be reached.
  *
  * The catch used to answer with a whole invented forecast — 24 °C, 30 m/s of
@@ -92,33 +126,16 @@ export default async function getOpenMeteo({
       { next: { revalidate: 900 } },
     );
     const response = responses[0];
-
-    const utcOffsetSeconds = response.utcOffsetSeconds();
     const current = response.current()!;
 
-    // The order of weather variables in `params.current` and the indices below
+    // The order of weather variables in `params.current` and the indices here
     // need to match!
+    const valores = params.current.map((_, i) => current.variables(i)!.value());
+
     return {
       lat: response.latitude(),
       lon: response.longitude(),
-      current: {
-        time: new Date((Number(current.time()) + utcOffsetSeconds) * 1000),
-        temperature2m: current.variables(0)!.value(),
-        relativeHumidity2m: current.variables(1)!.value(),
-        apparentTemperature: current.variables(2)!.value(),
-        precipitation: current.variables(3)!.value(),
-        rain: current.variables(4)!.value(),
-        showers: current.variables(5)!.value(),
-        snowfall: current.variables(6)!.value(),
-        weatherCode: current.variables(7)!.value(),
-        cloudCover: current.variables(8)!.value(),
-        windSpeed10m: current.variables(9)!.value(),
-        windDirection10m: current.variables(10)!.value(),
-        windGusts10m: current.variables(11)!.value(),
-        surfacePressure: current.variables(12)!.value(),
-        pressureMsl: current.variables(13)!.value(),
-        isDay: current.variables(14)!.value(),
-      },
+      current: montarCurrent(valores, Number(current.time())),
     };
   } catch (error) {
     console.error("[weather] Open-Meteo indisponível —", error);

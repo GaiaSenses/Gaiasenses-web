@@ -89,16 +89,39 @@ não respondeu ou respondeu erro) ou `"timeout"` (demorou demais; o satélite te
 20 s, as demais 10 s).
 
 - Fonte fora do ar → o bloco dela vem **`null`**. Nunca um número plausível:
-  esta API não fabrica clima (é a regra BUG-02 do projeto).
+  esta API não fabrica clima (é a regra BUG-02 do projeto). Um 200 do backend
+  fora do shape esperado também degrada — lixo não vira dado.
 - `count: 0` com a fonte `"ok"` é **céu calmo de verdade** — consultamos e não
   havia nada. É informação, e é diferente de `null`, que significa "não
   sabemos".
-- `geocoding` fora → `location.city/state/country` vêm `null`; `lat`, `lon` e
-  `radiusKm` vêm sempre.
+- `geocoding: "unavailable"` → `location.city/state/country` vêm `null`;
+  `lat`, `lon` e `radiusKm` vêm sempre. Para o geocoding, "unavailable" também
+  cobre coordenada **sem lugar nomeado** (oceano aberto) — e ele não influencia
+  o cache nem o status HTTP: é cosmético, os dados continuam valendo.
 - `weather.weatherCode` é o código WMO cru — descrição e idioma são escolha de
   quem consome.
 - `weather.rain` (mm da última medição Open-Meteo) e `rainSatellite.rateMmH`
   (taxa mm/h estimada pelo GOES) são produtos diferentes e podem discordar.
+- `weather.observedAt` é o instante da observação da Open-Meteo, em **UTC**;
+  `fetchedAt` é quando esta resposta foi montada.
+
+### Unidades
+
+Atenção ao vento: a Open-Meteo responde em **km/h**, não no m/s que a
+convenção OpenWeather faz supor — sem conversão, o erro é de 3,6×.
+
+| Campo | Unidade |
+|---|---|
+| `weather.temperature`, `weather.apparentTemperature` | °C |
+| `weather.humidity`, `weather.cloudCover` | % |
+| `weather.surfacePressure`, `weather.pressureMsl` | hPa |
+| `weather.precipitation`, `weather.rain`, `weather.showers` | mm |
+| `weather.snowfall` | **cm** |
+| `weather.wind.speed`, `weather.wind.gust` | **km/h** |
+| `weather.wind.direction` | graus (de onde o vento vem) |
+| `rainSatellite.rateMmH` | mm/h |
+| `lightning.events[].energyPj` | pJ |
+| `fire.events[].brightness` | K (temperatura de brilho VIIRS I-4) |
 
 Status HTTP: `200` enquanto pelo menos uma fonte de dados respondeu (resposta
 parcial é dado); `503` quando clima, raios, fogo e chuva estão todos fora;

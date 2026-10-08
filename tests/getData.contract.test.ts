@@ -150,6 +150,21 @@ describe("BUG-02 — clima também não se fabrica", () => {
     assert.equal(await getWeather("-23.55", "-46.63"), null);
   });
 
+  /**
+   * Achado da revisão, verificado ao vivo: o exemplo da Open-Meteo soma
+   * utcOffsetSeconds ao epoch para EXIBIR hora local, e toISOString() em cima
+   * disso produzia hora local com sufixo Z — um observedAt falso pelo offset
+   * (−3 h em São Paulo) em toda resposta saudável da API pública.
+   */
+  test("o instante observado é epoch UTC puro, sem somar offset de fuso", async () => {
+    const { montarCurrent } = await import("@/components/getOpenMeteo");
+    const atual = montarCurrent(Array(15).fill(0), 1_760_000_000);
+    assert.equal(
+      atual.time.toISOString(),
+      new Date(1_760_000_000 * 1000).toISOString(),
+    );
+  });
+
   test("o shape legado sai do dado real, campo a campo", async () => {
     const { toRainfallResponse } = await import("@/components/getData");
     const resultado = toRainfallResponse({

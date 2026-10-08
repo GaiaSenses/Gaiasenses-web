@@ -26,11 +26,33 @@ export async function GET(): Promise<Response> {
             rainSatellite: "GOES-19 RRQPEF rain rate (mm/h)",
             geocoding: "OpenWeather reverse geocoding",
           },
+          // As unidades vêm como a Open-Meteo responde por padrão. Atenção ao
+          // vento: km/h, NÃO o m/s que a convenção OpenWeather faz supor —
+          // sem isto declarado, quem consome erra por 3,6×.
+          units: {
+            "weather.temperature": "°C",
+            "weather.apparentTemperature": "°C",
+            "weather.humidity": "%",
+            "weather.surfacePressure": "hPa",
+            "weather.pressureMsl": "hPa",
+            "weather.cloudCover": "%",
+            "weather.precipitation": "mm",
+            "weather.rain": "mm",
+            "weather.showers": "mm",
+            "weather.snowfall": "cm",
+            "weather.wind": "km/h",
+            "weather.wind.direction": "degrees",
+            "rainSatellite.rateMmH": "mm/h",
+            "lightning.events.energyPj": "pJ",
+            "fire.events.brightness": "K (VIIRS I-4 brightness temperature)",
+          },
           semantics:
             "An unavailable source becomes a null block plus " +
             'sources.<name> = "unavailable" | "timeout". A count of 0 with ' +
             'sources.<name> = "ok" is a calm sky — distinct from null, which ' +
-            "means the source did not answer. Values are never fabricated.",
+            "means the source did not answer. Values are never fabricated. " +
+            "For geocoding, \"unavailable\" also covers coordinates with no " +
+            "named place (open ocean).",
           coordinates:
             "Echoed rounded to 2 decimals (~1 km): that is the real cache " +
             "granularity. Nearby requests share answers.",

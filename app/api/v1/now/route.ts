@@ -77,6 +77,35 @@ const statusDe = (resultado: unknown): SourceStatus =>
       ? "unavailable"
       : "ok";
 
+/**
+ * Coordenada estrita: decimal simples, nada mais. `Number("")` é 0 — um
+ * template de URL não preenchido (`?lat=&lon=...`) recebia clima do Golfo da
+ * Guiné sem nenhum sinal de erro — e `Number` ainda aceita "0x10" e "1e3".
+ */
+const COORDENADA = /^-?\d+(\.\d+)?$/;
+
+function coordenada(param: string): number {
+  const texto = param.trim();
+  return COORDENADA.test(texto) ? Number(texto) : NaN;
+}
+
+/**
+ * Bloco de eventos a partir do payload cru. Um 200 sem count numérico e sem
+ * lista de events é malformado e vira null — fonte degradada —, não um
+ * `count: 0` com cara de céu calmo (o contrato proíbe fabricar o zero).
+ */
+function blocoDeEventos(
+  cru: unknown,
+  mapear: (events: unknown) => { lat: number | null; lon: number | null }[],
+) {
+  if (cru === null || cru === undefined || typeof cru !== "object") return null;
+  const registro = cru as Record<string, unknown>;
+  const count = numeroOuNull(registro.count);
+  const events = Array.isArray(registro.events) ? mapear(registro.events) : null;
+  if (count === null && events === null) return null;
+  return { count: count ?? events!.length, events: events ?? [] };
+}
+
 export async function GET(req: Request): Promise<Response> {
   const { searchParams } = new URL(req.url);
   const latParam = searchParams.get("lat");
@@ -89,8 +118,8 @@ export async function GET(req: Request): Promise<Response> {
       "Missing lat or lon query parameters. Example: /api/v1/now?lat=-23.55&lon=-46.63",
     );
   }
-  const lat = Number(latParam);
-  const lon = Number(lonParam);
+  const lat = coordenada(latParam);
+  const lon = coordenada(lonParam);
   if (
     !Number.isFinite(lat) ||
     !Number.isFinite(lon) ||
@@ -126,17 +155,27 @@ export async function GET(req: Request): Promise<Response> {
     comTimeout(reverseGeocode(latKey, lonKey), extMs),
   ]);
 
-  const sources = {
-    weather: statusDe(clima),
-    rainSatellite: statusDe(chuva),
-    lightning: statusDe(raios),
-    fire: statusDe(fogo),
-    geocoding: statusDe(lugar),
-  };
+  // Os blocos vêm primeiro; o status de cada fonte é o do bloco que sobrou.
+  // Assim um 200 malformado (bloco null) degrada a fonte em vez de passar por
+  // dado — e TIMEOUT continua distinto de indisponível.
+  const weather =
+    clima !== TIMEOUT && clima !== null
+      ? mapOpenMeteoCurrent(clima.current)
+      : null;
+  const rainSatellite = chuva !== TIMEOUT ? mapRain(chuva) : null;
+  const lightning =
+    raios !== TIMEOUT ? blocoDeEventos(raios, mapLightningEvents) : null;
+  const fire = fogo !== TIMEOUT ? blocoDeEventos(fogo, mapFireEvents) : null;
+  const geocode = lugar !== TIMEOUT ? lugar ?? null : null;
 
-  const geocode = sources.geocoding === "ok" && lugar !== TIMEOUT ? lugar : null;
-  const raiosOk = sources.lightning === "ok" && raios !== TIMEOUT ? raios : null;
-  const fogoOk = sources.fire === "ok" && fogo !== TIMEOUT ? fogo : null;
+  const sources = {
+    weather: clima === TIMEOUT ? ("timeout" as const) : statusDe(weather),
+    rainSatellite:
+      chuva === TIMEOUT ? ("timeout" as const) : statusDe(rainSatellite),
+    lightning: raios === TIMEOUT ? ("timeout" as const) : statusDe(lightning),
+    fire: fogo === TIMEOUT ? ("timeout" as const) : statusDe(fire),
+    geocoding: lugar === TIMEOUT ? ("timeout" as const) : statusDe(geocode),
+  };
 
   const corpo = {
     version: VERSION,
@@ -148,26 +187,10 @@ export async function GET(req: Request): Promise<Response> {
       state: geocode?.state ?? null,
       country: geocode?.country ?? null,
     },
-    weather:
-      clima !== TIMEOUT && clima !== null
-        ? mapOpenMeteoCurrent(clima.current)
-        : null,
-    rainSatellite:
-      sources.rainSatellite === "ok" && chuva !== TIMEOUT && chuva !== null
-        ? mapRain(chuva)
-        : null,
-    lightning: raiosOk
-      ? {
-          count: numeroOuNull(raiosOk.count) ?? 0,
-          events: mapLightningEvents(raiosOk.events),
-        }
-      : null,
-    fire: fogoOk
-      ? {
-          count: numeroOuNull(fogoOk.count) ?? 0,
-          events: mapFireEvents(fogoOk.events),
-        }
-      : null,
+    weather,
+    rainSatellite,
+    lightning,
+    fire,
     sources,
     fetchedAt: new Date().toISOString(),
   };
