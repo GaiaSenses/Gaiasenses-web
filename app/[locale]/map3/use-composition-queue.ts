@@ -158,12 +158,6 @@ export function getCompositionForClima(clima: ClimaData): [string, any] {
     );
     return [defaultComp, CompositionsInfo[defaultComp]];
   }
-  //checar no terminal:
-  console.log("————————————————————————————————————————————————————");
-  console.log("Scores:", trace.scores);
-  console.log("Categoria escolhida:", trace.categoria);
-  console.log("Composição escolhida:", trace.escolha);
-  console.log("————————————————————————————————————————————————————");
   return [trace.escolha, compositionInfo];
 }
 
