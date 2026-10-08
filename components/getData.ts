@@ -45,6 +45,27 @@ export type LightningResponseData = {
   state: string;
 };
 
+/** O /rain do backend devolve a taxa de chuva (mm/h) no campo `count`. */
+export type RainResponseData = {
+  count: number;
+};
+
+/**
+ * Options for a satellite call.
+ *
+ * `credential` picks which API Gateway key goes in `x-api-key`: "site" is the
+ * map's key, "public" is the public /api/v1 route's key, each on its own usage
+ * plan in AWS so public traffic never spends the site's quota. There is no
+ * fallback between them — see satelliteHeaders.
+ *
+ * `timeoutMs` aborts the fetch, so a hung backend (a /lightning cold start can
+ * take ~25 s) cannot hold a public response open until the platform kills it.
+ */
+export type SatelliteOpts = {
+  credential?: "site" | "public";
+  timeoutMs?: number;
+};
+
 /**
  * Base URL of the satellite backend that serves /fire and /lightning.
  *
@@ -93,13 +114,22 @@ function satelliteApiUrl(): string | null {
  * same way it handles any unreachable source. Refusing to send would turn a
  * misconfiguration into silence, which is harder to diagnose than a 403 in the
  * logs.
+ *
+ * Each credential reads only its own variable, and a missing public key never
+ * falls back to the site's. The two keys exist to keep two meters apart: a
+ * fallback would quietly route public traffic through the map's quota, which
+ * is the shared ceiling HIG-03 removed this route's predecessor for.
  */
-function satelliteHeaders(): HeadersInit | undefined {
-  const key = process.env.SATELLITE_API_KEY?.trim();
+function satelliteHeaders(
+  credential: "site" | "public" = "site",
+): HeadersInit | undefined {
+  const variavel =
+    credential === "public" ? "SATELLITE_API_KEY_PUBLIC" : "SATELLITE_API_KEY";
+  const key = process.env[variavel]?.trim();
 
   if (!key) {
     console.error(
-      "[satellite] SATELLITE_API_KEY não está definida — o API Gateway vai " +
+      `[satellite] ${variavel} não está definida — o API Gateway vai ` +
         "responder 403. Defina-a no ambiente (Vercel: Settings → Environment " +
         "Variables; local: .env.local). O valor sai de: aws apigateway " +
         "get-api-key --api-key <id> --include-value --query value --output text",
@@ -160,6 +190,7 @@ export default async function getData<T>(
   lat: string,
   lon: string,
   dist?: number,
+  opts?: SatelliteOpts,
 ): Promise<T | null> {
   const url = satelliteEndpoint(endpoint, lat, lon, dist);
 
@@ -174,7 +205,13 @@ export default async function getData<T>(
 
   try {
     const res = await fetch(url, {
-      headers: satelliteHeaders(),
+      headers: satelliteHeaders(opts?.credential),
+      // Um timeout estourado cai no catch abaixo e vira null, o mesmo
+      // vocabulário de qualquer fonte inalcançável.
+      signal:
+        opts?.timeoutMs !== undefined
+          ? AbortSignal.timeout(opts.timeoutMs)
+          : undefined,
       next: { revalidate: 7200 },
     });
 
@@ -200,8 +237,22 @@ export async function getFireSpots(
   lat: string,
   lon: string,
   dist?: number,
+  opts?: SatelliteOpts,
 ): Promise<FireSpotsResponseData | null> {
-  return await getData<FireSpotsResponseData>("fire", lat, lon, dist);
+  return await getData<FireSpotsResponseData>("fire", lat, lon, dist, opts);
+}
+
+/**
+ * Rain rate (mm/h) from the GOES RRQPEF product, or `null` when the pipeline
+ * could not be reached. The backend answers `{count: <mm/h>}` — `count` is a
+ * historical misnomer this layer passes through untouched.
+ */
+export async function getRain(
+  lat: string,
+  lon: string,
+  opts?: SatelliteOpts,
+): Promise<RainResponseData | null> {
+  return await getData<RainResponseData>("rain", lat, lon, undefined, opts);
 }
 
 /**
@@ -270,8 +321,9 @@ export async function getLightning(
   lat: string,
   lon: string,
   dist: number,
+  opts?: SatelliteOpts,
 ): Promise<LightningResponseData | null> {
-  return await getData<LightningResponseData>("lightning", lat, lon, dist);
+  return await getData<LightningResponseData>("lightning", lat, lon, dist, opts);
 }
 
 export async function reverseGeocode(
