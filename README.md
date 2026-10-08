@@ -14,18 +14,19 @@
 1. [What is GaiaSenses?](#-what-is-gaiasenses)
 2. [Architecture at a Glance](#%EF%B8%8F-architecture-at-a-glance)
 3. [Live Data Sources](#-live-data-sources)
-4. [Quick Start](#-quick-start)
-5. [Environment Variables](#-environment-variables)
-6. [Project Structure](#-project-structure)
-7. [Request & Data Flow](#-request--data-flow)
-8. [Composition Catalog](#-composition-catalog)
-9. [Audio Subsystem (Pd4Web)](#-audio-subsystem-pd4web)
-10. [BLE Sensor Pipeline](#%EF%B8%8F-ble-sensor-pipeline)
-11. [npm Scripts](#-npm-scripts)
-12. [Troubleshooting](#-troubleshooting)
-13. [Reading Order for New Developers](#-reading-order-for-new-developers)
-14. [Related Repositories](#-related-repositories)
-15. [Known Issues & Tech Debt](#%EF%B8%8F-known-issues--tech-debt)
+4. [Public API](#-public-api)
+5. [Quick Start](#-quick-start)
+6. [Environment Variables](#-environment-variables)
+7. [Project Structure](#-project-structure)
+8. [Request & Data Flow](#-request--data-flow)
+9. [Composition Catalog](#-composition-catalog)
+10. [Audio Subsystem (Pd4Web)](#-audio-subsystem-pd4web)
+11. [BLE Sensor Pipeline](#%EF%B8%8F-ble-sensor-pipeline)
+12. [npm Scripts](#-npm-scripts)
+13. [Troubleshooting](#-troubleshooting)
+14. [Reading Order for New Developers](#-reading-order-for-new-developers)
+15. [Related Repositories](#-related-repositories)
+16. [Known Issues & Tech Debt](#%EF%B8%8F-known-issues--tech-debt)
 
 ---
 
@@ -111,6 +112,27 @@ Resolutions are the documented nominal figures. Exposing the satellite product t
 
 ---
 
+## 🌐 Public API
+
+Anyone can read the instantaneous data the site uses, as organized JSON:
+
+```bash
+curl "https://gaiasenses-web.vercel.app/api/v1/now?lat=-23.55&lon=-46.63"
+```
+
+One call aggregates weather (Open-Meteo), lightning (GOES-19), fire spots
+(NASA FIRMS), satellite rain rate and the place name, for a fixed 100 km
+radius. An unavailable source becomes a `null` block plus a reason in
+`sources` — values are never fabricated. Anonymous, CORS `*`, rate-limited at
+30 req/min per IP.
+
+Full contract and the reasoning behind its protections:
+[`docs/api-publica.md`](docs/api-publica.md). `GET /api/v1` self-describes.
+Public traffic runs on its own API key and usage plan (`SATELLITE_API_KEY_PUBLIC`),
+so it never spends the site's satellite quota.
+
+---
+
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -174,6 +196,7 @@ OPEN_WEATHER_API_KEY=your_openweather_key                      # reverse geocodi
 # --- Satellite backend (fire + lightning + rain) ---
 SATELLITE_API_URL=https://<api-id>.execute-api.<region>.amazonaws.com/prod
 SATELLITE_API_KEY=your_api_gateway_key                         # the backend refuses requests without it
+SATELLITE_API_KEY_PUBLIC=your_public_plan_key                  # /api/v1 traffic only — separate quota, no fallback
 
 # --- Recommended (session telemetry) ---
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
@@ -192,6 +215,7 @@ CRON_SECRET=your_cron_secret                                   # unset = /api/no
 | `OPEN_WEATHER_API_KEY` | ✅ Yes | Reverse geocoding (place names). Weather itself comes from Open-Meteo, key-free |
 | `SATELLITE_API_URL` | ✅ Yes | Base URL of the `satellite-fetcher-aws` API Gateway, without a trailing slash. Server-side only — never `NEXT_PUBLIC_*`. There is no fallback: unset, fire, lightning and rain report as unavailable |
 | `SATELLITE_API_KEY` | ✅ Yes | Sent as `x-api-key`. The backend refuses requests without it. Server-side only, for the same reason as the URL |
+| `SATELLITE_API_KEY_PUBLIC` | 🟡 Public API | Same backend, second key on its own usage plan (2 rps, 20k/month): `/api/v1` traffic never spends the site's quota. **No fallback to the site key** — unset, the public route reports satellite sources as unavailable. From the `PublicApiKeyId` CDK output |
 | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | 🟡 Recommended | Writes session telemetry to the `GaiaLogs` table |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | ⚪ Push only | Web-push (VAPID) notifications |
 | `SUPABASE_SERVICE_ROLE_KEY` | ⚪ Push only | Server-side access to `GaiaSubs` (used by the daily cron) |
@@ -206,6 +230,7 @@ aws apigateway get-api-key --api-key <id> --include-value --query value --output
 
 > 🔎 **Fire, lightning and rain now need a key.** The backend used to answer anyone who asked, with no throttle and no spending ceiling. It sits behind an API key, a 10 rps throttle and a 50,000 request monthly quota — see `satellite-fetcher-aws`.
 > 🛡️ **The push sign-up is rate-limited at the edge, not in code.** The subscribe form is a server action hosted on the `map3` page, so it travels as `POST /<locale>/map3`. A Vercel WAF rule (dashboard → Firewall, not in this repo) limits POSTs to 10/min per IP and answers 429 beyond that — nothing IP-related is stored in our database.
+> 🌐 **So is the public API.** A second WAF rule limits `/api/v1/*` to 30 req/min per IP. Both rules live only in the Vercel dashboard — they are inventoried in [`docs/contas-e-servicos.md`](docs/contas-e-servicos.md) so they do not get lost.
 > 🩺 **Is the satellite backend up?** `GET /api/health` answers per source: `200 {status:"ok"}` or `503 {status:"degraded"}` with `sources.fire` / `sources.lightning` detailed individually.
 > 🧹 `MONGODB_URI` appears in older docs but is **not read by any code** — MongoDB is a leftover dependency. Do not bother setting it.
 

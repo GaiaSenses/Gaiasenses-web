@@ -45,6 +45,22 @@ receber nada, e não há como reemitir sem pedir a todo mundo que se inscreva de
 novo. Vale garantir que ela esteja guardada em algum lugar além das variáveis da
 Vercel.
 
+## Configuração que vive fora do repositório (Vercel WAF)
+
+Duas regras de firewall existem só no dashboard da Vercel (projeto →
+Firewall) e não deixam rastro em código — este registro é o que impede que
+sejam esquecidas ou removidas sem querer:
+
+| Regra | Caminho | Limite | Ação |
+|---|---|---|---|
+| Push sign-up (T31) | `POST /<locale>/map3` | 10/min por IP | 429 |
+| API pública | `/api/v1/*` | 30/min por IP | 429 |
+
+A regra da API pública é uma das quatro camadas de proteção descritas em
+[`api-publica.md`](api-publica.md): sem ela, o rate limit por IP simplesmente
+não existe — função serverless não tem estado compartilhado para contar
+requisições (foi a lição da rota antiga, commit `d8a9b85`).
+
 ## Como refazer este levantamento
 
 O que revelou o Mapbox foi decodificar o token: todo token do Mapbox é um JWT
