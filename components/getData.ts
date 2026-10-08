@@ -1,4 +1,4 @@
-import getOpenMeteo from "./getOpenMeteo";
+import getOpenMeteo, { type OpenMeteoResult } from "./getOpenMeteo";
 
 export type FireSpotsResponseData = {
   city: string;
@@ -204,16 +204,57 @@ export async function getFireSpots(
   return await getData<FireSpotsResponseData>("fire", lat, lon, dist);
 }
 
+/**
+ * Current weather in the OpenWeather-like shape the map was written against,
+ * or `null` when Open-Meteo could not be reached — same contract as the
+ * satellite sources above: indisponível é null, nunca um número plausível.
+ */
 export async function getWeather(
   lat: string | number,
   lon: string | number,
   options = { lang: "pt_br" },
-): Promise<RainfallResponseData> {
+): Promise<RainfallResponseData | null> {
   if (options && options.lang === "en") options.lang = "en_us";
   if (options && options.lang === "pt") options.lang = "pt_br";
 
   const resp = await getOpenMeteo({ lat, lon });
-  return resp;
+  if (resp === null) return null;
+  return toRainfallResponse(resp);
+}
+
+/**
+ * The legacy adapter, kept pure and exported so the contract tests can pin the
+ * mapping without simulating Open-Meteo's flatbuffer responses.
+ *
+ * Two quirks are preserved on purpose, because the map renders this shape
+ * today: `visibility` carries cloud cover (there is no visibility variable in
+ * the request), and `city`/`state` are the historical placeholder strings —
+ * the real place name comes from reverseGeocode.
+ */
+export function toRainfallResponse(resp: OpenMeteoResult): RainfallResponseData {
+  const c = resp.current;
+  return {
+    city: "Open Weather API",
+    clouds: parseFloat(c.cloudCover.toFixed(1)),
+    lat: resp.lat,
+    lon: resp.lon,
+    main: {
+      feels_like: parseFloat(c.apparentTemperature.toFixed(1)),
+      humidity: c.relativeHumidity2m,
+      pressure: c.surfacePressure,
+      temp: parseFloat(c.temperature2m.toFixed(1)),
+      grnd_level: 0,
+    },
+    rain: { "1h": c.showers || c.rain || c.precipitation },
+    state: "Open weather API",
+    visibility: parseFloat(c.cloudCover.toFixed(1)),
+    weather: [{ description: "", icon: "", main: "" }],
+    wind: {
+      deg: parseFloat(c.windDirection10m.toFixed(1)),
+      gust: parseFloat(c.windGusts10m.toFixed(1)),
+      speed: parseFloat(c.windSpeed10m.toFixed(1)),
+    },
+  };
 }
 
 /**

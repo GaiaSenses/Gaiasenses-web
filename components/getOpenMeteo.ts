@@ -30,7 +30,46 @@ type GetOpenMeteoParams = {
   lon: string | number;
 };
 
-export default async function getOpenMeteo({ lat, lon }: GetOpenMeteoParams) {
+/** The current-conditions block, one field per variable in `params.current`. */
+export type OpenMeteoCurrent = {
+  time: Date;
+  temperature2m: number;
+  relativeHumidity2m: number;
+  apparentTemperature: number;
+  precipitation: number;
+  rain: number;
+  showers: number;
+  snowfall: number;
+  weatherCode: number;
+  cloudCover: number;
+  windSpeed10m: number;
+  windDirection10m: number;
+  windGusts10m: number;
+  surfacePressure: number;
+  pressureMsl: number;
+  isDay: number;
+};
+
+export type OpenMeteoResult = {
+  /** Coordinates as Open-Meteo resolved them, not as the caller sent them. */
+  lat: number;
+  lon: number;
+  current: OpenMeteoCurrent;
+};
+
+/**
+ * Current weather from Open-Meteo, or `null` when it could not be reached.
+ *
+ * The catch used to answer with a whole invented forecast — 24 °C, 30 m/s of
+ * wind — with description "indisponível" as the only hint. An outage became a
+ * mild afternoon in São Paulo, including for the research record. `null` is
+ * the vocabulary BUG-02 established for the satellite sources, and the weather
+ * earns no exception: the callers decide what an unknown means for them.
+ */
+export default async function getOpenMeteo({
+  lat,
+  lon,
+}: GetOpenMeteoParams): Promise<OpenMeteoResult | null> {
   try {
     // A lib aceita fetchOptions como 6º argumento e repassa ao fetch do Next.
     // Sem isso a chamada ficava sujeita ao default do App Router e era refeita a
@@ -54,17 +93,14 @@ export default async function getOpenMeteo({ lat, lon }: GetOpenMeteoParams) {
     );
     const response = responses[0];
 
-    // Attributes for timezone and location
     const utcOffsetSeconds = response.utcOffsetSeconds();
-    const timezone = response.timezone();
-    const timezoneAbbreviation = response.timezoneAbbreviation();
-    const latitude = response.latitude();
-    const longitude = response.longitude();
-
     const current = response.current()!;
 
-    // Note: The order of weather variables in the URL query and the indices below need to match!
-    const weatherData = {
+    // The order of weather variables in `params.current` and the indices below
+    // need to match!
+    return {
+      lat: response.latitude(),
+      lon: response.longitude(),
       current: {
         time: new Date((Number(current.time()) + utcOffsetSeconds) * 1000),
         temperature2m: current.variables(0)!.value(),
@@ -84,69 +120,8 @@ export default async function getOpenMeteo({ lat, lon }: GetOpenMeteoParams) {
         isDay: current.variables(14)!.value(),
       },
     };
-    console.log(weatherData.current);
-    const transformedData = {
-      city: "Open Weather API",
-      clouds: parseFloat(weatherData.current.cloudCover.toFixed(1)),
-      lat: latitude,
-      lon: longitude,
-      main: {
-        feels_like: parseFloat(
-          weatherData.current.apparentTemperature.toFixed(1)
-        ),
-        humidity: weatherData.current.relativeHumidity2m,
-        pressure: weatherData.current.surfacePressure,
-        temp: parseFloat(weatherData.current.temperature2m.toFixed(1)),
-        grnd_level: 0,
-      },
-      rain: {
-        "1h":
-          weatherData.current.showers ||
-          weatherData.current.rain ||
-          weatherData.current.precipitation,
-      },
-      state: "Open weather API",
-
-      visibility: parseFloat(weatherData.current.cloudCover.toFixed(1)),
-      weather: [{ description: "", icon: "", main: "" }],
-      wind: {
-        deg: parseFloat(weatherData.current.windDirection10m.toFixed(1)),
-        gust: parseFloat(weatherData.current.windGusts10m.toFixed(1)),
-        speed: parseFloat(weatherData.current.windSpeed10m.toFixed(1)),
-      },
-    };
-    return transformedData;
   } catch (error) {
-    console.log("Error fetching Open Meteo data:", error);
-    const transformedData = {
-      city: "Open Weather API",
-      clouds: 30,
-      lat: 0,
-      lon: 0,
-      main: {
-        feels_like: 24,
-        humidity: 30,
-        pressure: 20,
-        temp: 24,
-        grnd_level: 0,
-      },
-      rain: {},
-      state: "Open weather API",
-
-      visibility: 100,
-      weather: [
-        {
-          description: "indisponível",
-          icon: "indisponível",
-          main: "indisponível",
-        },
-      ],
-      wind: {
-        deg: 90,
-        gust: 40,
-        speed: 30,
-      },
-    };
-    return transformedData;
+    console.error("[weather] Open-Meteo indisponível —", error);
+    return null;
   }
 }

@@ -18,6 +18,7 @@ import assert from "node:assert/strict";
 import getData, {
   getFireSpots,
   getLightning,
+  getWeather,
   reverseGeocode,
 } from "@/components/getData";
 
@@ -114,6 +115,68 @@ describe("BUG-02 — uma queda não pode passar por céu calmo", () => {
     };
     responderCom(ok(corpo));
     assert.deepEqual(await getFireSpots("-12.97", "-38.50", 100), corpo);
+  });
+});
+
+describe("BUG-02 — clima também não se fabrica", () => {
+  /**
+   * O catch de getOpenMeteo devolvia um objeto inteiro de clima inventado —
+   * temp 24, vento 30, umidade 30 — com description "indisponível" como único
+   * aviso. Uma queda da Open-Meteo virava um dia ameno em São Paulo, inclusive
+   * para a API pública e para o registro de pesquisa. O mesmo princípio dos
+   * raios vale para o clima: indisponível é null, nunca um número plausível.
+   */
+  test("getWeather devolve null quando a Open-Meteo não responde", async () => {
+    responderCom(explodir("ENOTFOUND api.open-meteo.com"));
+    const resultado = await getWeather("-23.55", "-46.63");
+    assert.equal(
+      resultado,
+      null,
+      "o catch antigo devolvia temp 24 °C e vento 30 m/s fabricados",
+    );
+  });
+
+  test("getWeather devolve null com resposta não-2xx", async () => {
+    responderCom(status(500, "Internal Server Error"));
+    assert.equal(await getWeather("-23.55", "-46.63"), null);
+  });
+
+  test("o shape legado sai do dado real, campo a campo", async () => {
+    const { toRainfallResponse } = await import("@/components/getData");
+    const resultado = toRainfallResponse({
+      lat: -23.55,
+      lon: -46.66,
+      current: {
+        time: new Date("2026-10-08T17:45:00Z"),
+        temperature2m: 24.3456,
+        relativeHumidity2m: 71,
+        apparentTemperature: 26.1234,
+        precipitation: 0.2,
+        rain: 0.1,
+        showers: 0,
+        snowfall: 0,
+        weatherCode: 61,
+        cloudCover: 40.26,
+        windSpeed10m: 11.248,
+        windDirection10m: 130.44,
+        windGusts10m: 24.57,
+        surfacePressure: 932.4,
+        pressureMsl: 1013.2,
+        isDay: 1,
+      },
+    });
+
+    assert.equal(resultado.main.temp, 24.3);
+    assert.equal(resultado.main.feels_like, 26.1);
+    assert.equal(resultado.main.humidity, 71);
+    assert.equal(resultado.main.pressure, 932.4);
+    assert.equal(resultado.clouds, 40.3);
+    assert.deepEqual(resultado.wind, { deg: 130.4, gust: 24.6, speed: 11.2 });
+    // A cadeia showers || rain || precipitation é a do código em produção:
+    // showers 0 é falsy, então vale o rain.
+    assert.deepEqual(resultado.rain, { "1h": 0.1 });
+    assert.equal(resultado.lat, -23.55);
+    assert.equal(resultado.lon, -46.66);
   });
 });
 
