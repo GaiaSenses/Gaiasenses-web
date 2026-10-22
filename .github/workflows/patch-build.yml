@@ -29,7 +29,7 @@ env:
   # and emscripten versions it builds with, so this one value decides the bytes
   # of the produced runtime. Never use "latest" — the CLI has already renamed
   # flags between releases.
-  PD4WEB_VERSION: "3.3.0.post1"
+  PD4WEB_VERSION: "3.3.3"
 
 jobs:
   detect:
