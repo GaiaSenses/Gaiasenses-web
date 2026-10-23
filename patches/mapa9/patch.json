@@ -1,0 +1,13 @@
+{
+"$schema": "../../schemas/gaia.patch.schema.json",
+"schemaVersion": 1,
+"id": "mapa9",
+"label": "TesteGlobo2.0",
+"description": "Uma frase sobre a obra.",
+"author": { "name": "GabrielDincao" },
+"license": "CC-BY-4.0",
+"build": { "initialMemory": 512 },
+"activation": {
+"moments": ["map"]
+}
+}
