@@ -1,0 +1,8 @@
+#N canvas 126 407 450 300 12;
+#X obj 115 38 inlet~;
+#X obj 125 48 inlet~;
+#X obj 135 58 inlet~;
+#X obj 145 68 inlet~;
+#X obj 143 236 outlet~;
+#X obj 137 178 t a;
+#X text 224 158 proxy;
