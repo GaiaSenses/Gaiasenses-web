@@ -41,6 +41,23 @@ export const GENERATED_MAP3_PD4WEB_PATCHES = [
     tuning: { pollMs: 100, epsilon: 0.0001, accEpsilon: 0.05 },
   },
   {
+    id: "mapa12",
+    label: "TesteGlobo2.0",
+    bundleFolder: "patches/mapa12",
+    runtime: "498f5bccdfcd",
+    activation: {
+      moments: ["map"],
+    },
+    channels: {
+      receivers: {
+        "gaia.lon": "gaia.lon",
+        "gaia.temp": "gaia.temp",
+      },
+      senders: {},
+    },
+    tuning: { pollMs: 100, epsilon: 0.0001, accEpsilon: 0.05 },
+  },
+  {
     id: "paraisoGaia43",
     label: "Map sound 43",
     bundleFolder: "patches/paraisoGaia43",
