@@ -6,28 +6,7 @@
     "lightningCount"
   ],
   "audio": {
-    "kind": "mp3",
-    "rules": [
-      {
-        "when": {
-          "lightningCount": {
-            "max": 0
-          }
-        },
-        "file": ""
-      },
-      {
-        "when": {
-          "lightningCount": {
-            "below": 4
-          }
-        },
-        "file": "lightningBolts_Low.mp3"
-      },
-      {
-        "file": "lightningBolts_High.mp3"
-      }
-    ]
+    "kind": "patch"
   },
   "thumb": "lightning-bolts.png"
 }

@@ -360,7 +360,9 @@ export default function GaiasensesMap({
     isStopping,
     status,
     startPatch,
-    stopPatch,
+    isMuted,
+    isAudioStarted,
+    toggleMute,
   } = usePd4Web();
   const isBusy = isInitializing || isStopping;
 
@@ -784,26 +786,32 @@ export default function GaiasensesMap({
     if (logs.length > 0) {
       appendPatchLogs(logs);
     }
-  }, [pd4web, activePatch, clima, weatherSummary, appendPatchLogs]);
+  }, [pd4web, activePatch, isAudioStarted, clima, weatherSummary, appendPatchLogs]);
 
-  const handleUnmuteClick = () => {
+  // Patches are only loaded in response to a click, as before: nothing is
+  // preloaded, so the single pd4web instance is never occupied by a patch the
+  // user didn't ask for (a preloaded map patch was blocking the composition
+  // patches such as lightningBolts / NightRain from loading).
+  //
+  //  - A patch is already loaded (e.g. by the composition dropdown): this just
+  //    toggles mute, synchronously, inside the click.
+  //  - Nothing loaded yet: load the map patch (muted), then unmute it.
+  const handleToggleMuteClick = async () => {
+    if (pd4web) {
+      toggleMute();
+      return;
+    }
+
     const mapPatch = MAP3_PD4WEB_PATCHES.find((patch) =>
       patch.activation.moments.includes("map"),
     );
-
-    if (mapPatch) {
-      if (!activePatch) {
-        startPatch(mapPatch.id);
-      }
-      if (activePatch && activePatch.id === mapPatch.id) {
-        console.log("Patch already started: ", activePatch.id);
-      }
+    if (!mapPatch) {
+      return;
     }
-  };
 
-  const handleMuteClick = () => {
-    if (activePatch) {
-      stopPatch();
+    const started = await startPatch(mapPatch.id);
+    if (started) {
+      toggleMute();
     }
   };
   return (
@@ -826,16 +834,20 @@ export default function GaiasensesMap({
           patchLabel={activePatch?.label ?? "Map sound 32"}
         />
         <div>
-          {!activePatch ? (
+          {isMuted ? (
             <Button
               variant={"secondary"}
-              disabled={isBusy || activePatch !== null}
-              onClick={handleUnmuteClick}
+              disabled={isBusy}
+              onClick={handleToggleMuteClick}
             >
               <VolumeX></VolumeX>
             </Button>
           ) : (
-            <Button variant={"secondary"} onClick={handleMuteClick}>
+            <Button
+              variant={"secondary"}
+              disabled={isBusy}
+              onClick={handleToggleMuteClick}
+            >
               <Volume2></Volume2>
             </Button>
           )}
