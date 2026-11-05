@@ -7,36 +7,7 @@
     "temperature"
   ],
   "audio": {
-    "kind": "mp3",
-    "rules": [
-      {
-        "when": {
-          "rain": {
-            "max": 0
-          }
-        },
-        "file": ""
-      },
-      {
-        "when": {
-          "rain": {
-            "below": 3
-          }
-        },
-        "file": "NRlight.mp3"
-      },
-      {
-        "when": {
-          "rain": {
-            "below": 6
-          }
-        },
-        "file": "NRmedium.mp3"
-      },
-      {
-        "file": "NRheavy.mp3"
-      }
-    ]
+    "kind": "patch"
   },
   "thumb": "night-rain.png"
 }
