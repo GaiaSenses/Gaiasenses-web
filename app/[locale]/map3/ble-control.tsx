@@ -2,6 +2,13 @@
 import { Gamepad, Loader2 } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import {
+  decodeCo2Notification,
+  decodeSensorNotification,
+  resetCo2StaleWarning,
+  type espCo2Response,
+  type espResponse,
+} from "./ble-decode";
 
 const MAX_RECONNECT_ATTEMPTS = 5;
 const RECONNECT_DELAY_MS = 1500;
@@ -13,28 +20,14 @@ interface BLEDevice {
   co2Characteristic: BluetoothRemoteGATTCharacteristic | null;
 }
 
-export type espResponse = {
-  quat: {
-    quat_w: number | null;
-    quat_x: number | null;
-    quat_y: number | null;
-    quat_z: number | null;
-  };
-  euler: {
-    roll: number | null;
-    pitch: number | null;
-    yaw: number | null;
-  };
-  acc?: {
-    x: number | null;
-    y: number | null;
-    z: number | null;
-  };
-};
+export type { espResponse, espCo2Response };
 
-export type espCo2Response = {
-  co2: { ppm: number };
-};
+// Copy exactly the notification bytes (the DataView may sit on a larger buffer)
+function toArrayBuffer(view: DataView): ArrayBuffer {
+  const bytes = new Uint8Array(view.byteLength);
+  bytes.set(new Uint8Array(view.buffer, view.byteOffset, view.byteLength));
+  return bytes.buffer;
+}
 
 const deviceName = "Bolota Senses";
 const bleService = "19b10000-e8f2-537e-4f6c-d104768a1214";
@@ -96,10 +89,14 @@ export default function BLEControl({
     const characteristic = event.target as BluetoothRemoteGATTCharacteristic;
     const value = characteristic.value;
     if (value) {
-      // Convert the DataView to a string or number depending on your needs
-      const decoder = new TextDecoder("utf-8");
-      const decodedData = decoder.decode(value);
-      const parsedData = JSON.parse(decodedData);
+      // Binary v2 packet or legacy JSON; null = malformed/invalid → skip
+      let parsedData: espResponse | null = null;
+      try {
+        parsedData = decodeSensorNotification(toArrayBuffer(value));
+      } catch {
+        return;
+      }
+      if (!parsedData) return;
       onSensorRef.current(parsedData);
       setReceivedData(parsedData);
     }
@@ -109,10 +106,14 @@ export default function BLEControl({
     const characteristic = event.target as BluetoothRemoteGATTCharacteristic;
     const value = characteristic.value;
     if (value) {
-      // Convert the DataView to a string or number depending on your needs
-      const decoder = new TextDecoder("utf-8");
-      const decodedData = decoder.decode(value);
-      const parsedData: espCo2Response = JSON.parse(decodedData);
+      // Binary v2 packet or legacy JSON; null = malformed/invalid → skip
+      let parsedData: espCo2Response | null = null;
+      try {
+        parsedData = decodeCo2Notification(toArrayBuffer(value));
+      } catch {
+        return;
+      }
+      if (!parsedData) return;
       onCo2SensorRef.current(parsedData);
       setCo2Value(parsedData.co2.ppm);
     }
@@ -123,6 +124,7 @@ export default function BLEControl({
       if (!device.gatt) throw new Error("GATT server not found on device");
 
       const server = await device.gatt.connect();
+      resetCo2StaleWarning();
       const service = await server.getPrimaryService(bleService);
 
       const characteristic =
