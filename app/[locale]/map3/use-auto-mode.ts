@@ -6,6 +6,8 @@ import {
   criarCicloDoModoAutomatico,
   type CicloDoModoAutomatico,
 } from "./auto-mode-timers";
+import { usePd4Web } from "./pd4web-context";
+import { decidirPatchAoFechar } from "./patch-ao-fechar";
 
 const AUTO_MODE_LOCATIONS_STORAGE_KEY = "map3-auto-mode-locations";
 
@@ -40,6 +42,12 @@ export function useAutoMode(mapRef: React.RefObject<MapRef>) {
   const [autoActive, setAutoActive] = useState(false);
   const [autoLocationIndex, setAutoLocationIndex] = useState(0);
   const [autoLocations, setAutoLocations] = useState<MapLocation[]>(locations);
+
+  const { activePatch, loadingPatch, stopPatch } = usePd4Web();
+  // As etapas do ciclo disparam até 30s depois de criadas; a decisão de parar
+  // o som precisa ver o patch vigente no disparo, não o do render da criação.
+  const patchStateRef = useRef({ ativo: activePatch, carregando: loadingPatch });
+  patchStateRef.current = { ativo: activePatch, carregando: loadingPatch };
 
   const cicloRef = useRef<CicloDoModoAutomatico | null>(null);
   if (cicloRef.current === null) {
@@ -125,6 +133,16 @@ export function useAutoMode(mapRef: React.RefObject<MapRef>) {
           router.replace(`${pathname}?${params.toString()}`);
         },
         voltarAoMapa: () => {
+          // Fechar o player no passeio automático também encerra o áudio Pd
+          // da obra; sem isso um patch deixado tocando seguiria por todas as
+          // paradas seguintes do ciclo. O mp3 se encerra sozinho no desmonte.
+          const decisao = decidirPatchAoFechar(patchStateRef.current, {
+            restaurarPatchDoMapa: false,
+          });
+          if (decisao.parar) {
+            void stopPatch();
+          }
+
           params.set("mode", "map");
           router.replace(`${pathname}?${params.toString()}`);
         },
@@ -144,6 +162,7 @@ export function useAutoMode(mapRef: React.RefObject<MapRef>) {
       searchParams,
       router,
       ciclo,
+      stopPatch,
     ],
   );
 

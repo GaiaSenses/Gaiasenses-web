@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { MouseEvent } from "react";
 import { usePd4Web } from "@/app/[locale]/map3/pd4web-context";
 import { MAP3_PD4WEB_PATCHES } from "@/app/[locale]/map3/pd4web-patches";
+import { decidirPatchAoFechar } from "@/app/[locale]/map3/patch-ao-fechar";
 
 export default function TogglePlayButton({
   play,
@@ -19,8 +20,7 @@ export default function TogglePlayButton({
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const { stopPatch, activePatch, isInitializing, isStopping, startPatch } =
-    usePd4Web();
+  const { stopPatch, activePatch, loadingPatch, startPatch } = usePd4Web();
 
   async function togglePlay(
     event: MouseEvent<HTMLDivElement | HTMLButtonElement>,
@@ -53,35 +53,25 @@ export default function TogglePlayButton({
     } else {
       if (onPause) onPause(newPlayStatus);
 
-      if (shouldRestoreMapPatch) {
+      // A decisão considera também o patch ainda em carga: stopPatch() é
+      // seguro em qualquer fase (vira pedido pendente durante o init), então
+      // fechar a obra cedo não deixa mais o áudio nascer órfão.
+      const decisao = decidirPatchAoFechar(
+        { ativo: activePatch, carregando: loadingPatch },
+        { restaurarPatchDoMapa: shouldRestoreMapPatch },
+      );
+
+      if (decisao.parar) {
+        await stopPatch();
+      }
+
+      if (decisao.restaurarMapa) {
         const mapPatch = MAP3_PD4WEB_PATCHES.find((patch) =>
           patch.activation.moments.includes("map"),
         );
-        const hasNonMapPatchActive = Boolean(
-          activePatch && !activePatch.activation.moments.includes("map"),
-        );
-        const hasMapPatchActive = Boolean(
-          activePatch && activePatch.activation.moments.includes("map"),
-        );
-
-        if (hasNonMapPatchActive) {
-          if (!isInitializing && !isStopping) {
-            await stopPatch();
-          }
-        }
-
-        if (!hasMapPatchActive && mapPatch) {
+        if (mapPatch) {
           const patch = await startPatch(mapPatch.id);
           console.log("Started map patch on return:", patch);
-        }
-      } else {
-        if (
-          activePatch &&
-          !activePatch.activation.moments.includes("map") &&
-          !isInitializing &&
-          !isStopping
-        ) {
-          await stopPatch();
         }
       }
     }

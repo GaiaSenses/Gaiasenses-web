@@ -35,8 +35,14 @@ export function CompositionDropdown({
 
   const router = useRouter();
 
-  const { activePatch, startPatch, stopPatch, isInitializing, isStopping } =
-    usePd4Web();
+  const {
+    activePatch,
+    loadingPatch,
+    startPatch,
+    stopPatch,
+    isInitializing,
+    isStopping,
+  } = usePd4Web();
 
   useEffect(() => {
     if (activePatch) {
@@ -66,11 +72,11 @@ export function CompositionDropdown({
     router.replace(`?${params.toString()}`);
 
     if (!compositionInfo.keepMapPatch) {
-      if (
-        activePatch?.activation.moments.includes("map") &&
-        !isInitializing &&
-        !isStopping
-      ) {
+      // stopPatch() é seguro em qualquer fase (vira pedido pendente durante o
+      // init), então o patch do mapa não sobrevive mais à troca por ter sido
+      // flagrado carregando ou parando.
+      const patchCorrente = activePatch ?? loadingPatch;
+      if (patchCorrente?.activation.moments.includes("map")) {
         await stopPatch();
       }
       // Which patch plays with this animation is derived from the patch

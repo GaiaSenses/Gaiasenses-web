@@ -7,6 +7,9 @@ import type {
   MapRef,
 } from "react-map-gl/mapbox";
 
+import { usePd4Web } from "./pd4web-context";
+import { decidirPatchAoFechar } from "./patch-ao-fechar";
+
 type UseMapInteractionsOptions = {
   initialLat: number;
   initialLng: number;
@@ -27,6 +30,13 @@ export function useMapInteractions({
   const [showPopup, setShowPopup] = useState(true);
   const [isDataLoading, setIsDataLoading] = useState(false);
   const inputModeRef = useRef<string>("mouse");
+
+  const { activePatch, loadingPatch, stopPatch } = usePd4Web();
+  // Espelho em ref: handlers do mapa podem disparar com closures antigas
+  // (moveEnd atrasado, flyTo do modo automático), e a decisão de parar o som
+  // precisa ver o patch de AGORA, não o do render em que o handler nasceu.
+  const patchStateRef = useRef({ ativo: activePatch, carregando: loadingPatch });
+  patchStateRef.current = { ativo: activePatch, carregando: loadingPatch };
 
   const areCoordinatesClose = useCallback(
     (aLat: number, aLng: number, bLat: number, bLng: number) => {
@@ -64,6 +74,19 @@ export function useMapInteractions({
       newSearchParams.set("mode", "map");
       newSearchParams.delete("composition");
       newSearchParams.delete("play");
+
+      // Esta navegação fecha o player quando a obra estava aberta (um resize
+      // de fullscreen ou um arrasto chega aqui). O visual morre com o modal;
+      // o patch Pd da obra só morre se alguém o parar — e era aqui que ele
+      // ficava tocando órfão. Obras mp3 não precisam disso: o desmonte do
+      // Player já faz o fade.
+      const decisao = decidirPatchAoFechar(patchStateRef.current, {
+        restaurarPatchDoMapa: false,
+      });
+      if (decisao.parar) {
+        void stopPatch();
+      }
+
       router.replace(`${pathname}?${newSearchParams.toString()}`);
       // Show popup immediately; loading clears when server responds with new initialLat/initialLng
       setShowPopup(true);
@@ -77,6 +100,7 @@ export function useMapInteractions({
       searchParams,
       pathname,
       router,
+      stopPatch,
     ],
   );
 
@@ -149,9 +173,19 @@ export function useMapInteractions({
       // the right latitude at the wrong longitude, with nothing reporting it.
       newSearchParams.set("lng", e.coords.longitude.toString());
       newSearchParams.set("mode", "map");
+
+      // Mesmo contrato do updatePopupPosition: voltar ao mapa fecha a obra,
+      // então o patch Pd dela não pode sobreviver à navegação.
+      const decisao = decidirPatchAoFechar(patchStateRef.current, {
+        restaurarPatchDoMapa: false,
+      });
+      if (decisao.parar) {
+        void stopPatch();
+      }
+
       router.replace(`${pathname}?${newSearchParams.toString()}`);
     },
-    [searchParams, pathname, router],
+    [searchParams, pathname, router, stopPatch],
   );
 
   const toggleMode = useCallback((mode: string) => {
