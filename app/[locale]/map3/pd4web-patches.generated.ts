@@ -28,7 +28,7 @@ export const GENERATED_MAP3_PD4WEB_PATCHES = [
     id: "exemplo-clima",
     label: "Exemplo: temperatura",
     bundleFolder: "patches/exemplo-clima",
-    runtime: "ec746f787802",
+    runtime: "e12f48476bc6",
     activation: {
       moments: ["player"],
       compositions: ["exemploClima"],
