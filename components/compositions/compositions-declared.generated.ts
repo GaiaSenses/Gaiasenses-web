@@ -38,7 +38,7 @@ export const DECLARED_COMPOSITION_MANIFESTS = {
     id: "airports",
     label: "Airports",
     attributes: ["lat","lon"],
-    audio: {"kind":"none"},
+    audio: {"kind":"synth"},
     thumb: "weather-tree.png",
     author: "Brian Eno — Discrete Music (1975), via Tone.js",
   },
@@ -78,7 +78,7 @@ export const DECLARED_COMPOSITION_MANIFESTS = {
   cloudBubble: {
     id: "cloudBubble",
     label: "Cloud Bubble",
-    attributes: ["clouds"],
+    attributes: ["clouds","lat","lon"],
     audio: {"kind":"none"},
     thumb: "cloud-bubble.png",
     author: "Naoki Tsutae",
@@ -97,7 +97,7 @@ export const DECLARED_COMPOSITION_MANIFESTS = {
   curves: {
     id: "curves",
     label: "Curves",
-    attributes: ["rain","temperature"],
+    attributes: ["rain","temperature","lat","lon"],
     audio: {"kind":"patch"},
     thumb: "curves.png",
     author: "Pedro Alexis Mendoza Llanos",
@@ -125,7 +125,7 @@ export const DECLARED_COMPOSITION_MANIFESTS = {
     id: "generativeStrings",
     label: "Generative Strings",
     attributes: ["temperature"],
-    audio: {"kind":"none"},
+    audio: {"kind":"synth"},
     thumb: "weather-tree.png",
   },
   lightningBolts: {

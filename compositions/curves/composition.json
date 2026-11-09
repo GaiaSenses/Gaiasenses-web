@@ -6,7 +6,9 @@
   "openProcessingLink": "https://openprocessing.org/sketch/1176431",
   "attributes": [
     "rain",
-    "temperature"
+    "temperature",
+    "lat",
+    "lon"
   ],
   "audio": {
     "kind": "patch"

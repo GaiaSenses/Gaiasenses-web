@@ -5,7 +5,9 @@
   "license": "CC-BY-4.0",
   "openProcessingLink": "https://openprocessing.org/sketch/1786759",
   "attributes": [
-    "clouds"
+    "clouds",
+    "lat",
+    "lon"
   ],
   "audio": {
     "kind": "none"

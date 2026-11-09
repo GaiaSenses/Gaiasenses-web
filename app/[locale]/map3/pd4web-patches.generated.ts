@@ -31,6 +31,7 @@ export const GENERATED_MAP3_PD4WEB_PATCHES = [
     runtime: "ec746f787802",
     activation: {
       moments: ["player"],
+      compositions: ["exemploClima"],
     },
     channels: {
       receivers: {
@@ -103,6 +104,7 @@ export const GENERATED_MAP3_PD4WEB_PATCHES = [
  * exist becomes a tsc error, so a typo in a manifest cannot reach production.
  */
 export const COMPOSITION_PATCH_ID = {
+  exemploClima: "exemplo-clima",
   lightningBolts: "thunder4",
   lluvia: "bubble1",
   nightRain: "rain2",

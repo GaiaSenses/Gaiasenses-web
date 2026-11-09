@@ -6,10 +6,13 @@ import { NextReactP5Wrapper } from "@p5-wrapper/next";
 import { useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { usePd4Web } from "@/app/[locale]/map3/pd4web-context";
-import { GAIA_LEGACY } from "@/lib/gaia-vocabulary";
+import { GAIA } from "@/lib/gaia-vocabulary";
 
 export type CloudBubbleSketchProps = {
   clouds: number;
+  /** Onde o globo está apontando. Repassado ao patch do mapa, que soniza. */
+  lat: number;
+  lon: number;
   play: boolean;
 };
 
@@ -148,12 +151,24 @@ export default function CloudBubbleSketch(
 
   // ler params e converter para número quando existirem
   const urlClouds = searchParams?.get("clouds");
+  const urlLat = searchParams?.get("lat");
+  const urlLon = searchParams?.get("lon");
   const urlPlay = searchParams?.get("play");
 
   const { pd4web } = usePd4Web();
   const clouds = useMemo(
     () => (urlClouds !== null ? Number(urlClouds) : initialProps.clouds),
     [urlClouds, initialProps.clouds],
+  );
+
+  const lat = useMemo(
+    () => (urlLat !== null ? Number(urlLat) : initialProps.lat),
+    [urlLat, initialProps.lat],
+  );
+
+  const lon = useMemo(
+    () => (urlLon !== null ? Number(urlLon) : initialProps.lon),
+    [urlLon, initialProps.lon],
   );
 
   const play =
@@ -166,27 +181,24 @@ export default function CloudBubbleSketch(
       return;
     }
 
+    // This interval used to push Math.random() lat/lon AND fake accelerometer
+    // readings (0..5000 on each axis) into the patch. The accelerations are
+    // gone: gaia.acc.* belongs to the Bolota sensor and must stay empty when
+    // no sensor is connected, instead of inventing movement nobody made. What
+    // remains is the globe's real position, on the canonical channels.
     const intervalId = setInterval(() => {
       if (!pd4web) {
         return;
       }
 
-      const lat = Math.random() * 180 - 90;
-      const lon = Math.random() * 360 - 180;
-      const accX = Math.random() * 5000;
-      const accY = Math.random() * 5000;
-      const accZ = Math.random() * 5000;
-      pd4web.sendFloat(GAIA_LEGACY.LAT, lat);
-      pd4web.sendFloat(GAIA_LEGACY.LON, lon);
-      pd4web.sendFloat(GAIA_LEGACY.ACC_X, accX);
-      pd4web.sendFloat(GAIA_LEGACY.ACC_Y, accY);
-      pd4web.sendFloat(GAIA_LEGACY.ACC_Z, accZ);
+      if (Number.isFinite(lat)) pd4web.sendFloat(GAIA.LAT, lat);
+      if (Number.isFinite(lon)) pd4web.sendFloat(GAIA.LON, lon);
     }, 2000);
 
     return () => {
       clearInterval(intervalId);
     };
-  }, [pd4web, play]);
+  }, [pd4web, play, lat, lon]);
 
   // passa os valores numéricos ao wrapper p5 — NextReactP5Wrapper chamará updateWithProps internamente
   return <NextReactP5Wrapper sketch={sketch} clouds={clouds} play={play} />;

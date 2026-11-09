@@ -86,11 +86,11 @@ toque com ela.
 
 ### curves
 
-Compartilha o patch do mapa (keepMapPatch) e alimenta gaia.lat/gaia.lon a cada quadro com valores gerados, não com a posição real.
+Compartilha o patch do mapa (keepMapPatch) e alimenta gaia.lat/gaia.lon a cada quadro com a posição real do globo. Até 2026-11-09 mandava Math.random(), e como o envio do próprio mapa estava desligado esse ruído era o único lat/lon que o patch recebia.
 
 ### cloudBubble
 
-Compartilha o patch do mapa (keepMapPatch) e alimenta gaia.lat/gaia.lon e gaia.acc.* a cada 2 s com valores gerados.
+Compartilha o patch do mapa (keepMapPatch) e alimenta gaia.lat/gaia.lon a cada 2 s com a posição real do globo. Até 2026-11-09 mandava Math.random() nesses dois canais e também em gaia.acc.*, inventando leituras de um sensor que não estava conectado; os canais de aceleração voltaram a ser exclusivos do sensor Bolota.
 
 ---
 

@@ -42,6 +42,14 @@ function sketch(
     zoom = n / m;
 
     cells = new Uint8Array(n * n).fill(DEAD);
+    // The automaton lives in a 500x500 offscreen buffer and is stretched onto
+    // the visible canvas at the end of every frame. p5 appends that buffer's
+    // <canvas> to the DOM with `display: none` ("hide if offscreen buffer by
+    // default", p5.Renderer) and removes it with the sketch, so the second
+    // canvas a page inspection finds here is this buffer, not a leak — and it
+    // reads as solid black on purpose: the cells are written to the *alpha*
+    // channel over a black background, so the colour is black everywhere and
+    // only the transparency carries the image.
     g = p5.createGraphics(n, n);
     g.background(0).pixelDensity(1).loadPixels();
   };
