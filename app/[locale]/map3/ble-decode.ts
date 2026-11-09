@@ -33,8 +33,31 @@ export type espCo2Response = {
 const PROTOCOL_VERSION = 1;
 const TYPE_IMU = 0x01;
 const TYPE_CO2 = 0x02;
-const IMU_PACKET_SIZE = 23;
-const CO2_PACKET_SIZE = 12;
+
+/**
+ * Minimum sizes, not exact ones.
+ *
+ * `ImuPacket` grew from 23 to 31 bytes in firmware v8, which appended the
+ * microphone envelope (four `int16`, dBFS x100) after the flags byte. The
+ * protocol version byte stays `1` on purpose: every field is append-only and
+ * the earlier bytes are untouched, so a decoder reading offsets 0..22 keeps
+ * working. `firmware/docs/protocol.md` spells out the consequence — "a decoder
+ * that checks an exact length must be updated (the config-app and the Pd
+ * bridge were)" — and this one was the third, written against the 23-byte
+ * packet and rejecting everything the v8 firmware sends.
+ *
+ * Which is why the comparison below is `<` and not `!==`. An exact check is a
+ * bomb with a timer on it: the next append breaks the site again, silently,
+ * because a rejected notification is indistinguishable from a ball that is
+ * not there. The Pd bridge (`pd-gaiaball/gaiaball_bridge.py`) already reads
+ * `len(data) < 31` for the same reason.
+ *
+ * Note that 23 is now the size of `SensorsPacket` (type 0x04) — one more
+ * reason not to keep that number here as the IMU's length.
+ */
+const IMU_PACKET_MIN_SIZE = 31;
+const CO2_PACKET_MIN_SIZE = 12;
+
 const JSON_OPEN_BRACE = 0x7b; // '{'
 const Q14 = 16384;
 const RAD_TO_DEG = 180 / Math.PI;
@@ -110,7 +133,7 @@ export function decodeSensorNotification(
     }
 
     if (
-      buf.byteLength !== IMU_PACKET_SIZE ||
+      buf.byteLength < IMU_PACKET_MIN_SIZE ||
       dv.getUint8(0) !== PROTOCOL_VERSION ||
       dv.getUint8(1) !== TYPE_IMU
     ) {
@@ -125,6 +148,13 @@ export function decodeSensorNotification(
     const y = dv.getInt16(12, true) / Q14;
     const z = dv.getInt16(14, true) / Q14;
 
+    // Bytes 23..30 carry the microphone envelope (RMS and peak, left/right,
+    // dBFS x100, valid while flags bit3 is set). Nothing reads it yet: the
+    // vocabulary in lib/gaia-vocabulary.ts has no audio channel, and
+    // `gaia.sensors` sends a fixed list of seven values that paraisoGaia43
+    // unpacks. Taking the ball's own sound to a patch means a new channel and
+    // a patch that expects it — a decision for the musicians, not a decoder
+    // detail, so the bytes are left on the wire rather than half-wired here.
     return {
       quat: { quat_w: w, quat_x: x, quat_y: y, quat_z: z },
       euler: quatToEulerLegacy(w, x, y, z),
@@ -159,7 +189,7 @@ export function decodeCo2Notification(
     }
 
     if (
-      buf.byteLength !== CO2_PACKET_SIZE ||
+      buf.byteLength < CO2_PACKET_MIN_SIZE ||
       dv.getUint8(0) !== PROTOCOL_VERSION ||
       dv.getUint8(1) !== TYPE_CO2
     ) {

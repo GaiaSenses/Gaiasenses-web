@@ -6,9 +6,17 @@ import {
   resetCo2StaleWarning,
 } from "../app/[locale]/map3/ble-decode";
 
-// Golden vectors copied verbatim from gaiaball firmware/docs/protocol.md
+// Golden vectors copied byte for byte from the firmware's own protocol tests
+// (gaiaball firmware/test/test_protocol/test_protocol.cpp), which are the
+// source of truth for the wire format. The IMU one is the v8 packet: 31 bytes,
+// flags 0x0B (quatValid | nineAxis | audioValid) and the microphone envelope
+// in the last eight — rms L = 0.00 dBFS, rms R = -20.00, peak L = 0.00,
+// peak R = -6.02, each as dBFS x100. The vector used to be the pre-v8 one,
+// 23 bytes and flags 0x03, which is how the decoder came to reject every
+// packet the firmware actually sends.
 const GOLDEN_IMU =
-  "01 01 02 01 0D 0C 0B 0A 00 40 00 00 00 00 00 00 01 00 FE FF 03 00 03";
+  "01 01 02 01 0D 0C 0B 0A 00 40 00 00 00 00 00 00 01 00 FE FF 03 00 0B" +
+  " 00 00 30 F8 00 00 A6 FD";
 const GOLDEN_CO2 = "01 02 02 01 0D 0C 0B 0A E8 03 05 07";
 
 function hex(s: string): ArrayBuffer {
@@ -31,8 +39,10 @@ function imuPacket(opts: {
   z: number;
   acc?: [number, number, number];
   flags?: number;
+  /** Total length, to stand in for a future firmware that appends more. */
+  size?: number;
 }): ArrayBuffer {
-  const buf = new ArrayBuffer(23);
+  const buf = new ArrayBuffer(opts.size ?? 31);
   const dv = new DataView(buf);
   dv.setUint8(0, 1);
   dv.setUint8(1, 0x01);
@@ -47,6 +57,10 @@ function imuPacket(opts: {
   dv.setInt16(18, ay, true);
   dv.setInt16(20, az, true);
   dv.setUint8(22, opts.flags ?? 0b001);
+  // Silence, as the firmware encodes it: the -120.00 dBFS floor on all four.
+  if (buf.byteLength >= 31) {
+    for (const offset of [23, 25, 27, 29]) dv.setInt16(offset, -12000, true);
+  }
   return buf;
 }
 
@@ -104,7 +118,7 @@ test("quatValid=0 packet → null", () => {
   );
 });
 
-test("wrong version / type / length → null", () => {
+test("wrong version / type / short packet → null", () => {
   const b = new Uint8Array(hex(GOLDEN_IMU));
   const v2 = b.slice();
   v2[0] = 2;
@@ -113,8 +127,31 @@ test("wrong version / type / length → null", () => {
   t2[1] = 0x02;
   assert.equal(decodeSensorNotification(t2.buffer), null);
   assert.equal(decodeSensorNotification(b.slice(0, 22).buffer), null);
+  // the pre-v8 23-byte packet: no shipped firmware sends it, and the Pd bridge
+  // does not accept it either
+  assert.equal(decodeSensorNotification(b.slice(0, 23).buffer), null);
   // a CO2 packet arriving on the sensor characteristic is ignored
   assert.equal(decodeSensorNotification(hex(GOLDEN_CO2)), null);
+});
+
+test("a packet longer than v8 still decodes (fields are append-only)", () => {
+  // This is the regression guard for the bug this branch shipped with: an
+  // exact-length check turns every notification of the next firmware into
+  // silence, and silence here looks exactly like a ball that is not there.
+  const q = Math.round(Math.cos(Math.PI / 4) * 16384);
+  const futuro = decodeSensorNotification(
+    imuPacket({ w: q, x: 0, y: 0, z: q, acc: [1, -2, 3], size: 48 }),
+  );
+  assert.ok(futuro);
+  assert.deepEqual(futuro.acc, { x: 1, y: -2, z: 3 });
+  near(futuro.euler.yaw, -90);
+});
+
+test("a CO2 packet longer than v8 still decodes", () => {
+  const b = new Uint8Array(hex(GOLDEN_CO2));
+  const maior = new Uint8Array(20);
+  maior.set(b);
+  assert.deepEqual(decodeCo2Notification(maior.buffer), { co2: { ppm: 1000 } });
 });
 
 // ---------------------------------------------------------------------------
