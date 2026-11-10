@@ -31,7 +31,6 @@ type GeneratedPd4WebModule = (
 /** Public React context contract consumed by UI components. */
 type Pd4WebContextValue = {
   pd4web: pd4web.Pd4Web | null;
-  pd4webAudioContext: AudioContext | null;
   activePatch: Map3Pd4WebPatch | null;
   /**
    * Patch ainda inicializando (fetch do wasm + worklet). Quem decide parar ou
@@ -44,7 +43,22 @@ type Pd4WebContextValue = {
   isInitializing: boolean;
   isStopping: boolean;
   isMuted: boolean;
+  isAudioStarted: boolean;
+  /**
+   * Toggle audio on/off. MUST be called synchronously from inside a real
+   * click handler — no `await` before it — because it calls pd4web's own
+   * `toggleAudio()`, which the browser only allows to start/resume audio in
+   * direct response to a user gesture. See
+   * https://charlesneimog.github.io/pd4web/javascript/02-audio-initialization/
+   */
   toggleMute: () => void;
+  /**
+   * Load (but do not play) a patch: dynamic import, wasm fetch, module
+   * instantiation, `openPatch()`. Deliberately never calls `init()` or
+   * `toggleAudio()`, so this is safe to call from anywhere — including
+   * automatically, with no user gesture — and never produces sound by
+   * itself. Audio only ever starts via `toggleMute()`.
+   */
   startPatch: (patchId: string) => Promise<Map3Pd4WebPatch | null>;
   stopPatch: () => Promise<void>;
 };
@@ -55,8 +69,6 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export function Pd4WebProvider({ children }: PropsWithChildren) {
   const [pd4web, setPd4web] = useState<pd4web.Pd4Web | null>(null);
-  const [pd4webAudioContext, setPd4webAudioContext] =
-    useState<AudioContext | null>(null);
   const [activePatch, setActivePatch] = useState<Map3Pd4WebPatch | null>(null);
   const [loadingPatch, setLoadingPatch] = useState<Map3Pd4WebPatch | null>(
     null,
@@ -65,10 +77,9 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
   const [isInitializing, setIsInitializing] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
+  const [isAudioStarted, setIsAudioStarted] = useState(false);
   const isMutedRef = useRef(true); // ref espelhando isMuted para uso em callbacks assíncronos
-  const fadeGainRef = useRef<GainNode | null>(null);
   const pd4webRef = useRef<pd4web.Pd4Web | null>(null);
-  const pd4webAudioContextRef = useRef<AudioContext | null>(null);
   const isInitializingRef = useRef(false);
   const isStoppingRef = useRef(false);
   // Um stopPatch() chamado no meio da inicialização não tem o que derrubar
@@ -76,7 +87,13 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
   // concluir, em vez de deixar o patch nascer tocando sem ninguém no comando.
   const stopRequestedRef = useRef(false);
 
-  /** Start a compiled patch and connect a fade gain node for smoother stops. */
+  /**
+   * Load a compiled patch. This is purely asset-loading + `openPatch()` —
+   * it never starts the audio engine, so it is safe to call eagerly (e.g.
+   * from a `useEffect`) with no click involved. Playback only ever begins
+   * inside `toggleMute()`, which is what pd4web's autoplay-gesture rule
+   * actually requires.
+   */
   const startPatch = useCallback(async (patchId: string) => {
     if (
       pd4webRef.current ||
@@ -133,52 +150,22 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
       });
 
       const instance = new pdModule.Pd4Web();
+
+      // Deliberately no `soundToggleId` — we drive audio ourselves through
+      // toggleMute()/toggleAudio(), from our own React button(s), rather than
+      // handing pd4web a raw DOM id to attach its own listener to.
       instance.openPatch("index.pd", {
         //canvasId: P4DWEB_CANVAS_ID,
         renderGui: false,
       });
-      await instance.init();
 
-      const audioContext = window.Pd4WebAudioContext ?? null;
-      const workletNode = window.Pd4WebAudioWorkletNode ?? null;
-
-      // A obra foi fechada enquanto o wasm ainda baixava. O patch acabou de
-      // nascer, mas ninguém mais vai ouvi-lo nem terá um botão para pará-lo:
-      // desfaz aqui mesmo, sem fade — ele mal começou a soar. Como o pd4web
-      // publica o contexto novo em window só um instante após o init(),
-      // espera o valor trocar antes de fechar; senão fecharíamos o contexto
-      // anterior (já morto) e o novo ficaria suspenso, pronto para voltar a
-      // soar no próximo clique que desse resume.
-      if (stopRequestedRef.current) {
-        stopRequestedRef.current = false;
-
-        let freshContext = window.Pd4WebAudioContext ?? null;
-        for (
-          let tries = 0;
-          tries < 20 &&
-          (freshContext === null || freshContext === previousAudioContext);
-          tries++
-        ) {
-          await sleep(100);
-          freshContext = window.Pd4WebAudioContext ?? null;
-        }
-
-        if (freshContext && freshContext.state !== "closed") {
-          await freshContext.close();
-        }
-        window.Pd4Web = undefined;
-        setStatus("Stopped.");
-        return null;
-      }
-
-      if (audioContext && workletNode) {
-        const fadeGain = audioContext.createGain();
-        fadeGain.gain.value = isMutedRef.current ? 0 : 1;
-        workletNode.disconnect();
-        workletNode.connect(fadeGain);
-        fadeGain.connect(audioContext.destination);
-        fadeGainRef.current = fadeGain;
-      }
+      // NOTE: intentionally no `instance.init()` / `instance.toggleAudio()`
+      // call here. Per pd4web's docs, the call that actually starts audio
+      // must happen synchronously inside a click handler — this function is
+      // usually awaited across network fetches, which is exactly the kind of
+      // gap that breaks the browser's "user gesture" association. Calling it
+      // unconditionally here was the original bug: every patch load played
+      // audio immediately, regardless of the app's own mute state.
 
       // Expose the running patch on window, matching the global already declared
       // in types/pd4web.d.ts and the usage Pd4Web itself documents.
@@ -190,11 +177,12 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
       window.Pd4Web = instance;
 
       pd4webRef.current = instance;
-      pd4webAudioContextRef.current = audioContext;
       setPd4web(instance);
-      setPd4webAudioContext(audioContext);
       setActivePatch(patch);
-      setStatus(`Running ${patch.label}.`);
+      isMutedRef.current = true;
+      setIsMuted(true);
+      setIsAudioStarted(false);
+      setStatus(`Loaded ${patch.label} (muted).`);
       return patch;
     } catch (error) {
       console.error("Error while starting patch:", error);
@@ -209,7 +197,7 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
     }
   }, []);
 
-  /** Stop the active patch with a short linear fade and close audio resources. */
+  /** Stop the active patch and release its audio resources. */
   const stopPatch = useCallback(async () => {
     // Pedido no meio da inicialização: ainda não há o que derrubar, então o
     // registro fica para o startPatch consumir ao concluir. Antes este caso
@@ -230,58 +218,68 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
     setStatus("Stopping...");
 
     try {
-      const audioContext =
-        window.Pd4WebAudioContext ?? pd4webAudioContextRef.current;
-      const fadeGain = fadeGainRef.current;
-
-      if (fadeGain && audioContext && audioContext.state === "running") {
-        const now = audioContext.currentTime;
-        fadeGain.gain.cancelScheduledValues(now);
-        fadeGain.gain.setValueAtTime(fadeGain.gain.value, now);
-        fadeGain.gain.linearRampToValueAtTime(0, now + 0.5);
-        await sleep(510);
+      // If audio is currently playing, pause it before tearing down. This is
+      // always allowed without a fresh user gesture — suspending a running
+      // context never needs one, only resuming/starting one does — so it's
+      // safe to call here even though stopPatch isn't always invoked from a
+      // click (e.g. it may run from a composition-change effect).
+      if (!isMutedRef.current) {
+        try {
+          pd4webRef.current.toggleAudio();
+        } catch (error) {
+          console.warn("pd4web: toggleAudio() failed while stopping", error);
+        }
       }
 
+      const audioContext = window.Pd4WebAudioContext ?? null;
       if (audioContext && audioContext.state !== "closed") {
         await audioContext.close();
       }
     } catch (error) {
       console.error("Error while stopping patch:", error);
     } finally {
-      fadeGainRef.current = null;
       window.Pd4Web = undefined;
       pd4webRef.current = null;
-      pd4webAudioContextRef.current = null;
       isStoppingRef.current = false;
       setPd4web(null);
-      setPd4webAudioContext(null);
       setActivePatch(null);
       setStatus("Stopped.");
       setIsStopping(false);
       isMutedRef.current = true;
       setIsMuted(true);
+      setIsAudioStarted(false);
     }
   }, []);
 
- const toggleMute = useCallback(() => {
-   const nextMuted = !isMutedRef.current;
-   isMutedRef.current = nextMuted;
-   setIsMuted(nextMuted);
+  /**
+   * Toggle audio on/off via pd4web's own `toggleAudio()`.
+   *
+   * CALLERS MUST invoke this directly inside a synchronous click handler —
+   * no `await`, no `.then()` hop, nothing between the user's click and this
+   * call — because the very first invocation on a given patch instance is
+   * what actually starts its AudioContext, and browsers only allow that in
+   * direct response to a user gesture. See
+   * https://charlesneimog.github.io/pd4web/javascript/02-audio-initialization/
+   */
+  const toggleMute = useCallback(() => {
+    const instance = pd4webRef.current;
+    if (!instance) {
+      // Nothing loaded yet — the UI should disable the control in this case
+      // (see isBusy / !pd4web checks in the consuming components) rather
+      // than reach this branch, but bail safely if it does.
+      return;
+    }
 
-   const fadeGain = fadeGainRef.current;
-   const audioContext = pd4webAudioContextRef.current;
-   if (!fadeGain || !audioContext || audioContext.state !== "running") return;
+    instance.toggleAudio();
 
-   const now = audioContext.currentTime;
-   fadeGain.gain.cancelScheduledValues(now);
-   fadeGain.gain.setValueAtTime(fadeGain.gain.value, now);
-   fadeGain.gain.linearRampToValueAtTime(nextMuted ? 0 : 1, now + 0.15);
- }, []);
+    const nextMuted = !isMutedRef.current;
+    isMutedRef.current = nextMuted;
+    setIsMuted(nextMuted);
+  }, []);
 
   const value = useMemo<Pd4WebContextValue>(
     () => ({
       pd4web,
-      pd4webAudioContext,
       activePatch,
       loadingPatch,
       status,
@@ -290,11 +288,11 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
       startPatch,
       stopPatch,
       isMuted,
+      isAudioStarted,
       toggleMute,
     }),
     [
       pd4web,
-      pd4webAudioContext,
       activePatch,
       loadingPatch,
       status,
@@ -303,6 +301,7 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
       startPatch,
       stopPatch,
       isMuted,
+      isAudioStarted,
       toggleMute,
     ],
   );
