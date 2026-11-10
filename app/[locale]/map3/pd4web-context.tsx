@@ -32,6 +32,13 @@ type GeneratedPd4WebModule = (
 type Pd4WebContextValue = {
   pd4web: pd4web.Pd4Web | null;
   activePatch: Map3Pd4WebPatch | null;
+  /**
+   * Patch ainda inicializando (fetch do wasm + worklet). Quem decide parar ou
+   * trocar o áudio ao fechar uma obra precisa enxergar este estado: durante a
+   * janela de carga `activePatch` ainda é null, e decidir só por ele deixava o
+   * patch nascer órfão quando a obra era fechada cedo.
+   */
+  loadingPatch: Map3Pd4WebPatch | null;
   status: string;
   isInitializing: boolean;
   isStopping: boolean;
@@ -63,6 +70,9 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export function Pd4WebProvider({ children }: PropsWithChildren) {
   const [pd4web, setPd4web] = useState<pd4web.Pd4Web | null>(null);
   const [activePatch, setActivePatch] = useState<Map3Pd4WebPatch | null>(null);
+  const [loadingPatch, setLoadingPatch] = useState<Map3Pd4WebPatch | null>(
+    null,
+  );
   const [status, setStatus] = useState("Ready.");
   const [isInitializing, setIsInitializing] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
@@ -72,6 +82,10 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
   const pd4webRef = useRef<pd4web.Pd4Web | null>(null);
   const isInitializingRef = useRef(false);
   const isStoppingRef = useRef(false);
+  // Um stopPatch() chamado no meio da inicialização não tem o que derrubar
+  // ainda: registra o pedido aqui e o próprio startPatch desfaz tudo ao
+  // concluir, em vez de deixar o patch nascer tocando sem ninguém no comando.
+  const stopRequestedRef = useRef(false);
 
   /**
    * Load a compiled patch. This is purely asset-loading + `openPatch()` —
@@ -99,7 +113,13 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
 
     isInitializingRef.current = true;
     setIsInitializing(true);
+    setLoadingPatch(patch);
     setStatus(`Loading ${patch.label}...`);
+
+    // O init() de cada patch cria um AudioContext próprio e o publica em
+    // window um instante DEPOIS de resolver. Guardar o anterior permite ao
+    // desmonte precoce distinguir o contexto novo do velho já fechado.
+    const previousAudioContext = window.Pd4WebAudioContext ?? null;
 
     try {
       const moduleNamespace = (await import(
@@ -171,16 +191,25 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
     } finally {
       isInitializingRef.current = false;
       setIsInitializing(false);
+      setLoadingPatch(null);
+      // Se a carga falhou, um pedido pendente já está satisfeito: nada toca.
+      stopRequestedRef.current = false;
     }
   }, []);
 
   /** Stop the active patch and release its audio resources. */
   const stopPatch = useCallback(async () => {
-    if (
-      !pd4webRef.current ||
-      isInitializingRef.current ||
-      isStoppingRef.current
-    ) {
+    // Pedido no meio da inicialização: ainda não há o que derrubar, então o
+    // registro fica para o startPatch consumir ao concluir. Antes este caso
+    // retornava em silêncio, e fechar a obra cedo deixava o patch tocando
+    // órfão depois que o wasm terminava de carregar.
+    if (isInitializingRef.current) {
+      stopRequestedRef.current = true;
+      setStatus("Stopping...");
+      return;
+    }
+
+    if (!pd4webRef.current || isStoppingRef.current) {
       return;
     }
 
@@ -252,6 +281,7 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
     () => ({
       pd4web,
       activePatch,
+      loadingPatch,
       status,
       isInitializing,
       isStopping,
@@ -264,6 +294,7 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
     [
       pd4web,
       activePatch,
+      loadingPatch,
       status,
       isInitializing,
       isStopping,
