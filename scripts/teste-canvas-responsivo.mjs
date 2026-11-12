@@ -74,11 +74,15 @@ const medir = (page) =>
     const caixa = canvas.getBoundingClientRect();
     let desenhados = 0;
     let opacos = 0;
+    // Amostra de 1 em 16 pixels: a geometria acima é exata, mas aqui a
+    // pergunta é só "sobrou desenho?", e varrer 1,2 milhão de pixels duas
+    // vezes por medição fazia a rodada das 24 obras passar de meia hora.
+    const PASSO = 16 * 4;
     try {
       const ctx2d = canvas.getContext("2d", { willReadFrequently: true });
       if (ctx2d) {
         const d = ctx2d.getImageData(0, 0, canvas.width, canvas.height).data;
-        for (let i = 0; i < d.length; i += 4) {
+        for (let i = 0; i < d.length; i += PASSO) {
           if (d[i + 3] > 0) opacos++;
           if (d[i] || d[i + 1] || d[i + 2]) desenhados++;
         }
@@ -91,7 +95,7 @@ const medir = (page) =>
             0, 0, canvas.width, canvas.height,
             gl.RGBA, gl.UNSIGNED_BYTE, px,
           );
-          for (let i = 0; i < px.length; i += 4) {
+          for (let i = 0; i < px.length; i += PASSO) {
             if (px[i + 3] > 0) opacos++;
             if (px[i] || px[i + 1] || px[i + 2]) desenhados++;
           }
@@ -114,7 +118,7 @@ const medir = (page) =>
       ],
       desenhados,
       opacos,
-      total: canvas.width * canvas.height,
+      amostras: Math.ceil((canvas.width * canvas.height) / 16),
     };
   });
 
@@ -167,7 +171,7 @@ await navegador.close();
 
 let reprovadas = 0;
 console.log(
-  "\nobra                 cresceu: folga   encolheu: folga   canvas   px desenhados",
+  "\nobra                 cresceu: folga   encolheu: folga   canvas   px (amostra)",
 );
 console.log("-".repeat(90));
 for (const { obra, antes, depois, encolhida, erro } of linhas) {
