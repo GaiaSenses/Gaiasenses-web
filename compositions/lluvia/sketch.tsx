@@ -4,6 +4,7 @@ import { usePd4Web } from "@/app/[locale]/map3/pd4web-context";
 import { COMPOSITION_EVENTS } from "@/app/[locale]/map3/pd4web-patches";
 //@ts-ignore this is generating require calls, should look into that
 import { NextReactP5Wrapper } from "@p5-wrapper/next";
+import { acompanharJanela } from "@/lib/p5-canvas-fit";
 //@ts-ignore this is generating require calls, should look into that
 import type { P5CanvasInstance, SketchProps } from "@p5-wrapper/react";
 import { useEffect } from "react";
@@ -73,6 +74,16 @@ function sketch(p5: P5CanvasInstance<LluviaSketchProps>) {
 
     p5.noLoop();
     p5.background(245, 246, 249);
+    // O canvas passa a acompanhar a caixa onde vive: sem isto ele
+    // guarda para sempre o tamanho que a janela tinha no instante em
+    // que a obra abriu. Ver lib/p5-canvas-fit.ts.
+    acompanharJanela(p5, (largura, altura) => {
+      p5.resizeCanvas(largura, altura);
+      // Até aqui esta obra tinha um windowResized que só chamava redraw():
+      // redesenhava no tamanho antigo, que é o bug sem o conserto.
+      p5.background(245, 246, 249);
+      p5.redraw();
+    });
   };
 
   p5.draw = () => {
@@ -85,9 +96,6 @@ function sketch(p5: P5CanvasInstance<LluviaSketchProps>) {
     });
   };
 
-  p5.windowResized = () => {
-    p5.redraw();
-  };
 }
 
 export function LluviaSketch({ play }: LluviaSketchProps) {

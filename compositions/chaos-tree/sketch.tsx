@@ -3,6 +3,7 @@
 import type { P5CanvasInstance, SketchProps } from "@p5-wrapper/react";
 //@ts-ignore this is generating require calls, should look into that
 import { NextReactP5Wrapper } from "@p5-wrapper/next";
+import { acompanharJanela } from "@/lib/p5-canvas-fit";
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 
@@ -213,6 +214,17 @@ function sketch(p5: P5CanvasInstance<SketchProps & ChaosTreeSketchProps>) {
   p5.setup = () => {
     if (!play) p5.noLoop();
     canvas = p5.createCanvas(width, height, p5.P2D);
+    // O canvas passa a acompanhar a caixa onde vive: sem isto ele
+    // guarda para sempre o tamanho que a janela tinha no instante em
+    // que a obra abriu. Ver lib/p5-canvas-fit.ts.
+    acompanharJanela(p5, (largura, altura) => {
+      width = largura;
+      height = altura;
+      p5.resizeCanvas(largura, altura);
+      // A árvore é uma imagem redimensionada para o canvas e as partículas
+      // são semeadas a partir dela: as duas coisas vêm do initialize().
+      initialize();
+    });
   };
 
   p5.updateWithProps = (props: any) => {

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import p5Types from "p5";
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
+import { acompanharJanela } from "@/lib/p5-canvas-fit";
 
 //This wrapper was found in https://aleksati.net/posts/how-to-use-p5js-with-nextjs-in-2024
 // can go in "./types/global.d.ts"
@@ -116,6 +117,19 @@ const sketch: P5jsSketch = (p, parentRef, temp) => {
         })
       );
     }
+    // O canvas passa a acompanhar a caixa onde vive: sem isto ele
+    // guarda para sempre o tamanho que a janela tinha no instante em
+    // que a obra abriu. Ver lib/p5-canvas-fit.ts.
+    acompanharJanela(p5, (largura, altura) => {
+      w = largura;
+      h = altura;
+      p5.resizeCanvas(largura, altura);
+      width = p5.width;
+      height = p5.height;
+      // As cordas não são semeadas de novo de propósito: cada PlayString
+      // carrega um oscilador, e recriá-las empilharia som. Elas mantêm o
+      // vão original; o que o conserto garante aqui é a tela cheia.
+    });
   };
 
   class PlayString {

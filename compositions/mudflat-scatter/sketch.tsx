@@ -3,6 +3,7 @@
 import type { P5CanvasInstance, SketchProps } from "@p5-wrapper/react";
 //@ts-ignore this is generating require calls, should look into that
 import { NextReactP5Wrapper } from "@p5-wrapper/next";
+import { acompanharJanela } from "@/lib/p5-canvas-fit";
 import type { Color, Vector } from "p5";
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
@@ -32,9 +33,13 @@ function sketch(p5: P5CanvasInstance<SketchProps>) {
 
   let [w, h] = [p5.windowWidth, p5.windowHeight];
 
-  p5.setup = () => {
-    p5.createCanvas(w, h);
-    p5.pixelDensity(1);
+  /**
+   * Pedras e areia nascem do tamanho do canvas, então precisam nascer de novo
+   * quando ele muda — era por isto que esta semeadura saiu de dentro do setup.
+   */
+  const semear = () => {
+    stones = [];
+    beach = [];
     p5.background("#474843");
     stroker = p5.color("#eeeff0");
     stroker.setAlpha(30);
@@ -56,6 +61,21 @@ function sketch(p5: P5CanvasInstance<SketchProps>) {
     for (let y = -p5.height / 10; y < p5.height + p5.height / 10; y++) {
       beach.push(new Sand(-10, y + p5.random(-1, 1)));
     }
+  };
+
+  p5.setup = () => {
+    p5.createCanvas(w, h);
+    p5.pixelDensity(1);
+    semear();
+    // O canvas passa a acompanhar a caixa onde vive: sem isto ele
+    // guarda para sempre o tamanho que a janela tinha no instante em
+    // que a obra abriu. Ver lib/p5-canvas-fit.ts.
+    acompanharJanela(p5, (largura, altura) => {
+      w = largura;
+      h = altura;
+      p5.resizeCanvas(largura, altura);
+      semear();
+    });
   };
 
   p5.updateWithProps = (props: any) => {

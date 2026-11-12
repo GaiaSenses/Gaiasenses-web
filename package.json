@@ -17,7 +17,8 @@
     "patches:validate": "node scripts/patch-manifest.mjs",
     "sensor:ws": "node scripts/sensor-websocket-server.mjs",
     "start": "next start",
-    "test": "node --import ./scripts/register-ts-resolve.mjs --test \"tests/**/*.test.ts\""
+    "test": "node --import ./scripts/register-ts-resolve.mjs --test \"tests/**/*.test.ts\"",
+    "test:canvas": "node scripts/teste-canvas-responsivo.mjs"
   },
   "dependencies": {
     "@formatjs/intl-localematcher": "^0.5.4",
@@ -73,6 +74,7 @@
     "copy-webpack-plugin": "^11.0.0",
     "eslint": "^8.57.0",
     "eslint-config-next": "^14.2.3",
+    "playwright-core": "^1.56.0",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.3",
     "typescript": "^5.4.5"

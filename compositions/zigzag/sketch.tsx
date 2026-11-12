@@ -3,6 +3,7 @@
 import type { P5CanvasInstance, SketchProps } from "@p5-wrapper/react";
 //@ts-ignore this is generating require calls, should look into that
 import { NextReactP5Wrapper } from "@p5-wrapper/next";
+import { acompanharJanela } from "@/lib/p5-canvas-fit";
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 
@@ -156,6 +157,14 @@ function sketch(p5: P5CanvasInstance<SketchProps & ZigZagSketchProps>) {
     p5.rectMode(p5.CENTER);
     p5.strokeCap(p5.SQUARE);
     initialize();
+    // O canvas passa a acompanhar a caixa onde vive: sem isto ele
+    // guarda para sempre o tamanho que a janela tinha no instante em
+    // que a obra abriu. Ver lib/p5-canvas-fit.ts.
+    acompanharJanela(p5, (largura, altura) => {
+      width = largura;
+      height = altura;
+      p5.resizeCanvas(largura, altura);
+    });
   };
 
   p5.updateWithProps = (props: any) => {
@@ -185,12 +194,6 @@ function sketch(p5: P5CanvasInstance<SketchProps & ZigZagSketchProps>) {
     p5.stroke(0, 0, 100);
     p5.noFill();
     p5.strokeWeight(20);
-  };
-
-  p5.windowResized = () => {
-    width = p5.windowWidth;
-    height = p5.windowHeight;
-    p5.resizeCanvas(width, height);
   };
 
   return false;

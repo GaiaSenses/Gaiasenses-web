@@ -1,6 +1,7 @@
 "use client";
 //@ts-ignore this is generating require calls, should look into that
 import { NextReactP5Wrapper } from "@p5-wrapper/next";
+import { acompanharJanela } from "@/lib/p5-canvas-fit";
 
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
@@ -59,6 +60,27 @@ function sketch(p5: P5CanvasInstance<SketchProps & AttractorSketchProps>) {
     p5.ellipseMode(p5.RADIUS);
     p5.blendMode(p5.ADD);
 
+    semearParticulas();
+    initialize();
+    // O canvas passa a acompanhar a caixa onde vive: sem isto ele
+    // guarda para sempre o tamanho que a janela tinha no instante em
+    // que a obra abriu. Ver lib/p5-canvas-fit.ts.
+    acompanharJanela(p5, (largura, altura) => {
+      width = largura;
+      height = altura;
+      p5.resizeCanvas(largura, altura);
+      // O fundo é pintado uma vez só, e o resizeCanvas limpa o desenho.
+      p5.background(p5.color(4, 22, 42));
+      semearParticulas();
+    });
+  };
+
+  /**
+   * As partículas nascem espalhadas pelo canvas, então uma tela que muda de
+   * tamanho precisa espalhá-las de novo — senão elas ficam todas na área que
+   * a janela tinha quando a obra abriu.
+   */
+  function semearParticulas() {
     for (let i = 0; i < num; i++) {
       x[i] = p5.random(width);
       y[i] = p5.random(height);
@@ -67,9 +89,7 @@ function sketch(p5: P5CanvasInstance<SketchProps & AttractorSketchProps>) {
       ax[i] = 0;
       ay[i] = 0;
     }
-
-    initialize();
-  };
+  }
 
   p5.draw = () => {
     p5.fill(4, 22, 42, 0);

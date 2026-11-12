@@ -1,6 +1,7 @@
 "use client";
 import type { P5CanvasInstance, SketchProps } from "@p5-wrapper/react";
 import { NextReactP5Wrapper } from "@p5-wrapper/next";
+import { acompanharJanela } from "@/lib/p5-canvas-fit";
 
 export type ExemploClimaProps = {
   play: boolean;
@@ -18,6 +19,12 @@ function sketch(p5: P5CanvasInstance<SketchProps & ExemploClimaProps>) {
     p5.colorMode(p5.HSB, 255);
     p5.noStroke();
     if (!play) p5.noLoop();
+    // O canvas passa a acompanhar a caixa onde vive: sem isto ele
+    // guarda para sempre o tamanho que a janela tinha no instante em
+    // que a obra abriu. Ver lib/p5-canvas-fit.ts.
+    acompanharJanela(p5, (largura, altura) => {
+      p5.resizeCanvas(largura, altura);
+    });
   };
 
   p5.updateWithProps = (props: ExemploClimaProps) => {
