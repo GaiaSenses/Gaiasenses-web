@@ -6,11 +6,14 @@ import { NextReactP5Wrapper } from "@p5-wrapper/next";
 import { useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { usePd4Web } from "@/app/[locale]/map3/pd4web-context";
-import { GAIA_LEGACY } from "@/lib/gaia-vocabulary";
+import { GAIA } from "@/lib/gaia-vocabulary";
 
 export type CurvesSketchProps = {
   rain: number;
   temperature: number;
+  /** Onde o globo está apontando. Repassado ao patch do mapa, que soniza. */
+  lat: number;
+  lon: number;
   play: boolean;
   pd4web?: pd4web.Pd4Web | null;
 };
@@ -21,18 +24,12 @@ const FPS_MAX = 30;
 const CRITICAL_RAIN = 10;
 const CRITICAL_TEMP = 35;
 
-function randomLatitude() {
-  return Math.random() * 180 - 90;
-}
-
-function randomLongitude() {
-  return Math.random() * 360 - 180;
-}
-
 function sketch(p5: P5CanvasInstance<SketchProps & CurvesSketchProps>) {
   // inspired by: https://openprocessing.org/sketch/1176431
   let rain = 0;
   let temperature = 0;
+  let lat = 0;
+  let lon = 0;
   let play = false;
 
   let [width, height] = [p5.windowWidth, p5.windowHeight];
@@ -52,6 +49,8 @@ function sketch(p5: P5CanvasInstance<SketchProps & CurvesSketchProps>) {
     temperature = Number.isNaN(props.temperature)
       ? temperature
       : props.temperature;
+    lat = Number.isFinite(props.lat) ? props.lat : lat;
+    lon = Number.isFinite(props.lon) ? props.lon : lon;
     play = props.play;
 
     const fps = p5.map(rain, 0, CRITICAL_RAIN, FPS_MIN, FPS_MAX);
@@ -82,13 +81,13 @@ function sketch(p5: P5CanvasInstance<SketchProps & CurvesSketchProps>) {
       p5.random(width),
       height,
     );
-    const lat = randomLatitude();
-    const lon = randomLongitude();
-
-    // Names come from the shared vocabulary, so a patch can listen on either
-    // the canonical gaia.* name or its historical alias.
-    pd4web?.sendFloat(GAIA_LEGACY.LAT, lat);
-    pd4web?.sendFloat(GAIA_LEGACY.LON, lon);
+    // This used to send Math.random() on the legacy aliases, which made the
+    // map patch sing to numbers that had nothing to do with where the globe
+    // was pointing — and, because the map itself had its sending switched off,
+    // that noise was the ONLY lat/lon the patch ever saw. Now it is the real
+    // position, on the canonical channels the rest of the app uses.
+    pd4web?.sendFloat(GAIA.LAT, lat);
+    pd4web?.sendFloat(GAIA.LON, lon);
   };
 }
 
@@ -100,6 +99,8 @@ export default function CurvesSketch(initialProps: CurvesSketchProps) {
   // ler params e converter para número quando existirem
   const urlRain = searchParams?.get("rain");
   const urlTemperature = searchParams?.get("temperature");
+  const urlLat = searchParams?.get("lat");
+  const urlLon = searchParams?.get("lon");
   const urlPlay = searchParams?.get("play");
 
   const rain = useMemo(
@@ -115,6 +116,16 @@ export default function CurvesSketch(initialProps: CurvesSketchProps) {
     [urlTemperature, initialProps.temperature],
   );
 
+  const lat = useMemo(
+    () => (urlLat !== null ? Number(urlLat) : initialProps.lat),
+    [urlLat, initialProps.lat],
+  );
+
+  const lon = useMemo(
+    () => (urlLon !== null ? Number(urlLon) : initialProps.lon),
+    [urlLon, initialProps.lon],
+  );
+
   const play =
     urlPlay !== null
       ? urlPlay === "true" || urlPlay === "1"
@@ -126,6 +137,8 @@ export default function CurvesSketch(initialProps: CurvesSketchProps) {
       sketch={sketch}
       rain={rain}
       temperature={temperature}
+      lat={lat}
+      lon={lon}
       play={play}
       pd4web={pd4web}
     />

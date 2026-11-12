@@ -82,6 +82,14 @@ export type CompositionAudio =
   | { kind: "none" }
   /** O som vem de um patch Pd, que reage sozinho aos canais gaia.*. */
   | { kind: "patch" }
+  /**
+   * A própria animação sintetiza o som — Tone.js em `airports`, p5.sound em
+   * `generativeStrings`. Não há arquivo a tocar, então o runtime se comporta
+   * como em `none`; o que muda é a verdade do catálogo. As duas declaravam
+   * `none`, e quem lesse o manifesto para saber "esta obra tem áudio?" errava
+   * nas duas.
+   */
+  | { kind: "synth" }
   /** Um arquivo fixo. */
   | { kind: "mp3"; file: string }
   /** A primeira regra que couber decide. */

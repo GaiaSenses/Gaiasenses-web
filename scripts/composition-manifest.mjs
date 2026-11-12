@@ -123,8 +123,10 @@ function validateAudio(manifest, slug, onde, errors, warnings) {
   const audio = manifest.audio;
   if (!audio || typeof audio !== "object") return;
 
-  if (!["none", "patch", "mp3"].includes(audio.kind)) {
-    errors.push(`${onde}: audio.kind precisa ser "none", "patch" ou "mp3"`);
+  if (!["none", "patch", "mp3", "synth"].includes(audio.kind)) {
+    errors.push(
+      `${onde}: audio.kind precisa ser "none", "patch", "mp3" ou "synth"`,
+    );
     return;
   }
 

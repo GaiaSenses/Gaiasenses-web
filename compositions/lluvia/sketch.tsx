@@ -56,7 +56,12 @@ function sketch(p5: P5CanvasInstance<LluviaSketchProps>) {
     if (nextPlay && pd && !paintListenerMap.get(pd)) {
       paintListenerMap.set(pd, true);
       console.log("Attaching paint listener to pd4web instance:", pd);
-      pd.onBangReceived(COMPOSITION_EVENTS.lluvia.listensTo[0], () => {
+      // The argument has to be declared even though it is unused: pd4web
+      // inspects the callback's arity and refuses a zero-argument one with
+      // "Callback for onBangReceived must have 1 arguments, but has 0", which
+      // silently dropped every paint bang — and in lluvia it is the patch that
+      // draws the rain, so the canvas stayed empty.
+      pd.onBangReceived(COMPOSITION_EVENTS.lluvia.listensTo[0], (_name) => {
         spawnDrop();
       });
     }
