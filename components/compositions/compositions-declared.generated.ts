@@ -132,7 +132,7 @@ export const DECLARED_COMPOSITION_MANIFESTS = {
     id: "lightningBolts",
     label: "Lightning Bolts",
     attributes: ["lightningCount"],
-    audio: {"kind":"mp3","rules":[{"when":{"lightningCount":{"max":0}},"file":""},{"when":{"lightningCount":{"below":4}},"file":"lightningBolts_Low.mp3"},{"file":"lightningBolts_High.mp3"}]},
+    audio: {"kind":"patch"},
     thumb: "lightning-bolts.png",
   },
   lightningTrees: {
@@ -166,7 +166,7 @@ export const DECLARED_COMPOSITION_MANIFESTS = {
     id: "nightRain",
     label: "Night Rain",
     attributes: ["rain","temperature"],
-    audio: {"kind":"mp3","rules":[{"when":{"rain":{"max":0}},"file":""},{"when":{"rain":{"below":3}},"file":"NRlight.mp3"},{"when":{"rain":{"below":6}},"file":"NRmedium.mp3"},{"file":"NRheavy.mp3"}]},
+    audio: {"kind":"patch"},
     thumb: "night-rain.png",
   },
   paintBrush: {
