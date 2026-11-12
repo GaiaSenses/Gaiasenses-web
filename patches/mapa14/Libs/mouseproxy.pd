@@ -1,0 +1,6 @@
+#N canvas 122 146 450 300 12;
+#X obj 272 61 outlet;
+#X obj 282 71 outlet;
+#X obj 292 81 outlet;
+#X obj 302 91 outlet;
+#X obj 312 101 outlet;
