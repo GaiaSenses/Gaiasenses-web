@@ -66,7 +66,12 @@ function sketch(p5: P5CanvasInstance<SketchProps & LightningTreesSketchProps>) {
       let j = p5.round(p.x / w);
       let i = p5.round(p.y / w);
       let pos = p5.createVector(p.x, p.y);
-      if (grid[i] && grid[i][j]) {
+      // The test was `grid[i] && grid[i][j]`, which asks for a cell that is
+      // ALREADY taken — and the grid has just been filled with `undefined`,
+      // so it was never true. `active` therefore stayed empty, `draw` found
+      // nothing to grow from, and the canvas stayed black at every lightning
+      // count. What the seeding wants is a FREE cell.
+      if (i > -1 && i < nRows && j > -1 && j < nCols && !grid[i][j]) {
         grid[i][j] = pos;
         active.push({
           pos: pos,
@@ -138,7 +143,11 @@ function sketch(p5: P5CanvasInstance<SketchProps & LightningTreesSketchProps>) {
             row > -1 &&
             col < nCols &&
             row < nRows &&
-            !grid[col + row * nCols]
+            // `grid` is rows-of-columns, built by `grid.push(newRow)`. This
+            // read used a flat index (`col + row * nCols`), which lands
+            // outside the array and is always undefined, so the occupancy
+            // test never rejected anything.
+            !grid[row][col]
           ) {
             var ok = true;
             for (
@@ -148,7 +157,8 @@ function sketch(p5: P5CanvasInstance<SketchProps & LightningTreesSketchProps>) {
             ) {
               for (
                 var j = p5.max(col - 1, 0);
-                j <= p5.min(col + 1, nRows - 1);
+                // Columns are bounded by nCols, not nRows.
+                j <= p5.min(col + 1, nCols - 1);
                 j++
               ) {
                 let neighbor = grid[i][j];

@@ -9,7 +9,7 @@
     "lon"
   ],
   "audio": {
-    "kind": "none"
+    "kind": "synth"
   },
   "thumb": "weather-tree.png"
 }

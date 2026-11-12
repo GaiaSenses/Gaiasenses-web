@@ -549,9 +549,23 @@ the patches.
 
 | Layer | File | Role |
 |---|---|---|
-| Connection | `app/[locale]/map3/ble-control.tsx` | Web Bluetooth GATT: service `19b10000-e8f2-537e-4f6c-d104768a1214`, sensor char `…0001` (notify), CO₂ char `…0003` (notify). JSON payloads: `{quat, euler, acc}` and `{co2:{ppm}}`. Auto-reconnect (5 × 1.5 s) |
+| Connection | `app/[locale]/map3/ble-control.tsx` | Web Bluetooth GATT: service `19b10000-e8f2-537e-4f6c-d104768a1214`, sensor char `…0001` (notify), CO₂ char `…0003` (notify). Auto-reconnect (5 × 1.5 s) |
+| Decoding | `app/[locale]/map3/ble-decode.ts` | Turns each notification (Gaiaball v2 binary **or** legacy JSON) into `{quat, euler, acc}` / `{co2:{ppm}}`. Never throws: malformed packets are dropped |
 | Orchestration | `app/[locale]/map3/use-ble-sensor.ts` | Routes packets to smoothing, handles calibration lifecycle and CO₂ side effects |
 | Smoothing & motion | `app/[locale]/map3/use-sensor-smoothing.ts` | Baseline calibration (quaternion, Euler fallback), median + EMA filtering, 30 Hz `requestAnimationFrame` loop, state machine `calibrating → idle → moving → settling → stopped` |
+
+**Wire format (Gaiaball v2 firmware, protocol v1).** Packed little-endian structs; the decoder accepts them only with the exact length, `version = 1` and the right `type`:
+
+| Packet | Size | Layout | Notes |
+|---|---|---|---|
+| IMU (char `…0001`, type `0x01`) | 23 B | `ver u8 · type u8 · seq u16 · tUs u32 · quatW/X/Y/Z i16 · accX/Y/Z i16 · flags u8` | Quaternion is Q14 (`int16 / 16384`); accel is raw DMP counts. Flags: bit0 `quatValid` (packet dropped when 0), bit1 `nineAxis`, bit2 `moving` |
+| CO₂ (char `…0003`, type `0x02`) | 12 B | `ver u8 · type u8 · seq u16 · tMs u32 · ppm u16 · flags u8 · ageS u8` | Flags: bit0 `valid`, bit1 `stale` (ppm still delivered; one `console.warn` per connection), bit2 `virtualActive` |
+
+Euler angles are **not** on the wire: the decoder derives them from the quaternion with the legacy firmware convention (`qw=w, qx=y, qy=x, qz=-z`, then aerospace roll/pitch/yaw, in degrees), so the Pure Data patch receives the same `roll/pitch/yaw` numbers the old firmware sent.
+
+**JSON fallback:** a notification whose first byte is `{` is parsed as the legacy JSON (`{quat, euler, acc}` / `{co2:{ppm}}`), so boards still running the old firmware keep working. Payloads missing `quat` (sensor) or a numeric `co2.ppm` are dropped instead of crashing the handler.
+
+Full protocol (UUIDs, commands, config TLV, golden vectors): [`firmware/docs/protocol.md`](https://github.com/GaiaSenses/gaiaball/blob/main/firmware/docs/protocol.md) in the [Gaiaball firmware repository](https://github.com/GaiaSenses/gaiaball). Decoder tests: `tests/ble-decode.test.ts`.
 
 **Mapping methods:** `pd` (default — the Pure Data patch computes the target), `quaternion`, `euler`, `basic`.
 

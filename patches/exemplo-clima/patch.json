@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "id": "exemplo-clima",
   "label": "Exemplo: temperatura",
-  "description": "Patch mínimo do tutorial. A temperatura do lugar para onde o globo aponta vira a altura de uma nota contínua. Não toca sozinho: abra com ?patch=exemplo-clima.",
+  "description": "Patch mínimo do tutorial. A temperatura do lugar para onde o globo aponta vira a altura de uma nota contínua. Toca com a animação exemploClima, e também pode ser auditado sozinho com ?patch=exemplo-clima.",
   "author": {
     "name": "Tutorial GaiaSenses"
   },
@@ -14,6 +14,9 @@
   "activation": {
     "moments": [
       "player"
+    ],
+    "compositions": [
+      "exemploClima"
     ]
   }
 }

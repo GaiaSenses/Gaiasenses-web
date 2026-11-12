@@ -23,8 +23,13 @@ export default  function CompositionModal({isOpen, closeButton, children, MuteBu
                         transition={{duration:1.5}}
                         >
                         {children}
-                        <div className="absolute bottom-4 left-4">
+                        {/* `closeButton` was accepted and never rendered, so the
+                            Back button built in page.tsx never reached the screen
+                            and the only way out was clicking the invisible
+                            full-screen toggle overlay. */}
+                        <div className="absolute bottom-4 left-4 flex items-center gap-2">
                             {MuteButton}
+                            {closeButton}
                         </div>
                     </motion.div>
                 )}

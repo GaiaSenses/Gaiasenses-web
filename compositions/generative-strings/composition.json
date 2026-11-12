@@ -1,12 +1,13 @@
 {
   "id": "generativeStrings",
   "label": "Generative Strings",
+  "description": "Cordas sintetizadas com p5.sound (SinOsc/TriOsc/Noise + Envelope). A temperatura define quantas cordas existem, a massa e as velocidades — ela rege o som e a imagem ao mesmo tempo. O som é gerado, não tocado de arquivo.",
   "license": "CC-BY-4.0",
   "attributes": [
     "temperature"
   ],
   "audio": {
-    "kind": "none"
+    "kind": "synth"
   },
   "thumb": "weather-tree.png"
 }
