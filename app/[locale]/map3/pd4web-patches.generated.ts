@@ -41,6 +41,32 @@ export const GENERATED_MAP3_PD4WEB_PATCHES = [
     tuning: { pollMs: 100, epsilon: 0.0001, accEpsilon: 0.05 },
   },
   {
+    id: "mapa13",
+    label: "TesteGlobo2.0",
+    bundleFolder: "patches/mapa13",
+    runtime: "8e5996dacfc1",
+    activation: {
+      moments: ["map"],
+    },
+    channels: {
+      receivers: {
+        "gaia.clouds": "gaia.clouds",
+        "gaia.fire": "gaia.fire",
+        "gaia.humidity": "gaia.humidity",
+        "gaia.lat": "gaia.lat",
+        "gaia.lightning": "gaia.lightning",
+        "gaia.lon": "gaia.lon",
+        "gaia.rain": "gaia.rain",
+        "gaia.speed": "gaia.speed",
+        "gaia.temp": "gaia.temp",
+        "gaia.wind.deg": "gaia.wind.deg",
+        "gaia.wind.speed": "gaia.wind.speed",
+      },
+      senders: {},
+    },
+    tuning: { pollMs: 100, epsilon: 0.0001, accEpsilon: 0.05 },
+  },
+  {
     id: "paraisoGaia43",
     label: "Map sound 43",
     bundleFolder: "patches/paraisoGaia43",
