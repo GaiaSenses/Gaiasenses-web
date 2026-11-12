@@ -3,6 +3,7 @@
 import type { P5CanvasInstance, SketchProps } from "@p5-wrapper/react";
 //@ts-ignore this is generating require calls, should look into that
 import { NextReactP5Wrapper } from "@p5-wrapper/next";
+import { acompanharJanela } from "@/lib/p5-canvas-fit";
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { Map, map } from "leaflet";
@@ -30,6 +31,14 @@ function sketch(p5: P5CanvasInstance<SketchProps & NightRainSketchProps>) {
     p5.colorMode(p5.HSB, 255);
     p5.ellipseMode(p5.RADIUS);
     p5.noFill();
+    // O canvas passa a acompanhar a caixa onde vive: sem isto ele
+    // guarda para sempre o tamanho que a janela tinha no instante em
+    // que a obra abriu. Ver lib/p5-canvas-fit.ts.
+    acompanharJanela(p5, (largura, altura) => {
+      width = largura;
+      height = altura;
+      p5.resizeCanvas(largura, altura);
+    });
   };
 
   p5.updateWithProps = (props: any) => {

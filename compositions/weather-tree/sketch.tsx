@@ -3,6 +3,7 @@
 import type { P5CanvasInstance, SketchProps } from "@p5-wrapper/react";
 //@ts-ignore this is generating require calls, should look into that
 import { NextReactP5Wrapper } from "@p5-wrapper/next";
+import { acompanharJanela } from "@/lib/p5-canvas-fit";
 
 export type WeatherTreeSketchProps = {
   play: boolean;
@@ -51,6 +52,15 @@ function sketch(p5: P5CanvasInstance<SketchProps & WeatherTreeSketchProps>) {
     p5.frameRate(20);
 
     treeColor = p5.color(p5.random(255), p5.random(255), p5.random(255));
+    // O canvas passa a acompanhar a caixa onde vive: sem isto ele
+    // guarda para sempre o tamanho que a janela tinha no instante em
+    // que a obra abriu. Ver lib/p5-canvas-fit.ts.
+    acompanharJanela(p5, (largura, altura) => {
+      width = largura;
+      height = altura;
+      p5.resizeCanvas(largura, altura);
+      p5.background(0);
+    });
   };
 
   p5.updateWithProps = (props: any) => {

@@ -3,6 +3,7 @@
 import type { P5CanvasInstance, SketchProps } from "@p5-wrapper/react";
 //@ts-ignore this is generating require calls, should look into that
 import { NextReactP5Wrapper } from "@p5-wrapper/next";
+import { acompanharJanela } from "@/lib/p5-canvas-fit";
 import p5 from "p5";
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
@@ -51,6 +52,14 @@ function sketch(p5: P5CanvasInstance<SketchProps & RiverLinesSketchProps>) {
     initializeObjects();
 
     if (!play) p5.noLoop();
+    // O canvas passa a acompanhar a caixa onde vive: sem isto ele
+    // guarda para sempre o tamanho que a janela tinha no instante em
+    // que a obra abriu. Ver lib/p5-canvas-fit.ts.
+    acompanharJanela(p5, (largura, altura) => {
+      p5.resizeCanvas(largura, altura);
+      p5.background(20);
+      initializeObjects();
+    });
   };
 
   p5.updateWithProps = (props: any) => {

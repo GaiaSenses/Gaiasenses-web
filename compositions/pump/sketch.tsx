@@ -1,6 +1,10 @@
 "use client";
 //@ts-ignore this is generating require calls, should look into that
 import { NextReactP5Wrapper } from "@p5-wrapper/next";
+import {
+  acompanharJanela,
+  tamanhoDaTela,
+} from "@/lib/p5-canvas-fit";
 //@ts-ignore this is generating require calls, should look into that
 import { P5CanvasInstance, SketchProps } from "@p5-wrapper/react";
 import p5 from "p5";
@@ -23,8 +27,17 @@ function sketch(p5: P5CanvasInstance<SketchProps & PumpSketchProps>) {
   let mX = 0;
   let mY = 0;
 
-  p5.setup = (init = true) => {
-    S = p5.min((W = p5.windowWidth), (H = p5.windowHeight));
+  /**
+   * `init = false` recalcula tudo para um canvas que mudou de tamanho — o
+   * caminho já existia aqui, mas nada o chamava: faltava o gancho de resize,
+   * que agora vem do acompanharJanela() no fim desta função. As medidas também
+   * deixaram de vir de `windowWidth`/`windowHeight`, que incluem a barra de
+   * rolagem, e passam a vir da caixa onde o canvas está.
+   */
+  let medida = tamanhoDaTela();
+
+  const configurar = (init: boolean) => {
+    S = p5.min((W = medida.largura), (H = medida.altura));
     s = S / 2;
     w = W / 2;
     h = H / 2;
@@ -62,8 +75,19 @@ function sketch(p5: P5CanvasInstance<SketchProps & PumpSketchProps>) {
     mX = 0;
     mY = 0;
     // frameRate(144)
-  };
 
+  };
+  p5.setup = () => {
+    configurar(true);
+    // O canvas passa a acompanhar a caixa onde vive: sem isto ele guarda para
+    // sempre o tamanho que a janela tinha quando a obra abriu. O caminho de
+    // recálculo (configurar(false)) já existia; faltava quem o chamasse.
+    // Ver lib/p5-canvas-fit.ts.
+    acompanharJanela(p5, (largura, altura) => {
+      medida = { largura, altura };
+      configurar(false);
+    });
+  };
   function draw_roots(offset: number, rotation: number, col: p5.Color) {
     p5.push();
     p5.translate(offset, 0);

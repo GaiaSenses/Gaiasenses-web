@@ -3,6 +3,7 @@
 import type { P5CanvasInstance, SketchProps } from "@p5-wrapper/react";
 //@ts-ignore this is generating require calls, should look into that
 import { NextReactP5Wrapper } from "@p5-wrapper/next";
+import { acompanharJanela } from "@/lib/p5-canvas-fit";
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 
@@ -52,6 +53,17 @@ function sketch(
     // only the transparency carries the image.
     g = p5.createGraphics(n, n);
     g.background(0).pixelDensity(1).loadPixels();
+    // O canvas passa a acompanhar a caixa onde vive: sem isto ele
+    // guarda para sempre o tamanho que a janela tinha no instante em
+    // que a obra abriu. Ver lib/p5-canvas-fit.ts.
+    acompanharJanela(p5, (largura, altura) => {
+      width = largura;
+      height = altura;
+      p5.resizeCanvas(largura, altura);
+      // O buffer do autômato continua 500x500; o que muda é a escala com
+      // que ele é lido para a tela.
+      zoom = n / p5.min(largura, altura);
+    });
   };
 
   p5.updateWithProps = (props: any) => {
