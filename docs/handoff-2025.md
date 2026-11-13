@@ -184,6 +184,8 @@ Patch metadata controls:
 
 Current PD mapping list contract:
 
+> Nota (2026-11): contrato histórico. `gaia.out` não move mais o globo, `mappingMethod` e a saída `outputListReceiver` foram removidos, e o envio ao patch segue `pd-send-rule.ts` (README, "App ⇄ Pd message contract"). A bola calcula a navegação.
+
 App -> Pd (sensor input list):
 
 - Receiver: sensorListReceiver
@@ -199,7 +201,6 @@ Pd -> App (target output list):
 Fallback behavior currently implemented in map-center loop:
 
 - If sensor is connected and mappingMethod is pd, app sends sensor list to sensorListReceiver.
-- Nota (2026-11): `mappingMethod` e a saída `gaia.out` que movia o globo foram removidos; a regra de envio atual está em `pd-send-rule.ts` (README, "App ⇄ Pd message contract").
 - If sensor is not connected, app sends current globe latitude/longitude floats to latitudeReceiver/longitudeReceiver.
 - When sensor is not connected, incoming PD output list does not update the globe target.
 
