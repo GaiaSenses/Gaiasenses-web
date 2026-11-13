@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   decodeSensorNotification,
   decodeCo2Notification,
+  decodeNavNotification,
   resetCo2StaleWarning,
 } from "../app/[locale]/map3/ble-decode";
 
@@ -18,6 +19,17 @@ const GOLDEN_IMU =
   "01 01 02 01 0D 0C 0B 0A 00 40 00 00 00 00 00 00 01 00 FE FF 03 00 0B" +
   " 00 00 30 F8 00 00 A6 FD";
 const GOLDEN_CO2 = "01 02 02 01 0D 0C 0B 0A E8 03 05 07";
+
+// NavPacket golden vectors, verbatim from the protocol contract shared by the
+// firmware, the config-app and this site.
+// A: seq 258, tUs 12345678, mode 1, flags 0x03, latE7 -229055560,
+//    lonE7 -470608330, bearingX100 4500, speedDegSX10 123.
+const GOLDEN_NAV_A =
+  "01 07 02 01 4E 61 BC 00 01 03 B8 E3 58 F2 36 16 F3 E3 94 11 7B 00";
+// B: seq 65535, tUs 4294967295, mode 2, flags 0x06, latE7 900000000,
+//    lonE7 -1800000000, bearingX100 -18000, speedDegSX10 65535.
+const GOLDEN_NAV_B =
+  "01 07 FF FF FF FF FF FF 02 06 00 E9 A4 35 00 2E B6 94 B0 B9 FF FF";
 
 function hex(s: string): ArrayBuffer {
   const bytes = s
@@ -82,6 +94,33 @@ test("golden IMU vector decodes to identity quat, zero euler, acc (1,-2,3)", () 
   assert.equal(Math.abs(r.euler.pitch ?? NaN), 0);
   assert.equal(Math.abs(r.euler.yaw ?? NaN), 0);
   assert.deepEqual(r.acc, { x: 1, y: -2, z: 3 });
+});
+
+test("golden IMU vector (flags 0x0B) exposes the microphone envelope in dBFS", () => {
+  const r = decodeSensorNotification(hex(GOLDEN_IMU));
+  assert.ok(r);
+  assert.deepEqual(r.audio, { rmsDb: [0, -20], peakDb: [0, -6.02] });
+});
+
+test("audio envelope is absent unless flags bit3 (audioValid) is set", () => {
+  const sem = decodeSensorNotification(
+    imuPacket({ w: 16384, x: 0, y: 0, z: 0, flags: 0b0011 }),
+  );
+  assert.ok(sem);
+  assert.equal("audio" in sem, false);
+
+  const com = decodeSensorNotification(
+    imuPacket({ w: 16384, x: 0, y: 0, z: 0, flags: 0b1001 }),
+  );
+  assert.ok(com);
+  assert.deepEqual(com.audio, { rmsDb: [-120, -120], peakDb: [-120, -120] });
+
+  const golden = new Uint8Array(hex(GOLDEN_IMU));
+  golden[22] = 0x03; // same bytes, audioValid cleared
+  const limpo = decodeSensorNotification(golden.buffer);
+  assert.ok(limpo);
+  assert.equal(limpo.audio, undefined);
+  assert.equal("audio" in limpo, false);
 });
 
 test("90° yaw quat yields legacy euler (roll 0, pitch 0, yaw -90)", () => {
@@ -151,16 +190,42 @@ test("a CO2 packet longer than v8 still decodes", () => {
   const b = new Uint8Array(hex(GOLDEN_CO2));
   const maior = new Uint8Array(20);
   maior.set(b);
-  assert.deepEqual(decodeCo2Notification(maior.buffer), { co2: { ppm: 1000 } });
+  assert.deepEqual(decodeCo2Notification(maior.buffer), {
+    co2: { ppm: 1000 },
+    trigger: false,
+  });
 });
 
 // ---------------------------------------------------------------------------
 // Binary CO2
 // ---------------------------------------------------------------------------
 
-test("golden CO2 vector → ppm 1000", () => {
+test("golden CO2 vector → ppm 1000, trigger off (flags 0x05)", () => {
   assert.deepEqual(decodeCo2Notification(hex(GOLDEN_CO2)), {
     co2: { ppm: 1000 },
+    trigger: false,
+  });
+});
+
+test("CO2 trigger follows flags bit3 and nothing else", () => {
+  const b = new Uint8Array(hex(GOLDEN_CO2));
+  b[10] = 0x05 | 0x08;
+  assert.deepEqual(decodeCo2Notification(b.buffer), {
+    co2: { ppm: 1000 },
+    trigger: true,
+  });
+  // every other flag bit set, bit3 clear → still off
+  b[10] = 0xff & ~0x08;
+  const semGatilho = decodeCo2Notification(b.buffer);
+  assert.ok(semGatilho);
+  assert.equal(semGatilho.trigger, false);
+  // the ppm is independent of the trigger: the ball decides, not the site
+  b[8] = 0x2c;
+  b[9] = 0x01; // 300 ppm
+  b[10] = 0x08;
+  assert.deepEqual(decodeCo2Notification(b.buffer), {
+    co2: { ppm: 300 },
+    trigger: true,
   });
 });
 
@@ -174,8 +239,9 @@ test("stale CO2 still delivers ppm and warns only once per connection", () => {
     calls.push(args);
   };
   try {
-    assert.deepEqual(decodeCo2Notification(b.buffer), { co2: { ppm: 1000 } });
-    assert.deepEqual(decodeCo2Notification(b.buffer), { co2: { ppm: 1000 } });
+    const esperado = { co2: { ppm: 1000 }, trigger: false };
+    assert.deepEqual(decodeCo2Notification(b.buffer), esperado);
+    assert.deepEqual(decodeCo2Notification(b.buffer), esperado);
     assert.equal(calls.length, 1);
     assert.equal(calls[0][0], "Gaiaball: CO2 stale");
     resetCo2StaleWarning();
@@ -193,33 +259,104 @@ test("CO2 wrong length / type → null", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Legacy JSON fallback (old firmware)
+// Binary navigation (NavPacket, type 0x07)
 // ---------------------------------------------------------------------------
 
-test("legacy sensor JSON parses identically to JSON.parse", () => {
-  const json =
-    '{"quat":{"quat_w":0.98,"quat_x":0.01,"quat_y":-0.02,"quat_z":0.19},' +
-    '"euler":{"roll":1.5,"pitch":-2.25,"yaw":-21.9},"acc":{"x":120,"y":-34,"z":8150}}';
-  assert.deepEqual(decodeSensorNotification(text(json)), JSON.parse(json));
-});
-
-test("legacy CO2 JSON parses identically", () => {
-  assert.deepEqual(decodeCo2Notification(text('{"co2":{"ppm":850}}')), {
-    co2: { ppm: 850 },
+test("golden nav vector A decodes field by field", () => {
+  assert.deepEqual(decodeNavNotification(hex(GOLDEN_NAV_A)), {
+    mode: 1,
+    valid: true,
+    settled: true,
+    moving: false,
+    lat: -22.905556,
+    lon: -47.060833,
+    bearing: 45,
+    speedDegS: 12.3,
+    seq: 258,
+    tUs: 12345678,
   });
 });
 
-test("`{}` JSON (the legacy crash case) → null", () => {
-  assert.equal(decodeSensorNotification(text("{}")), null);
-  assert.equal(decodeCo2Notification(text("{}")), null);
+test("golden nav vector B decodes the extremes", () => {
+  assert.deepEqual(decodeNavNotification(hex(GOLDEN_NAV_B)), {
+    mode: 2,
+    valid: false,
+    settled: true,
+    moving: true,
+    lat: 90,
+    lon: -180,
+    bearing: -180,
+    speedDegS: 6553.5,
+    seq: 65535,
+    tUs: 4294967295,
+  });
 });
 
-test("malformed JSON / wrong shapes → null", () => {
-  assert.equal(decodeSensorNotification(text('{"quat":')), null);
-  assert.equal(decodeSensorNotification(text('{"quat":5}')), null);
-  assert.equal(decodeCo2Notification(text('{"co2":{"ppm":"x"}}')), null);
-  assert.equal(decodeCo2Notification(text('{"co2":null}')), null);
-  assert.equal(decodeCo2Notification(text("{ not json")), null);
+test("nav packets of 22 bytes or more are accepted, shorter → null", () => {
+  const a = new Uint8Array(hex(GOLDEN_NAV_A));
+  assert.equal(decodeNavNotification(a.slice(0, 21).buffer), null);
+  assert.equal(decodeNavNotification(a.slice(0, 0).buffer), null);
+
+  // a future firmware appending fields must not silence the globe
+  const maior = new Uint8Array(40);
+  maior.set(a);
+  maior.fill(0xee, 22);
+  assert.deepEqual(
+    decodeNavNotification(maior.buffer),
+    decodeNavNotification(a.buffer),
+  );
+});
+
+test("nav with wrong version or type → null", () => {
+  const a = new Uint8Array(hex(GOLDEN_NAV_A));
+  const v0 = a.slice();
+  v0[0] = 0;
+  assert.equal(decodeNavNotification(v0.buffer), null);
+  const v2 = a.slice();
+  v2[0] = 2;
+  assert.equal(decodeNavNotification(v2.buffer), null);
+  const t1 = a.slice();
+  t1[1] = 0x01;
+  assert.equal(decodeNavNotification(t1.buffer), null);
+  // an IMU or CO2 packet is not a nav packet, and vice versa
+  assert.equal(decodeNavNotification(hex(GOLDEN_IMU)), null);
+  assert.equal(decodeNavNotification(hex(GOLDEN_CO2)), null);
+  assert.equal(decodeSensorNotification(hex(GOLDEN_NAV_A)), null);
+  assert.equal(decodeCo2Notification(hex(GOLDEN_NAV_A)), null);
+});
+
+test("nav flags are three independent bits", () => {
+  const a = new Uint8Array(hex(GOLDEN_NAV_A));
+  const flagsDe = (f: number) => {
+    const b = a.slice();
+    b[9] = f;
+    const r = decodeNavNotification(b.buffer);
+    assert.ok(r);
+    return [r.valid, r.settled, r.moving];
+  };
+  assert.deepEqual(flagsDe(0x00), [false, false, false]);
+  assert.deepEqual(flagsDe(0x01), [true, false, false]);
+  assert.deepEqual(flagsDe(0x02), [false, true, false]);
+  assert.deepEqual(flagsDe(0x04), [false, false, true]);
+  // mirror mode may send valid|settled|moving: legal, decoded as is
+  assert.deepEqual(flagsDe(0x07), [true, true, true]);
+  // unknown upper bits are ignored
+  assert.deepEqual(flagsDe(0xf8 | 0x01), [true, false, false]);
+});
+
+// ---------------------------------------------------------------------------
+// The original firmware's JSON is no longer read
+// ---------------------------------------------------------------------------
+
+test("JSON notifications (original firmware) → null", () => {
+  const sensor =
+    '{"quat":{"quat_w":0.98,"quat_x":0.01,"quat_y":-0.02,"quat_z":0.19},' +
+    '"euler":{"roll":1.5,"pitch":-2.25,"yaw":-21.9},"acc":{"x":120,"y":-34,"z":8150}}';
+  assert.equal(decodeSensorNotification(text(sensor)), null);
+  assert.equal(decodeCo2Notification(text('{"co2":{"ppm":850}}')), null);
+  assert.equal(decodeNavNotification(text('{"lat":-22.9,"lon":-47.06}')), null);
+  assert.equal(decodeSensorNotification(text("{}")), null);
+  assert.equal(decodeCo2Notification(text("{}")), null);
 });
 
 // ---------------------------------------------------------------------------
@@ -229,11 +366,14 @@ test("malformed JSON / wrong shapes → null", () => {
 test("empty / garbage / non-buffer input → null, never throws", () => {
   assert.equal(decodeSensorNotification(new ArrayBuffer(0)), null);
   assert.equal(decodeCo2Notification(new ArrayBuffer(0)), null);
+  assert.equal(decodeNavNotification(new ArrayBuffer(0)), null);
   assert.equal(decodeSensorNotification(hex("FF 00 13")), null);
   assert.equal(decodeCo2Notification(hex("FF 00 13")), null);
+  assert.equal(decodeNavNotification(hex("FF 00 13")), null);
   for (const bad of [null, undefined, 42, "str", {}] as unknown[]) {
     assert.equal(decodeSensorNotification(bad as ArrayBuffer), null);
     assert.equal(decodeCo2Notification(bad as ArrayBuffer), null);
+    assert.equal(decodeNavNotification(bad as ArrayBuffer), null);
   }
 });
 
@@ -247,23 +387,31 @@ test("fuzz: 500 random buffers never throw", () => {
   console.warn = () => {};
   try {
     for (let i = 0; i < 500; i++) {
-      const len = rnd() % 32;
+      const len = rnd() % 48;
       const u8 = new Uint8Array(len);
       for (let j = 0; j < len; j++) u8[j] = rnd() & 0xff;
-      // bias some iterations toward valid headers / JSON start
+      // bias some iterations toward valid headers (IMU, CO2, nav)
       if (len > 1 && i % 3 === 0) {
         u8[0] = 1;
-        u8[1] = (i % 2) + 1;
+        u8[1] = [0x01, 0x02, 0x07][(i / 3) % 3];
       }
-      if (len > 0 && i % 5 === 0) u8[0] = 0x7b;
       const s = decodeSensorNotification(u8.buffer);
       const c = decodeCo2Notification(u8.buffer);
+      const n = decodeNavNotification(u8.buffer);
       if (s) {
         for (const v of [...Object.values(s.quat), ...Object.values(s.euler)]) {
-          assert.ok(v === null || typeof v === "number");
+          assert.ok(Number.isFinite(v));
         }
       }
-      if (c) assert.equal(typeof c.co2.ppm, "number");
+      if (c) {
+        assert.equal(typeof c.co2.ppm, "number");
+        assert.equal(typeof c.trigger, "boolean");
+      }
+      if (n) {
+        for (const v of [n.lat, n.lon, n.bearing, n.speedDegS]) {
+          assert.ok(Number.isFinite(v));
+        }
+      }
     }
   } finally {
     console.warn = originalWarn;

@@ -4,23 +4,48 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
   decodeCo2Notification,
+  decodeNavNotification,
   decodeSensorNotification,
   resetCo2StaleWarning,
   type espCo2Response,
   type espResponse,
+  type GaiaballNav,
 } from "./ble-decode";
 
 const MAX_RECONNECT_ATTEMPTS = 5;
 const RECONNECT_DELAY_MS = 1500;
+/**
+ * The info card is for a human to read: ~5 Hz is plenty. Packets arrive at up
+ * to 50 Hz per characteristic, and a state update per packet re-rendered this
+ * component (and the card) on every one of them.
+ */
+const INFO_CARD_REFRESH_MS = 200;
 
 interface BLEDevice {
   device: BluetoothDevice | null;
   server: BluetoothRemoteGATTServer | null;
   characteristic: BluetoothRemoteGATTCharacteristic | null;
   co2Characteristic: BluetoothRemoteGATTCharacteristic | null;
+  navCharacteristic: BluetoothRemoteGATTCharacteristic | null;
 }
 
-export type { espResponse, espCo2Response };
+const EMPTY_DEVICE: BLEDevice = {
+  device: null,
+  server: null,
+  characteristic: null,
+  co2Characteristic: null,
+  navCharacteristic: null,
+};
+
+type InfoCardData = {
+  imu: espResponse | null;
+  co2: espCo2Response | null;
+  nav: GaiaballNav | null;
+};
+
+const EMPTY_INFO: InfoCardData = { imu: null, co2: null, nav: null };
+
+export type { espResponse, espCo2Response, GaiaballNav };
 
 // Copy exactly the notification bytes (the DataView may sit on a larger buffer)
 function toArrayBuffer(view: DataView): ArrayBuffer {
@@ -29,17 +54,20 @@ function toArrayBuffer(view: DataView): ArrayBuffer {
   return bytes.buffer;
 }
 
-const deviceName = "Bolota Senses";
 const bleService = "19b10000-e8f2-537e-4f6c-d104768a1214";
-const ledCharacteristic = "19b10002-e8f2-537e-4f6c-d104768a1214";
 const sensorCharacteristic = "19b10001-e8f2-537e-4f6c-d104768a1214";
 const co2CharacteristicIUD = "19b10003-e8f2-537e-4f6c-d104768a1214";
+/** Optional: firmware older than the on-ball navigation does not have it. */
+const navCharacteristicUUID = "19b10006-e8f2-537e-4f6c-d104768a1214";
 
 type BLEControlProps = {
   onSensor: (data: espResponse) => void;
   onCo2Sensor: (data: espCo2Response) => void;
+  onNav: (data: GaiaballNav) => void;
   onConnect: (mode: string) => void;
   onDisconnect: (mode: string) => void;
+  /** The link dropped on its own (not a click); reconnection is attempted. */
+  onConnectionLost?: () => void;
   containerClassName?: string;
   buttonClassName?: string;
   errorClassName?: string;
@@ -50,25 +78,23 @@ type BLEControlProps = {
 export default function BLEControl({
   onSensor,
   onCo2Sensor,
+  onNav,
   onConnect,
   onDisconnect,
+  onConnectionLost,
   containerClassName,
   buttonClassName,
   errorClassName,
   infoCardClassName,
   showButtonLabel = false,
 }: BLEControlProps) {
-  const [bleDevice, setBleDevice] = useState<BLEDevice>({
-    device: null,
-    server: null,
-    characteristic: null,
-    co2Characteristic: null,
-  });
+  const [bleDevice, setBleDevice] = useState<BLEDevice>(EMPTY_DEVICE);
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [receivedData, setReceivedData] = useState<espResponse | null>(null);
-  const [co2value, setCo2Value] = useState<number | null>(null);
+  // null = not known yet (not connected); false = the firmware lacks it.
+  const [hasNav, setHasNav] = useState<boolean | null>(null);
+  const [info, setInfo] = useState<InfoCardData>(EMPTY_INFO);
 
   // Kept in a ref so the gattserverdisconnected closure can always access the latest device
   const deviceRef = useRef<BluetoothDevice | null>(null);
@@ -76,6 +102,13 @@ export default function BLEControl({
   const intentionalDisconnectRef = useRef(false);
   const onSensorRef = useRef(onSensor);
   const onCo2SensorRef = useRef(onCo2Sensor);
+  const onNavRef = useRef(onNav);
+  const onConnectionLostRef = useRef(onConnectionLost);
+
+  // Latest decoded packets for the info card, copied to state at most every
+  // INFO_CARD_REFRESH_MS (only when something new arrived).
+  const latestInfoRef = useRef<InfoCardData>({ ...EMPTY_INFO });
+  const infoDirtyRef = useRef(false);
 
   useEffect(() => {
     onSensorRef.current = onSensor;
@@ -85,38 +118,64 @@ export default function BLEControl({
     onCo2SensorRef.current = onCo2Sensor;
   }, [onCo2Sensor]);
 
+  useEffect(() => {
+    onNavRef.current = onNav;
+  }, [onNav]);
+
+  useEffect(() => {
+    onConnectionLostRef.current = onConnectionLost;
+  }, [onConnectionLost]);
+
+  useEffect(() => {
+    if (!isConnected) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      if (!infoDirtyRef.current) {
+        return;
+      }
+      infoDirtyRef.current = false;
+      setInfo({ ...latestInfoRef.current });
+    }, INFO_CARD_REFRESH_MS);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [isConnected]);
+
   const handleCharacteristicValueChanged = useCallback((event: Event) => {
     const characteristic = event.target as BluetoothRemoteGATTCharacteristic;
     const value = characteristic.value;
-    if (value) {
-      // Binary v2 packet or legacy JSON; null = malformed/invalid → skip
-      let parsedData: espResponse | null = null;
-      try {
-        parsedData = decodeSensorNotification(toArrayBuffer(value));
-      } catch {
-        return;
-      }
-      if (!parsedData) return;
-      onSensorRef.current(parsedData);
-      setReceivedData(parsedData);
-    }
+    if (!value) return;
+    // null = not a valid IMU packet → skip (the decoder never throws)
+    const parsedData = decodeSensorNotification(toArrayBuffer(value));
+    if (!parsedData) return;
+    onSensorRef.current(parsedData);
+    latestInfoRef.current.imu = parsedData;
+    infoDirtyRef.current = true;
   }, []);
 
   const handleCo2CharacteristicValueChanged = useCallback((event: Event) => {
     const characteristic = event.target as BluetoothRemoteGATTCharacteristic;
     const value = characteristic.value;
-    if (value) {
-      // Binary v2 packet or legacy JSON; null = malformed/invalid → skip
-      let parsedData: espCo2Response | null = null;
-      try {
-        parsedData = decodeCo2Notification(toArrayBuffer(value));
-      } catch {
-        return;
-      }
-      if (!parsedData) return;
-      onCo2SensorRef.current(parsedData);
-      setCo2Value(parsedData.co2.ppm);
-    }
+    if (!value) return;
+    const parsedData = decodeCo2Notification(toArrayBuffer(value));
+    if (!parsedData) return;
+    onCo2SensorRef.current(parsedData);
+    latestInfoRef.current.co2 = parsedData;
+    infoDirtyRef.current = true;
+  }, []);
+
+  const handleNavCharacteristicValueChanged = useCallback((event: Event) => {
+    const characteristic = event.target as BluetoothRemoteGATTCharacteristic;
+    const value = characteristic.value;
+    if (!value) return;
+    const parsedData = decodeNavNotification(toArrayBuffer(value));
+    if (!parsedData) return;
+    onNavRef.current(parsedData);
+    latestInfoRef.current.nav = parsedData;
+    infoDirtyRef.current = true;
   }, []);
 
   const setupGATT = useCallback(
@@ -131,6 +190,17 @@ export default function BLEControl({
         await service.getCharacteristic(sensorCharacteristic);
       const co2Characteristic =
         await service.getCharacteristic(co2CharacteristicIUD);
+
+      // The navigation characteristic is optional: a ball with older firmware
+      // still connects (IMU and CO2 work), it just cannot steer the globe.
+      let navCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
+      try {
+        navCharacteristic = await service.getCharacteristic(
+          navCharacteristicUUID,
+        );
+      } catch {
+        navCharacteristic = null;
+      }
 
       if (characteristic.properties.notify) {
         await characteristic.startNotifications();
@@ -148,17 +218,43 @@ export default function BLEControl({
         );
       }
 
-      setBleDevice({ device, server, characteristic, co2Characteristic });
+      if (navCharacteristic?.properties.notify) {
+        try {
+          await navCharacteristic.startNotifications();
+          navCharacteristic.addEventListener(
+            "characteristicvaluechanged",
+            handleNavCharacteristicValueChanged,
+          );
+        } catch (err) {
+          console.warn("Gaiaball: navigation notifications failed", err);
+          navCharacteristic = null;
+        }
+      } else {
+        navCharacteristic = null;
+      }
+
+      latestInfoRef.current = { ...EMPTY_INFO };
+      infoDirtyRef.current = false;
+      setInfo(EMPTY_INFO);
+      setHasNav(navCharacteristic !== null);
+      setBleDevice({
+        device,
+        server,
+        characteristic,
+        co2Characteristic,
+        navCharacteristic,
+      });
       setIsConnected(true);
       setError(null);
       reconnectAttemptsRef.current = 0;
       onConnect("controller");
 
-      return { server, characteristic, co2Characteristic };
+      return { server, characteristic, co2Characteristic, navCharacteristic };
     },
     [
       handleCharacteristicValueChanged,
       handleCo2CharacteristicValueChanged,
+      handleNavCharacteristicValueChanged,
       onConnect,
     ],
   );
@@ -209,8 +305,10 @@ export default function BLEControl({
           server: null,
           characteristic: null,
           co2Characteristic: null,
+          navCharacteristic: null,
         }));
         if (!intentionalDisconnectRef.current && deviceRef.current) {
+          onConnectionLostRef.current?.();
           attemptReconnect(deviceRef.current);
         }
       });
@@ -233,23 +331,19 @@ export default function BLEControl({
     intentionalDisconnectRef.current = true;
     reconnectAttemptsRef.current = 0;
 
-    if (bleDevice.characteristic) {
-      bleDevice.characteristic.removeEventListener(
-        "characteristicvaluechanged",
-        handleCharacteristicValueChanged,
-      );
-      if (bleDevice.characteristic.properties.notify) {
-        bleDevice.characteristic.stopNotifications().catch(() => {});
-      }
-    }
-
-    if (bleDevice.co2Characteristic) {
-      bleDevice.co2Characteristic.removeEventListener(
-        "characteristicvaluechanged",
-        handleCo2CharacteristicValueChanged,
-      );
-      if (bleDevice.co2Characteristic.properties.notify) {
-        bleDevice.co2Characteristic.stopNotifications().catch(() => {});
+    const subscriptions: [
+      BluetoothRemoteGATTCharacteristic | null,
+      (event: Event) => void,
+    ][] = [
+      [bleDevice.characteristic, handleCharacteristicValueChanged],
+      [bleDevice.co2Characteristic, handleCo2CharacteristicValueChanged],
+      [bleDevice.navCharacteristic, handleNavCharacteristicValueChanged],
+    ];
+    for (const [characteristic, handler] of subscriptions) {
+      if (!characteristic) continue;
+      characteristic.removeEventListener("characteristicvaluechanged", handler);
+      if (characteristic.properties.notify) {
+        characteristic.stopNotifications().catch(() => {});
       }
     }
 
@@ -258,43 +352,31 @@ export default function BLEControl({
     }
 
     deviceRef.current = null;
-    setBleDevice({
-      device: null,
-      server: null,
-      characteristic: null,
-      co2Characteristic: null,
-    });
+    setBleDevice(EMPTY_DEVICE);
     setIsConnected(false);
-    setReceivedData(null);
+    latestInfoRef.current = { ...EMPTY_INFO };
+    infoDirtyRef.current = false;
+    setInfo(EMPTY_INFO);
+    setHasNav(null);
     setError(null);
     onDisconnect("mouse");
   };
-
-  // Function to manually read the characteristic value
-  const readValue = useCallback(async () => {
-    if (!bleDevice.characteristic) {
-      setError("No characteristic available");
-      return;
-    }
-
-    try {
-      const value = await bleDevice.characteristic.readValue();
-      const decoder = new TextDecoder("utf-8");
-      const decodedData = decoder.decode(value);
-      const parsedData = JSON.parse(decodedData);
-      onSensorRef.current(parsedData);
-      setReceivedData(parsedData);
-    } catch (err) {
-      console.error("Read Error:", err);
-      setError(err instanceof Error ? err.message : "Failed to read value");
-    }
-  }, [bleDevice.characteristic]);
 
   const buttonTitle = isConnecting
     ? "Connecting…"
     : isConnected
       ? "Disconnect"
       : "Connect device";
+
+  const nav = info.nav;
+  let navLabel: string;
+  if (!nav) {
+    navLabel = "aguardando";
+  } else if (!nav.valid) {
+    navLabel = "desligada";
+  } else {
+    navLabel = nav.settled ? "parada" : "em movimento";
+  }
 
   return (
     <>
@@ -362,10 +444,25 @@ export default function BLEControl({
             <p className="font-medium">
               {bleDevice?.device?.name ?? "Unknown Device"}
             </p>
-            <p>roll: {receivedData?.euler.roll?.toFixed(3)}</p>
-            <p>pitch: {receivedData?.euler.pitch?.toFixed(3)}</p>
-            <p>yaw: {receivedData?.euler.yaw?.toFixed(3)}</p>
-            <p>CO₂: {co2value?.toFixed(3)} ppm</p>
+            <p>roll: {info.imu?.euler.roll.toFixed(3)}</p>
+            <p>pitch: {info.imu?.euler.pitch.toFixed(3)}</p>
+            <p>yaw: {info.imu?.euler.yaw.toFixed(3)}</p>
+            <p>CO₂: {info.co2?.co2.ppm.toFixed(0)} ppm</p>
+            {hasNav === false ? (
+              <p className="text-xs font-medium text-amber-700">
+                Firmware da bola sem navegação — atualize o firmware
+              </p>
+            ) : (
+              <>
+                <p>navegação: {navLabel}</p>
+                {nav?.valid ? (
+                  <p className="text-xs text-gray-600">
+                    {nav.lat.toFixed(3)}, {nav.lon.toFixed(3)} · rumo{" "}
+                    {nav.bearing.toFixed(0)}°
+                  </p>
+                ) : null}
+              </>
+            )}
           </div>,
           document.body,
         )}

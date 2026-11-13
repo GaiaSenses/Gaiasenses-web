@@ -8,7 +8,7 @@ import Map, {
   ViewStateChangeEvent,
   MapRef,
 } from "react-map-gl/mapbox";
-import { MapPin, Volume2, VolumeX } from "lucide-react";
+import { Eye, EyeOff, MapPin, Volume2, VolumeX } from "lucide-react";
 
 // @ts-ignore
 import "mapbox-gl/dist/mapbox-gl.css";
@@ -17,20 +17,25 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-import type { espCo2Response, espResponse } from "./ble-control";
+import type { espCo2Response, espResponse, GaiaballNav } from "./ble-control";
 import {
   MAP3_PD4WEB_PATCHES,
   patchReceivesLiveData,
   type Map3Pd4WebMoment,
 } from "./pd4web-patches";
 import { GAIA } from "@/lib/gaia-vocabulary";
+import {
+  publishGaiaballCo2,
+  publishGaiaballConnected,
+  publishGaiaballImu,
+  publishGaiaballNav,
+} from "@/lib/gaiaball-live";
 
 import InfoButton from "./info-button";
 import NotificationDialog from "./notifications-dialog";
 import BLEControl from "./ble-control";
 import AutoMove from "./auto-move";
 import CoordinateDisplay from "./coordinate-display";
-import MotionTuningPanel from "./motion-tuning-panel";
 import CompositionInfoPanel from "./composition-info-panel";
 import Pd4WebPatchLog, {
   type Pd4WebPatchLogControls,
@@ -40,28 +45,32 @@ import Pd4WebPatchLog, {
 import { useMapInteractions } from "./use-map-interactions";
 import { useAutoMode } from "./use-auto-mode";
 import { useBLESensor } from "./use-ble-sensor";
-import { useCo2Simulation } from "./use-co2-simulation";
-import {
-  DEFAULT_MOTION_TUNING_SETTINGS,
-  type MotionMappingMethod,
-  type PdMapTarget,
-  type MotionTuningSettings,
-} from "./use-sensor-smoothing";
+import { decidePdSend } from "./pd-send-rule";
 import {
   ClimaData,
   getCompositionDecisionTrace,
 } from "./use-composition-queue";
-import {
-  DEFAULT_CO2_LEVEL_THRESHOLD,
-  enabledCompositionKeys,
-} from "./map-constants";
+import { enabledCompositionKeys } from "./map-constants";
 import CompositionsInfo from "@/components/compositions/compositions-info";
 import { usePd4Web } from "./pd4web-context";
 import { Button } from "@/components/ui/button";
 
-const MOTION_TUNING_STORAGE_KEY = "map3-motion-tuning-settings";
-const CO2_THRESHOLD_STORAGE_KEY = "map3-co2-threshold";
 const MAP_PATCH_LOG_MAX_ENTRIES = 250;
+const SHOW_COMPOSITION_PANEL_STORAGE_KEY = "map3-show-composition-panel";
+
+/**
+ * Settings of the motion-tuning panel, the CO2 threshold slider and the
+ * removed /gaiaball bench. The ball now computes the navigation and decides the
+ * CO2 trigger itself, so nothing reads these; they are removed once per load.
+ */
+const OBSOLETE_STORAGE_KEYS = [
+  "map3-motion-tuning-settings",
+  "map3-co2-threshold",
+  "gaiaball-motion-tuning-settings",
+  "gaiaball-co2-threshold",
+  "gaiaball-ws-freq",
+  "gaiaball-pd-ws-url",
+];
 
 /**
  * Whether map-centre movement is published to gaia.lat/gaia.lon.
@@ -79,51 +88,6 @@ const MAP_PATCH_LOG_MAX_ENTRIES = 250;
  * it or change the patch — not by cutting the data it is built to receive.
  */
 const SEND_MAP_MOVEMENT_TO_PATCH = true;
-const VALID_MOTION_MAPPING_METHODS: MotionMappingMethod[] = [
-  "pd",
-  "euler",
-  "quaternion",
-  "basic",
-];
-
-function clampLatitude(value: number) {
-  return Math.max(-85, Math.min(85, value));
-}
-
-function normalizeLongitude(value: number) {
-  return ((((value + 180) % 360) + 360) % 360) - 180;
-}
-
-function normalizeMotionTuningSettings(
-  settings: Partial<MotionTuningSettings>,
-): MotionTuningSettings {
-  const normalized: MotionTuningSettings = {
-    ...DEFAULT_MOTION_TUNING_SETTINGS,
-    ...settings,
-  };
-
-  if (!VALID_MOTION_MAPPING_METHODS.includes(normalized.mappingMethod)) {
-    normalized.mappingMethod = DEFAULT_MOTION_TUNING_SETTINGS.mappingMethod;
-  }
-
-  normalized.quaternionLatitudeOffset = Number.isFinite(
-    normalized.quaternionLatitudeOffset,
-  )
-    ? Math.max(-45, Math.min(45, normalized.quaternionLatitudeOffset))
-    : DEFAULT_MOTION_TUNING_SETTINGS.quaternionLatitudeOffset;
-  normalized.quaternionLongitudeOffset = Number.isFinite(
-    normalized.quaternionLongitudeOffset,
-  )
-    ? Math.max(-45, Math.min(45, normalized.quaternionLongitudeOffset))
-    : DEFAULT_MOTION_TUNING_SETTINGS.quaternionLongitudeOffset;
-  normalized.quaternionBearingOffset = Number.isFinite(
-    normalized.quaternionBearingOffset,
-  )
-    ? Math.max(-180, Math.min(180, normalized.quaternionBearingOffset))
-    : DEFAULT_MOTION_TUNING_SETTINGS.quaternionBearingOffset;
-
-  return normalized;
-}
 
 function clampPatchPollMs(value: number) {
   return Math.max(16, Math.round(value));
@@ -199,19 +163,14 @@ export default function GaiasensesMap({
   const isMapInputActive = mode === "map";
 
   const mapRef = useRef<MapRef>(null);
-  const pdMapTargetRef = useRef<PdMapTarget | null>(null);
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
   const latestSensorDataRef = useRef<espResponse | null>(null);
   const latestCo2DataRef = useRef<espCo2Response | null>(null);
-  const [motionTuning, setMotionTuning] = useState<MotionTuningSettings>(
-    DEFAULT_MOTION_TUNING_SETTINGS,
-  );
   const [showCompositionInfoPanel, setShowCompositionInfoPanel] =
     useState(true);
   const [currentCo2Ppm, setCurrentCo2Ppm] = useState<number | null>(null);
-  const [co2Threshold, setCo2Threshold] = useState(DEFAULT_CO2_LEVEL_THRESHOLD);
   const [isPatchLogOpen, setIsPatchLogOpen] = useState(false);
   const [patchLogControls, setPatchLogControls] =
     useState<Pd4WebPatchLogControls>({
@@ -228,44 +187,40 @@ export default function GaiasensesMap({
   );
 
   useEffect(() => {
-    const saved = window.localStorage.getItem(MOTION_TUNING_STORAGE_KEY);
-    if (!saved) {
-      return;
-    }
-
     try {
-      const parsed = JSON.parse(saved) as Partial<MotionTuningSettings>;
-      setMotionTuning(normalizeMotionTuningSettings(parsed));
+      for (const key of OBSOLETE_STORAGE_KEYS) {
+        window.localStorage.removeItem(key);
+      }
     } catch {
-      window.localStorage.removeItem(MOTION_TUNING_STORAGE_KEY);
+      // Storage blocked (private window, site data disabled): nothing to clean.
     }
   }, []);
 
   useEffect(() => {
-    const saved = window.localStorage.getItem(CO2_THRESHOLD_STORAGE_KEY);
-    if (!saved) {
-      return;
+    try {
+      const saved = window.localStorage.getItem(
+        SHOW_COMPOSITION_PANEL_STORAGE_KEY,
+      );
+      if (saved === "false") {
+        setShowCompositionInfoPanel(false);
+      }
+    } catch {
+      // Storage blocked: keep the default (panel visible).
     }
-
-    const parsed = Number(saved);
-    if (!Number.isFinite(parsed)) {
-      window.localStorage.removeItem(CO2_THRESHOLD_STORAGE_KEY);
-      return;
-    }
-
-    setCo2Threshold(parsed);
   }, []);
 
-  useEffect(() => {
-    window.localStorage.setItem(
-      MOTION_TUNING_STORAGE_KEY,
-      JSON.stringify(motionTuning),
-    );
-  }, [motionTuning]);
-
-  useEffect(() => {
-    window.localStorage.setItem(CO2_THRESHOLD_STORAGE_KEY, `${co2Threshold}`);
-  }, [co2Threshold]);
+  const toggleCompositionInfoPanel = useCallback(() => {
+    const next = !showCompositionInfoPanel;
+    setShowCompositionInfoPanel(next);
+    try {
+      window.localStorage.setItem(
+        SHOW_COMPOSITION_PANEL_STORAGE_KEY,
+        String(next),
+      );
+    } catch {
+      // Storage blocked: the choice lasts for this page only.
+    }
+  }, [showCompositionInfoPanel]);
 
   useEffect(() => {
     if (!composition) {
@@ -317,22 +272,21 @@ export default function GaiasensesMap({
     saveAutoLocations,
   } = useAutoMode(mapRef);
 
+  // Read by the BLE navigation handler at packet rate; a ref, not a dependency.
+  const autoModeActiveRef = useRef(autoActive);
+  autoModeActiveRef.current = autoActive;
+
   const {
-    handleOnSensor,
+    handleOnNav,
     handleOnCO2Sensor,
     handleControllerConnect,
     handleControllerDisconnect,
-    recalibrateSensor,
-    motionDiagnostics,
-    sensorDebug,
   } = useBLESensor({
     mapRef,
     inputModeRef,
+    autoModeActiveRef,
     initialLat,
     initialLng,
-    motionTuning,
-    pdMapTargetRef,
-    co2LevelThreshold: co2Threshold,
     currentComposition: composition ?? "attractor",
   });
 
@@ -340,26 +294,49 @@ export default function GaiasensesMap({
     ? CompositionsInfo[composition as keyof typeof CompositionsInfo]
     : null;
 
+  const handleSensorSample = useCallback((data: espResponse) => {
+    latestSensorDataRef.current = data;
+    publishGaiaballImu(data);
+  }, []);
+
   const handleCo2Sample = useCallback(
     (data: espCo2Response) => {
       latestCo2DataRef.current = data;
+      publishGaiaballCo2(data);
+      // CO2 arrives at ~1 Hz: cheap enough to keep as React state.
       setCurrentCo2Ppm(data.co2.ppm);
       handleOnCO2Sensor(data);
     },
     [handleOnCO2Sensor],
   );
 
-  const {
-    startSimulation: startCo2Simulation,
-    isSimulating: isCo2Simulating,
-    simulatedPpm: simulatedCo2Ppm,
-  } = useCo2Simulation({
-    onCo2Sample: handleCo2Sample,
-    startPpm: co2Threshold + 500,
-    endPpm: co2Threshold,
-    durationMs: 30_000,
-    tickMs: 250,
-  });
+  const handleNavSample = useCallback(
+    (data: GaiaballNav) => {
+      publishGaiaballNav(data);
+      handleOnNav(data);
+    },
+    [handleOnNav],
+  );
+
+  const handleBleConnect = useCallback(
+    (inputMode: string) => {
+      publishGaiaballConnected(true);
+      handleControllerConnect(inputMode);
+    },
+    [handleControllerConnect],
+  );
+
+  const handleBleDisconnect = useCallback(
+    (inputMode: string) => {
+      publishGaiaballConnected(false);
+      handleControllerDisconnect(inputMode);
+    },
+    [handleControllerDisconnect],
+  );
+
+  const handleBleConnectionLost = useCallback(() => {
+    publishGaiaballConnected(false);
+  }, []);
 
   const {
     pd4web,
@@ -418,7 +395,6 @@ export default function GaiasensesMap({
     }
 
     previousPatchIdRef.current = currentPatchId;
-    pdMapTargetRef.current = null;
 
     if (previousPatchId && currentPatchId === null) {
       appendPatchSystemLog(`Patch stopped: ${previousPatchId}`);
@@ -484,8 +460,9 @@ export default function GaiasensesMap({
     const epsilon = clampPatchEpsilon(patchLogControls.epsilon);
     const accEpsilon = clampPatchEpsilon(patchLogControls.accEpsilon);
     const alwaysSendMovement = patchLogControls.alwaysSendMovement;
-    const isPdMapping = motionTuning.mappingMethod === "pd";
 
+    // `gaia.out` (paraisoGaia43) used to steer the globe. The ball computes the
+    // navigation now, so the list is only shown in the patch I/O log.
     const outputListReceiver = senders[GAIA.OUT];
     if (outputListReceiver) {
       const listenerMap = pdListListenerMapRef.current;
@@ -495,22 +472,8 @@ export default function GaiasensesMap({
         listenerMap.set(pd4web, knownReceivers);
 
         pd4web.onListReceived(outputListReceiver, (_name, list) => {
-          if (!Array.isArray(list) || list.length < 2) {
+          if (!Array.isArray(list) || list.length === 0) {
             return;
-          }
-
-          const rawLatitude = Number(list[0]);
-          const rawLongitude = Number(list[1]);
-          if (!Number.isFinite(rawLatitude) || !Number.isFinite(rawLongitude)) {
-            return;
-          }
-
-          if (inputModeRef.current !== "mouse") {
-            pdMapTargetRef.current = {
-              latitude: clampLatitude(rawLatitude),
-              longitude: normalizeLongitude(rawLongitude),
-              timestamp: performance.now(),
-            };
           }
 
           appendPatchLogs([
@@ -535,53 +498,39 @@ export default function GaiasensesMap({
     let prevAccZ: number | null = null;
     let prevCo2: number | null = null;
 
-    const intervalId = window.setInterval(() => {
-      const tickLogs: Omit<Pd4WebPatchLogEntry, "id">[] = [];
-      const flushTickLogs = () => {
-        if (tickLogs.length > 0) {
-          appendPatchLogs(tickLogs);
-        }
-      };
+    const pushSensorList = (tickLogs: Omit<Pd4WebPatchLogEntry, "id">[]) => {
+      const euler = latestSensorDataRef.current?.euler;
+      const acc = latestSensorDataRef.current?.acc;
+      const co2 = latestCo2DataRef.current?.co2.ppm;
 
-      const map = mapRef.current;
-      if (!map) {
-        return;
-      }
+      const gyroX = Number.isFinite(euler?.roll) ? Number(euler?.roll) : 0;
+      const gyroY = Number.isFinite(euler?.pitch) ? Number(euler?.pitch) : 0;
+      const gyroZ = Number.isFinite(euler?.yaw) ? Number(euler?.yaw) : 0;
+      const accX = Number.isFinite(acc?.x) ? Number(acc?.x) : 0;
+      const accY = Number.isFinite(acc?.y) ? Number(acc?.y) : 0;
+      const accZ = Number.isFinite(acc?.z) ? Number(acc?.z) : 0;
+      const co2Value = Number.isFinite(co2) ? Number(co2) : 0;
 
-      const center = map.getCenter();
-      const lat = center.lat;
-      const lng = center.lng;
+      const packet = [gyroX, gyroY, gyroZ, accX, accY, accZ, co2Value];
+      pd4web.sendList(receivers[GAIA.SENSORS], packet);
+      tickLogs.push({
+        timestamp: Date.now(),
+        source: "sensorList",
+        receiver: receivers[GAIA.SENSORS],
+        value: null,
+        delta: null,
+        threshold: null,
+        message: `[${packet.join(", ")}]`,
+      });
+    };
 
-      const isSensorConnected = inputModeRef.current !== "mouse";
-
-      if (isPdMapping && receivers[GAIA.SENSORS] && isSensorConnected) {
-        const euler = latestSensorDataRef.current?.euler;
-        const acc = latestSensorDataRef.current?.acc;
-        const co2 = latestCo2DataRef.current?.co2.ppm;
-
-        const gyroX = Number.isFinite(euler?.roll) ? Number(euler?.roll) : 0;
-        const gyroY = Number.isFinite(euler?.pitch) ? Number(euler?.pitch) : 0;
-        const gyroZ = Number.isFinite(euler?.yaw) ? Number(euler?.yaw) : 0;
-        const accX = Number.isFinite(acc?.x) ? Number(acc?.x) : 0;
-        const accY = Number.isFinite(acc?.y) ? Number(acc?.y) : 0;
-        const accZ = Number.isFinite(acc?.z) ? Number(acc?.z) : 0;
-        const co2Value = Number.isFinite(co2) ? Number(co2) : 0;
-
-        const packet = [gyroX, gyroY, gyroZ, accX, accY, accZ, co2Value];
-        pd4web.sendList(receivers[GAIA.SENSORS], packet);
-        tickLogs.push({
-          timestamp: Date.now(),
-          source: "sensorList",
-          receiver: receivers[GAIA.SENSORS],
-          value: null,
-          delta: null,
-          threshold: null,
-          message: `[${packet.join(", ")}]`,
-        });
-        flushTickLogs();
-        return;
-      }
-
+    // gaia.lat/gaia.lon from the map centre, then gaia.acc.* and gaia.co2,
+    // each behind its own dead-band.
+    const pushCanonical = (
+      lat: number,
+      lng: number,
+      tickLogs: Omit<Pd4WebPatchLogEntry, "id">[],
+    ) => {
       const latChanged = prevLat === null || Math.abs(lat - prevLat) >= epsilon;
       const lngChanged = prevLng === null || Math.abs(lng - prevLng) >= epsilon;
       const shouldSendMapMovement =
@@ -621,25 +570,12 @@ export default function GaiasensesMap({
 
       const acc = latestSensorDataRef.current?.acc;
       if (!acc) {
-        flushTickLogs();
         return;
       }
 
       const accX = acc.x;
       const accY = acc.y;
       const accZ = acc.z;
-
-      if (
-        accX === null ||
-        accX === undefined ||
-        accY === null ||
-        accY === undefined ||
-        accZ === null ||
-        accZ === undefined
-      ) {
-        flushTickLogs();
-        return;
-      }
 
       const accXDelta = prevAccX === null ? null : Math.abs(accX - prevAccX);
       const accYDelta = prevAccY === null ? null : Math.abs(accY - prevAccY);
@@ -653,7 +589,6 @@ export default function GaiasensesMap({
         prevAccZ === null || Math.abs(accZ - prevAccZ) >= accEpsilon;
 
       if (!(accXChanged || accYChanged || accZChanged)) {
-        flushTickLogs();
         return;
       }
 
@@ -717,8 +652,34 @@ export default function GaiasensesMap({
           }
         }
       }
+    };
 
-      flushTickLogs();
+    const intervalId = window.setInterval(() => {
+      const map = mapRef.current;
+      if (!map) {
+        return;
+      }
+
+      const { sendSensorList, sendCanonical } = decidePdSend({
+        sensorConnected: inputModeRef.current !== "mouse",
+        hasSensorsReceiver: Boolean(receivers[GAIA.SENSORS]),
+        publishesOut: Boolean(outputListReceiver),
+      });
+
+      const tickLogs: Omit<Pd4WebPatchLogEntry, "id">[] = [];
+
+      if (sendSensorList) {
+        pushSensorList(tickLogs);
+      }
+
+      if (sendCanonical) {
+        const center = map.getCenter();
+        pushCanonical(center.lat, center.lng, tickLogs);
+      }
+
+      if (tickLogs.length > 0) {
+        appendPatchLogs(tickLogs);
+      }
     }, pollMs);
 
     return () => {
@@ -734,8 +695,6 @@ export default function GaiasensesMap({
     patchLogControls.pollMs,
     pdListListenerMapRef,
     pd4web,
-    pdMapTargetRef,
-    motionTuning.mappingMethod,
     inputModeRef,
   ]);
 
@@ -871,21 +830,24 @@ export default function GaiasensesMap({
       <div>
         <InfoButton />
       </div>
-      <MotionTuningPanel
-        settings={motionTuning}
-        diagnostics={motionDiagnostics}
-        sensorDebug={sensorDebug}
-        co2Threshold={co2Threshold}
-        showCompositionInfoPanel={showCompositionInfoPanel}
-        onToggleCompositionInfoPanel={setShowCompositionInfoPanel}
-        onChange={setMotionTuning}
-        onCo2ThresholdChange={setCo2Threshold}
-        onReset={() => setMotionTuning(DEFAULT_MOTION_TUNING_SETTINGS)}
-        onRecalibrate={recalibrateSensor}
-        onSimulateCo2={startCo2Simulation}
-        isCo2Simulating={isCo2Simulating}
-        simulatedCo2Ppm={simulatedCo2Ppm}
-      />
+      <div className="absolute right-4 bottom-4 z-20 pointer-events-auto">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="bg-white/95 backdrop-blur"
+          onClick={toggleCompositionInfoPanel}
+          title="Mostrar/ocultar painel da composição"
+          aria-label="Mostrar/ocultar painel da composição"
+          aria-pressed={showCompositionInfoPanel}
+        >
+          {showCompositionInfoPanel ? (
+            <Eye className="h-4 w-4" />
+          ) : (
+            <EyeOff className="h-4 w-4" />
+          )}
+        </Button>
+      </div>
       {mode === "player" && compositionInfo && showCompositionInfoPanel && (
         <CompositionInfoPanel
           lat={latlng[0]}
@@ -947,13 +909,12 @@ export default function GaiasensesMap({
           onDeactivate={onAutoActivateToggle}
         />
         <BLEControl
-          onSensor={(data) => {
-            latestSensorDataRef.current = data;
-            handleOnSensor(data);
-          }}
+          onSensor={handleSensorSample}
           onCo2Sensor={handleCo2Sample}
-          onConnect={handleControllerConnect}
-          onDisconnect={handleControllerDisconnect}
+          onNav={handleNavSample}
+          onConnect={handleBleConnect}
+          onDisconnect={handleBleDisconnect}
+          onConnectionLost={handleBleConnectionLost}
         />
         <GeolocateControl onGeolocate={onGeolocate} />
         {showPopup && (
