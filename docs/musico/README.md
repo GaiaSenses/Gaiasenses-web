@@ -142,10 +142,37 @@ tudo sozinho.
 Os canais do sensor só chegam quando o Bolota está conectado. Os de clima mudam
 quando o público move o globo para outro lugar — não são contínuos.
 
-### O seu patch também pode falar de volta
+### Quem move o globo é o Bolota
 
-Mande uma lista de dois valores — latitude e longitude — para `[s gaia.out]` e o
-globo vai para lá. É o patch dirigindo o visual.
+O patch **não** dirige mais o globo: uma lista enviada para `[s gaia.out]` é
+ignorada pelo mapa. A navegação é calculada dentro do próprio Bolota — em modo
+_espelho_ (o globo imita a orientação da bola) ou _joystick_ (inclinar a bola
+faz o globo andar) — e quem escolhe o modo e os ajustes é o config-app do
+gaiaball, que grava a configuração na bola. O site só recebe a posição pronta.
+
+Para o seu patch, a posição do globo chega em `[r gaia.lat]` e `[r gaia.lon]`
+(o centro do mapa), com ou sem Bolota, salvo a regra de transição abaixo.
+
+**Regra de transição.** Um patch que ainda publica `gaia.out` e tem um
+`[r gaia.sensors]` continua recebendo só a lista `gaia.sensors` enquanto o Bolota
+está conectado, como antes. Um patch com `[r gaia.sensors]` que não publica
+`gaia.out` recebe a lista **e** os canais `gaia.lat`, `gaia.lon`, `gaia.acc.*` e
+`gaia.co2`. Sem Bolota, todos recebem os canais `gaia.lat`/`gaia.lon` a partir do mapa.
+
+### Nota para quem mantém o paraisoGaia43
+
+O paraisoGaia43 é hoje o único patch que publica `gaia.out`: ele integra o
+acelerômetro recebido em `gaia.sensors` e devolve latitude e longitude. Isso
+deixou de ter efeito — o globo vai para onde o Bolota manda — e, enquanto o patch
+publicar `gaia.out`, ele continua preso à regra de transição acima (recebe só
+`gaia.sensors`, nunca `gaia.lat`/`gaia.lon`). Para migrar:
+
+1. Apague do patch a parte que integra a aceleração e o `[s gaia.out]`.
+2. Coloque `[r gaia.lat]` e `[r gaia.lon]` e use esses valores onde antes usava a
+   posição integrada.
+3. Se o patch ainda quiser o movimento bruto da bola, mantenha o `[r gaia.sensors]`;
+   sem `gaia.out` ele passa a receber também os canais `gaia.lat` e `gaia.lon`.
+4. Rode `npm run patches:validate` e, se o manifesto mudou, `npm run patches:codegen`.
 
 ### Se a peça toca junto com uma animação
 

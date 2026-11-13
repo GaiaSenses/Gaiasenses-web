@@ -58,6 +58,8 @@ Useful scripts:
 - npm run lint
 - npm run sensor:ws
 
+> Nota (2026-11): o script `sensor:ws` foi removido, junto com o relay WebSocket (`scripts/sensor-websocket-server.mjs`) e a rota `/gaiaball`. Serviam à bancada de testes do sensor; com a navegação calculada na bola e o decoder só binário, não há mais o que ela exercitar.
+
 ## 3) Project Structure You Will Touch Most
 
 ### Map3 core
@@ -77,6 +79,7 @@ Useful scripts:
   - Connects BLE packets to smoothing logic, composition side effects, and calibration lifecycle.
 - app/[locale]/map3/use-sensor-smoothing.ts
   - Core math and smoothing engine. Supports mapping methods: pd, euler, quaternion, basic.
+  - Nota (2026-11): arquivo removido, assim como o painel de motion tuning e os métodos de mapeamento (`pd`, `euler`, `quaternion`, `basic`). A bola (firmware Gaiaball) passou a calcular a navegação e manda um NavPacket pela característica `…0006`; o site apenas aplica a pose (`use-ble-sensor.ts`, `nav-reentry.ts`). Ver a seção "BLE Sensor Pipeline" do README.
 
 ### Pd4Web audio pipeline
 
@@ -113,6 +116,7 @@ File: app/[locale]/map3/ble-control.tsx
 
 - Connects to BLE service/characteristics.
 - Parses JSON payloads from notifications.
+  - Nota (2026-11): o decoder agora lê só pacotes binários (IMU, CO₂ e Nav); o fallback JSON do firmware original foi removido.
 - Calls:
   - onSensor(data) for orientation/acceleration packets.
   - onCo2Sensor(data) for CO2 packets.
@@ -129,6 +133,8 @@ File: app/[locale]/map3/use-ble-sensor.ts
 ### 4.3 Smoothing and map motion
 
 File: app/[locale]/map3/use-sensor-smoothing.ts
+
+> Nota (2026-11): esta seção descreve o desenho antigo. O arquivo, o suavizamento e a detecção de parada no site foram removidos: a bola calcula a posição, o sentido "para cima" e o `settled`, e o site só aplica o resultado.
 
 - Maintains baseline calibration.
 - Computes relative angles/quaternion projection.
@@ -193,6 +199,7 @@ Pd -> App (target output list):
 Fallback behavior currently implemented in map-center loop:
 
 - If sensor is connected and mappingMethod is pd, app sends sensor list to sensorListReceiver.
+- Nota (2026-11): `mappingMethod` e a saída `gaia.out` que movia o globo foram removidos; a regra de envio atual está em `pd-send-rule.ts` (README, "App ⇄ Pd message contract").
 - If sensor is not connected, app sends current globe latitude/longitude floats to latitudeReceiver/longitudeReceiver.
 - When sensor is not connected, incoming PD output list does not update the globe target.
 
@@ -353,7 +360,7 @@ If you only have 10 minutes to understand a bug, open in this order:
 
 1. app/[locale]/map3/gaiasenses-map.tsx
 2. app/[locale]/map3/use-ble-sensor.ts
-3. app/[locale]/map3/use-sensor-smoothing.ts
+3. app/[locale]/map3/use-sensor-smoothing.ts (removido em 2026-11; hoje: ble-decode.ts e nav-reentry.ts)
 4. app/[locale]/map3/pd4web-context.tsx
 5. app/[locale]/map3/pd4web-patches.ts
 6. components/compositions/compositions-info.tsx
