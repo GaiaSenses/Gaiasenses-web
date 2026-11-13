@@ -272,9 +272,9 @@ export default function GaiasensesMap({
     saveAutoLocations,
   } = useAutoMode(mapRef);
 
-  // Read by the BLE navigation handler at packet rate; a ref, not a dependency.
-  const autoModeActiveRef = useRef(autoActive);
-  autoModeActiveRef.current = autoActive;
+  const reopenPopup = useCallback(() => {
+    setShowPopup(true);
+  }, [setShowPopup]);
 
   const {
     handleOnNav,
@@ -284,7 +284,8 @@ export default function GaiasensesMap({
   } = useBLESensor({
     mapRef,
     inputModeRef,
-    autoModeActiveRef,
+    autoModeActive: autoActive,
+    reopenPopup,
     initialLat,
     initialLng,
     currentComposition: composition ?? "attractor",
