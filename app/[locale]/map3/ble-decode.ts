@@ -242,6 +242,8 @@ export function decodeCo2Notification(
  *
  * The keepalive (valid = 0) is decoded too, not dropped: the caller decides
  * what an invalid pose means, and the live store needs to know it arrived.
+ * A latitude beyond ±90° or a longitude beyond ±180° is not a place on the
+ * globe (Mapbox `jumpTo` throws on it): such a packet → null.
  */
 export function decodeNavNotification(buf: ArrayBuffer): GaiaballNav | null {
   try {
@@ -256,14 +258,18 @@ export function decodeNavNotification(buf: ArrayBuffer): GaiaballNav | null {
       return null;
     }
 
+    const lat = dv.getInt32(10, true) / 1e7;
+    const lon = dv.getInt32(14, true) / 1e7;
+    if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+
     const flags = dv.getUint8(9);
     return {
       mode: dv.getUint8(8),
       valid: (flags & NAV_FLAG_VALID) !== 0,
       settled: (flags & NAV_FLAG_SETTLED) !== 0,
       moving: (flags & NAV_FLAG_MOVING) !== 0,
-      lat: dv.getInt32(10, true) / 1e7,
-      lon: dv.getInt32(14, true) / 1e7,
+      lat,
+      lon,
       bearing: dv.getInt16(18, true) / 100,
       speedDegS: dv.getUint16(20, true) / 10,
       seq: dv.getUint16(2, true),

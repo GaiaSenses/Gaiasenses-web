@@ -325,6 +325,30 @@ test("nav with wrong version or type → null", () => {
   assert.equal(decodeCo2Notification(hex(GOLDEN_NAV_A)), null);
 });
 
+test("nav lat/lon outside the globe → null (Mapbox jumpTo would throw)", () => {
+  const comPose = (latE7: number, lonE7: number) => {
+    const b = new Uint8Array(hex(GOLDEN_NAV_A));
+    const dv = new DataView(b.buffer);
+    dv.setInt32(10, latE7, true);
+    dv.setInt32(14, lonE7, true);
+    return decodeNavNotification(b.buffer);
+  };
+  assert.equal(comPose(900000001, 0), null);
+  assert.equal(comPose(-900000001, 0), null);
+  assert.equal(comPose(0, 1800000001), null);
+  assert.equal(comPose(0, -1800000001), null);
+  assert.equal(comPose(2147483647, -2147483648), null);
+  // the limits themselves are the globe (golden vector B sits on them)
+  assert.deepEqual(
+    [comPose(900000000, 1800000000)?.lat, comPose(900000000, 1800000000)?.lon],
+    [90, 180],
+  );
+  assert.deepEqual(
+    [comPose(-900000000, -1800000000)?.lat, comPose(-900000000, -1800000000)?.lon],
+    [-90, -180],
+  );
+});
+
 test("nav flags are three independent bits", () => {
   const a = new Uint8Array(hex(GOLDEN_NAV_A));
   const flagsDe = (f: number) => {
