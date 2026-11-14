@@ -184,7 +184,9 @@ export function useBLESensor({
   /**
    * The ball decides when a composition should be open (`trigger`, CO2 flags
    * bit3): it owns the threshold and its hysteresis and forces the trigger off
-   * when the reading is stale. The site only follows the edge.
+   * when the reading is stale. The site follows the LEVEL, packet by packet:
+   * trigger = 1 with no composition playing opens one; trigger = 0 while a
+   * composition plays closes it.
    */
   const handleOnCO2Sensor = useCallback(
     (data: espCo2Response) => {

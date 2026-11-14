@@ -601,7 +601,7 @@ Full protocol (UUIDs, commands, config TLV, golden vectors): [`firmware/docs/pro
 
 **Precedence and re-entry.** Auto mode (the guided tour) has precedence: while it is on, or while a composition plays, navigation packets are ignored but the latest valid pose is remembered. On returning to map mode — after a composition or when auto mode is turned off — the map syncs **once** to the ball's latest pose (`nav-reentry.ts`): if the ball is settled away from the URL location the weather there is requested; settled at the same place, the popup is reopened; otherwise the per-packet flow carries on.
 
-**CO₂ as a trigger.** The ball owns the threshold and hysteresis (`co2TriggerPpm`, `co2TriggerHystPpm`, set in the config-app) and forces `trigger` off when the reading is stale. The site only follows the edge: `trigger` 0 → 1 opens a composition, 1 → 0 closes it and returns to the map. There is no threshold slider or simulator on the site any more.
+**CO₂ as a trigger.** The ball owns the threshold and hysteresis (`co2TriggerPpm`, `co2TriggerHystPpm`, set in the config-app) and forces `trigger` off when the reading is stale. The site follows the **level**, packet by packet: `trigger` = 1 with no composition playing opens one; `trigger` = 0 while a composition plays closes it and returns to the map. There is no threshold slider or simulator on the site any more.
 
 **Deploy order.** Flash **every** ball with the navigation firmware *before* publishing this site. The site needs characteristic `…0006` to move the globe, and a firmware older than the navigation build never sets the CO₂ `trigger` bit — CO₂-triggered compositions would silently stop opening.
 
