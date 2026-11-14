@@ -18,6 +18,12 @@
  * Invariant: while `connected` is false, `nav`, `imu` and `co2` are null.
  * Samples published while disconnected are dropped, so a late notification
  * can never leave stale data behind a disconnected ball.
+ *
+ * READ-ONLY, DO NOT MUTATE. The packets are the very objects the map's Pd loop
+ * reads, handed out without a copy; so the snapshot and every packet in it are
+ * frozen, all the way down. Writing to them (`bola.imu.acc.x = …`) throws in
+ * strict code and is ignored otherwise; a sketch that needs to change a value
+ * copies it first.
  */
 
 import type {
@@ -44,18 +50,31 @@ export type GaiaballLive = {
 
 type Listener = (snapshot: Readonly<GaiaballLive>) => void;
 
-let snapshot: Readonly<GaiaballLive> = {
+/**
+ * Freezes a decoded packet in place, with every object and array inside it
+ * (packets are a few levels of plain data; no cycles). In place, not a copy:
+ * the packet is never duplicated, and readers keep getting the same object.
+ */
+function deepFreeze<T>(value: T): T {
+  if (value !== null && typeof value === "object" && !Object.isFrozen(value)) {
+    for (const inner of Object.values(value)) deepFreeze(inner);
+    Object.freeze(value);
+  }
+  return value;
+}
+
+let snapshot: Readonly<GaiaballLive> = Object.freeze({
   connected: false,
   nav: null,
   imu: null,
   co2: null,
   updatedAt: 0,
-};
+});
 
 const listeners = new Set<Listener>();
 
-function publish(next: Readonly<GaiaballLive>): void {
-  snapshot = next;
+function publish(next: GaiaballLive): void {
+  snapshot = Object.freeze(next);
   for (const listener of listeners) {
     try {
       listener(snapshot);
@@ -95,15 +114,15 @@ export function publishGaiaballConnected(connected: boolean): void {
 
 export function publishGaiaballNav(nav: Nav): void {
   if (!snapshot.connected) return;
-  publish({ ...snapshot, nav, updatedAt: Date.now() });
+  publish({ ...snapshot, nav: deepFreeze(nav), updatedAt: Date.now() });
 }
 
 export function publishGaiaballImu(imu: Imu): void {
   if (!snapshot.connected) return;
-  publish({ ...snapshot, imu, updatedAt: Date.now() });
+  publish({ ...snapshot, imu: deepFreeze(imu), updatedAt: Date.now() });
 }
 
 export function publishGaiaballCo2(co2: Co2): void {
   if (!snapshot.connected) return;
-  publish({ ...snapshot, co2, updatedAt: Date.now() });
+  publish({ ...snapshot, co2: deepFreeze(co2), updatedAt: Date.now() });
 }

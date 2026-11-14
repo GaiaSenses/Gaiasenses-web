@@ -160,3 +160,70 @@ test("a throwing listener neither breaks the publisher nor the others", () => {
     publishGaiaballConnected(false);
   }
 });
+
+test("published packets are read-only all the way down; Pd's copy stays intact", () => {
+  publishGaiaballConnected(true);
+  // Fresh objects, as the decoder makes one per packet; the Pd loop reads these
+  // very objects (gaiasenses-map keeps them in refs), so the store hands them
+  // out frozen instead of copying them.
+  const imu: Imu = {
+    quat: { quat_w: 1, quat_x: 0, quat_y: 0, quat_z: 0 },
+    euler: { roll: 0, pitch: 0, yaw: 10 },
+    acc: { x: 1, y: -2, z: 3 },
+    audio: { rmsDb: [-30, -20], peakDb: [-6, -6.02] },
+  };
+  const co2: Co2 = { co2: { ppm: 1000 }, trigger: true };
+  const nav: Nav = { ...NAV };
+  publishGaiaballImu(imu);
+  publishGaiaballCo2(co2);
+  publishGaiaballNav(nav);
+
+  const bola = gaiaball.get();
+  assert.equal(bola.imu, imu); // still no copy
+  assert.equal(bola.co2, co2);
+  assert.equal(bola.nav, nav);
+  for (const o of [
+    bola,
+    imu,
+    imu.quat,
+    imu.euler,
+    imu.acc,
+    imu.audio,
+    imu.audio?.rmsDb,
+    imu.audio?.peakDb,
+    co2,
+    co2.co2,
+    nav,
+  ]) {
+    assert.ok(Object.isFrozen(o));
+  }
+
+  // A careless sketch: in strict code each write throws, in sloppy code it is
+  // ignored; either way nothing changes.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sketch = bola as any;
+  const tryWrite = (write: () => void) => {
+    try {
+      write();
+    } catch {
+      // TypeError in strict mode
+    }
+  };
+  tryWrite(() => (sketch.imu.acc.x = 99));
+  tryWrite(() => (sketch.imu.euler.yaw = 99));
+  tryWrite(() => (sketch.imu.quat.quat_w = 0));
+  tryWrite(() => (sketch.imu.audio.rmsDb[0] = 0));
+  tryWrite(() => (sketch.co2.co2.ppm = 0));
+  tryWrite(() => (sketch.co2.trigger = false));
+  tryWrite(() => (sketch.nav.lat = 0));
+  tryWrite(() => (sketch.imu = null));
+  assert.equal(imu.acc.x, 1);
+  assert.equal(imu.euler.yaw, 10);
+  assert.equal(imu.quat.quat_w, 1);
+  assert.equal(imu.audio?.rmsDb[0], -30);
+  assert.equal(co2.co2.ppm, 1000);
+  assert.equal(co2.trigger, true);
+  assert.equal(nav.lat, NAV.lat);
+  assert.equal(gaiaball.get().imu, imu);
+  publishGaiaballConnected(false);
+});

@@ -395,6 +395,10 @@ p5.draw = () => {
 returns the unsubscribe) when you want to be told about changes instead of
 polling.
 
+**Read-only, do not mutate.** The snapshot and its packets are the same objects
+the Pd loop reads, so they are frozen all the way down: `bola.imu.acc.x = …`
+throws (or is ignored in sloppy code). Copy a value before changing it.
+
 ---
 
 ## 🔊 Audio Subsystem (Pd4Web)
