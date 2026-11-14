@@ -67,7 +67,7 @@ recebe nada. Confira a grafia com atenção, inclusive maiúsculas e minúsculas
 
 ### `[s gaia.out]` — Saída do patch para o mapa (não move mais o globo)
 
-Desde 2026-11 quem move o globo é o Bolota (espelho ou joystick, configurado no config-app). Uma lista de 2 valores — latitude e longitude — enviada aqui não leva o globo para lugar nenhum. Quem ainda publica gaia.out, enquanto o Bolota está conectado, recebe só gaia.sensors; os demais patches recebem a posição em gaia.lat e gaia.lon.
+Desde 2026-11 quem move o globo é o Bolota (espelho ou joystick, configurado no config-app). Uma lista de 2 valores — latitude e longitude — enviada aqui não leva o globo para lugar nenhum. Quem ainda publica gaia.out e tem [r gaia.sensors], enquanto o Bolota está conectado, recebe só gaia.sensors; os demais patches recebem a posição em gaia.lat e gaia.lon.
 
 ---
 
