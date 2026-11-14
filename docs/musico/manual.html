@@ -769,9 +769,16 @@ Gaiasenses-web? Quero enviar uma obra.</code></pre>
           </div>
 
           <p class="note measure">
-            <strong>O patch também fala de volta.</strong> Mande uma lista de dois
-            valores — latitude e longitude — para <code>[s gaia.out]</code> e o globo
-            vai para lá. É o som dirigindo o visual.
+            <strong>Quem move o globo é o Bolota.</strong> O patch não dirige mais o
+            globo: uma lista enviada para <code>[s gaia.out]</code> é ignorada pelo
+            mapa. A navegação é calculada dentro do Bolota — em modo <em>espelho</em>
+            ou <em>joystick</em>, escolhido no config-app do gaiaball — e o site só
+            recebe a posição pronta, que chega ao seu patch em
+            <code>[r gaia.lat]</code> e <code>[r gaia.lon]</code>. Exceção: um patch
+            que ainda publica <code>gaia.out</code> e tem <code>[r gaia.sensors]</code>
+            recebe só <code>gaia.sensors</code> enquanto o Bolota está conectado. Quem
+            mantém o paraisoGaia43 encontra os passos de migração na
+            <em>Nota para quem mantém o paraisoGaia43</em>, no README desta pasta.
           </p>
         </div>
 

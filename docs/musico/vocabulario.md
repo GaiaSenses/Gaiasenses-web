@@ -59,15 +59,15 @@ recebe nada. Confira a grafia com atenção, inclusive maiúsculas e minúsculas
 - `gaia.acc.y` — Só chega quando o sensor BLE está conectado.
 - `gaia.acc.z` — Só chega quando o sensor BLE está conectado.
 - `gaia.co2` — Ar livre fica perto de 420 ppm. Sala fechada com gente passa de 1000 ppm.
-- `gaia.sensors` — Lista de 7 valores: giroX giroY giroZ aceX aceY aceZ co2. Use [list split] para separar.
+- `gaia.sensors` — Lista de 7 valores: giroX giroY giroZ aceX aceY aceZ co2. Use [list split] para separar. Regra de transição: um patch que também publica gaia.out recebe só esta lista enquanto o Bolota está conectado; os outros patches recebem esta lista e também gaia.lat, gaia.lon, gaia.acc.* e gaia.co2.
 
 ---
 
 ## O seu patch também pode falar com o site
 
-### `[s gaia.out]` — O patch move o globo
+### `[s gaia.out]` — Saída do patch para o mapa (não move mais o globo)
 
-Envie uma lista de 2 valores — latitude e longitude — e o globo vai para lá.
+Desde 2026-11 quem move o globo é o Bolota (espelho ou joystick, configurado no config-app). Uma lista de 2 valores — latitude e longitude — enviada aqui não leva o globo para lugar nenhum. Quem ainda publica gaia.out e tem [r gaia.sensors], enquanto o Bolota está conectado, recebe só gaia.sensors; os demais patches recebem a posição em gaia.lat e gaia.lon.
 
 ---
 
