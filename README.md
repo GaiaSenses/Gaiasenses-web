@@ -241,7 +241,6 @@ aws apigateway get-api-key --api-key <id> --include-value --query value --output
 app/
 ├─ [locale]/               ← i18n routes (pt = default, en)
 │  ├─ map3/                ← ★ CORE: main page + ~20 modules (map, BLE, Pd4Web, panels)
-│  ├─ gaiaball/            ← BLE sensor test bench (streams to a Pd WebSocket)
 │  └─ notifications/       ← push-subscription component
 └─ api/
    ├─ health/              ← per-source status probe (fire + lightning): 200 ok / 503 degraded
@@ -257,7 +256,7 @@ components/
 ├─ getOpenMeteo.ts · supabase.ts · supabaseClient.ts · dataSender.tsx
 
 lib/                       ← notifications.js (web-push) · usersdb.js (Supabase service-role)
-hooks/                     ← shared hooks (orientation, WebRTC, intervals)
+hooks/                     ← types.ts (PatchData) · use-timeout.ts
 scripts/                   ← patch/composition tooling (validate, build, codegen, gc, extract)
 messages/                  ← pt.json · en.json (next-intl)
 public/                    ← Pd4Web WASM bundles (one folder per patch) + audios/ + thumbnails + sw.js
