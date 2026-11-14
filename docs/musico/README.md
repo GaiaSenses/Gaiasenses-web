@@ -164,15 +164,26 @@ está conectado, como antes. Um patch com `[r gaia.sensors]` que não publica
 O paraisoGaia43 é hoje o único patch que publica `gaia.out`: ele integra o
 acelerômetro recebido em `gaia.sensors` e devolve latitude e longitude. Isso
 deixou de ter efeito — o globo vai para onde o Bolota manda — e, enquanto o patch
-publicar `gaia.out`, ele continua preso à regra de transição acima (recebe só
-`gaia.sensors`, nunca `gaia.lat`/`gaia.lon`). Para migrar:
+publicar `gaia.out`, ele continua preso à regra de transição acima: com o Bolota
+conectado, recebe só `gaia.sensors`, nunca `gaia.lat`/`gaia.lon`. Além disso, o
+próprio integrador escreve em `gaia.lat` e `gaia.lon`: o patch tem um
+`[s gaia.lat]` e um `[s gaia.lon]` seus (em `patches/paraisoGaia43/main.pd`, perto
+das linhas 2509 e 2526), que competem com os valores que o site manda nesses
+mesmos canais. Para migrar:
 
-1. Apague do patch a parte que integra a aceleração e o `[s gaia.out]`.
-2. Coloque `[r gaia.lat]` e `[r gaia.lon]` e use esses valores onde antes usava a
-   posição integrada.
-3. Se o patch ainda quiser o movimento bruto da bola, mantenha o `[r gaia.sensors]`;
-   sem `gaia.out` ele passa a receber também os canais `gaia.lat` e `gaia.lon`.
-4. Rode `npm run patches:validate` e, se o manifesto mudou, `npm run patches:codegen`.
+1. Apague do patch a parte que integra a aceleração, o `[s gaia.out]` e os
+   `[s gaia.lat]`/`[s gaia.lon]` do integrador, para que o site seja o único a
+   escrever em `gaia.lat` e `gaia.lon`.
+2. Use os `[r gaia.lat]` e `[r gaia.lon]` que o patch já tem onde antes usava a
+   posição integrada; não é preciso criar outros.
+3. Se o patch ainda quiser o movimento bruto da bola, mantenha o `[r gaia.sensors]`.
+   Sem Bolota ele já recebe `gaia.lat` e `gaia.lon` hoje; sem `gaia.out`, passa a
+   recebê-los também com o Bolota conectado, junto com a lista de sensores.
+4. Rode `npm run patches:validate`, depois `npm run patches:codegen` e
+   `npm run patches:build paraisoGaia43`. Os dois últimos são sempre necessários
+   ao tirar o `[s gaia.out]`: os canais que o patch publica são lidos do `.pd`
+   (`scripts/patch-manifest.mjs`) e entram no registro gerado, e o pacote
+   publicado em `public/patches/` só muda quando o patch é compilado de novo.
 
 ### Se a peça toca junto com uma animação
 
