@@ -172,6 +172,13 @@ export default function GaiasensesMap({
     useState(true);
   const [currentCo2Ppm, setCurrentCo2Ppm] = useState<number | null>(null);
   const [isPatchLogOpen, setIsPatchLogOpen] = useState(false);
+  // Read by the Pd listeners and the poll tick, which outlive renders: with the
+  // panel closed they skip the log append, so a Pd message or a poll tick costs
+  // no map re-render.
+  const isPatchLogOpenRef = useRef(isPatchLogOpen);
+  useEffect(() => {
+    isPatchLogOpenRef.current = isPatchLogOpen;
+  }, [isPatchLogOpen]);
   const [patchLogControls, setPatchLogControls] =
     useState<Pd4WebPatchLogControls>({
       pollMs: 64,
@@ -463,7 +470,8 @@ export default function GaiasensesMap({
     const alwaysSendMovement = patchLogControls.alwaysSendMovement;
 
     // `gaia.out` (paraisoGaia43) used to steer the globe. The ball computes the
-    // navigation now, so the list is only shown in the patch I/O log.
+    // navigation now, so the list is only shown in the patch I/O log, and only
+    // while that panel is open.
     const outputListReceiver = senders[GAIA.OUT];
     if (outputListReceiver) {
       const listenerMap = pdListListenerMapRef.current;
@@ -473,6 +481,9 @@ export default function GaiasensesMap({
         listenerMap.set(pd4web, knownReceivers);
 
         pd4web.onListReceived(outputListReceiver, (_name, list) => {
+          if (!isPatchLogOpenRef.current) {
+            return;
+          }
           if (!Array.isArray(list) || list.length === 0) {
             return;
           }
@@ -678,7 +689,7 @@ export default function GaiasensesMap({
         pushCanonical(center.lat, center.lng, tickLogs);
       }
 
-      if (tickLogs.length > 0) {
+      if (tickLogs.length > 0 && isPatchLogOpenRef.current) {
         appendPatchLogs(tickLogs);
       }
     }, pollMs);
