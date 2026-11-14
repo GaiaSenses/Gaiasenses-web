@@ -52,7 +52,7 @@ const POLL_MS_MIN = 16;
 const POLL_MS_MAX = 2000;
 const EPSILON_MIN = 0;
 const EPSILON_MAX = 100;
-const ACC_EPSILON_MAX = 100;
+const ACC_EPSILON_MAX = 1000;
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -249,7 +249,7 @@ export default function Pd4WebPatchLog({
                   className="text-[10px] font-medium text-slate-700"
                   htmlFor="patchLogAccEpsilon"
                 >
-                  accEpsilon
+                  accEpsilon (mg; também vale para o CO₂, em ppm)
                 </label>
                 <Input
                   id="patchLogAccEpsilon"

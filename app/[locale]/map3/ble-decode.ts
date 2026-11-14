@@ -25,6 +25,7 @@ export type espResponse = {
     pitch: number;
     yaw: number;
   };
+  /** Acceleration in mg (1000 = 1 g), int16 as sent by the firmware. */
   acc: {
     x: number;
     y: number;
@@ -71,6 +72,8 @@ export type GaiaballNav = {
 };
 
 const PROTOCOL_VERSION = 1;
+/** The movement (IMU) packet is v2: acceleration in mg, audio as u8 half-dB. CO2 and Nav stay v1. */
+const IMU_PACKET_VERSION = 2;
 const TYPE_IMU = 0x01;
 const TYPE_CO2 = 0x02;
 const TYPE_NAV = 0x07;
@@ -93,10 +96,16 @@ const TYPE_NAV = 0x07;
  * not there. The Pd bridge (`pd-gaiaball/gaiaball_bridge.py`) already reads
  * `len(data) < 31` for the same reason.
  *
+ * Version 2 of the movement packet (the only one accepted now) changed the
+ * meaning of the acceleration (raw DMP counts -> int16 milli-g) and shrank the
+ * microphone envelope from four int16 (31 bytes) to four u8 half-dB (27 bytes,
+ * offsets 23..26). That is why the version byte moved to 2 for this packet
+ * only; the minimum size went 31 -> 27 and the rule is still `>= minimum`.
+ *
  * Note that 23 is now the size of `SensorsPacket` (type 0x04) — one more
  * reason not to keep that number here as the IMU's length.
  */
-const IMU_PACKET_MIN_SIZE = 31;
+const IMU_PACKET_MIN_SIZE = 27;
 const CO2_PACKET_MIN_SIZE = 12;
 /** Same rule as the IMU: a longer NavPacket from a newer firmware still decodes. */
 const NAV_PACKET_MIN_SIZE = 22;
@@ -154,6 +163,8 @@ export function quatToEulerLegacy(
   };
 }
 
+const halfDb = (v: number) => v / 2 - 120;
+
 export function decodeSensorNotification(
   buf: ArrayBuffer,
 ): espResponse | null {
@@ -163,7 +174,7 @@ export function decodeSensorNotification(
 
     if (
       buf.byteLength < IMU_PACKET_MIN_SIZE ||
-      dv.getUint8(0) !== PROTOCOL_VERSION ||
+      dv.getUint8(0) !== IMU_PACKET_VERSION ||
       dv.getUint8(1) !== TYPE_IMU
     ) {
       return null;
@@ -187,15 +198,16 @@ export function decodeSensorNotification(
       },
     };
 
-    // Bytes 23..30 carry the microphone envelope (RMS L, RMS R, peak L,
-    // peak R, int16 dBFS x100), meaningful only while flags bit3 is set. It is
-    // exposed to sketches through lib/gaiaball-live.ts; no Pd channel carries
-    // it — `gaia.sensors` is a fixed list of seven values that paraisoGaia43
-    // unpacks, and a new channel is a decision for the musicians.
+    // Bytes 23..26 carry the microphone envelope (RMS L, RMS R, peak L,
+    // peak R), each a u8 in half-dB: dBFS = value / 2 - 120 (0 = the -120 floor),
+    // meaningful only while flags bit3 is set. It is exposed to sketches through
+    // lib/gaiaball-live.ts; no Pd channel carries it — `gaia.sensors` is a fixed
+    // list of seven values that paraisoGaia43 unpacks, and a new channel is a
+    // decision for the musicians.
     if ((flags & IMU_FLAG_AUDIO_VALID) !== 0) {
       imu.audio = {
-        rmsDb: [dv.getInt16(23, true) / 100, dv.getInt16(25, true) / 100],
-        peakDb: [dv.getInt16(27, true) / 100, dv.getInt16(29, true) / 100],
+        rmsDb: [halfDb(dv.getUint8(23)), halfDb(dv.getUint8(24))],
+        peakDb: [halfDb(dv.getUint8(25)), halfDb(dv.getUint8(26))],
       };
     }
 

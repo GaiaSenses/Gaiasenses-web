@@ -398,6 +398,7 @@ polling.
 **Read-only, do not mutate.** The snapshot and its packets are the same objects
 the Pd loop reads, so they are frozen all the way down: `bola.imu.acc.x = …`
 throws (or is ignored in sloppy code). Copy a value before changing it.
+`imu.acc` is in mg (1000 = 1 g).
 
 ---
 
@@ -502,7 +503,7 @@ sent again — values below the epsilon are not re-sent.
 
 ```text
 App → Pd   gaia.sensors   (every pollMs, list):
-           [gyroX gyroY gyroZ accX accY accZ co2]
+           [gyroX gyroY gyroZ accX accY accZ co2]   (acc in mg, 1000 = 1 g)
 
 Pd → App   gaia.out       (list):
            [latitude longitude]   → only shown in the patch I/O log
@@ -591,7 +592,7 @@ The Gaiaball computes the navigation itself — in *mirror* mode (the globe copi
 
 | Packet | Size | Layout | Notes |
 |---|---|---|---|
-| IMU (char `…0001`, type `0x01`) | ≥ 31 B | `ver u8 · type u8 · seq u16 · tUs u32 · quatW/X/Y/Z i16 · accX/Y/Z i16 · flags u8 · rmsL/rmsR/peakL/peakR i16` | Quaternion is Q14 (`int16 / 16384`); accel is raw DMP counts. Flags: bit0 `quatValid` (packet dropped when 0), bit1 `nineAxis`, bit2 `moving`, bit3 `audioValid` (the microphone envelope, dBFS × 100 on the wire, is exposed as `imu.audio` only when set; no Pd channel carries it) |
+| IMU (char `…0001`, type `0x01`) | ≥ 27 B | `ver u8 · type u8 · seq u16 · tUs u32 · quatW/X/Y/Z i16 · accX/Y/Z i16 · flags u8 · rmsL/rmsR/peakL/peakR u8` | Quaternion is Q14 (`int16 / 16384`); version byte is `2` (CO₂ and Nav stay `1`); accel is int16 in mg (1000 = 1 g). Flags: bit0 `quatValid` (packet dropped when 0), bit1 `nineAxis`, bit2 `moving`, bit3 `audioValid` (the microphone envelope, u8 half-dB on the wire — dBFS = value / 2 − 120, is exposed as `imu.audio` only when set; no Pd channel carries it) |
 | CO₂ (char `…0003`, type `0x02`) | 12 B | `ver u8 · type u8 · seq u16 · tMs u32 · ppm u16 · flags u8 · ageS u8` | Flags: bit0 `valid`, bit1 `stale` (ppm still delivered; one `console.warn` per connection), bit2 `virtualActive`, bit3 `trigger` |
 | Nav (char `…0006`, type `0x07`) | ≥ 22 B | `ver u8 · type u8 · seq u16 · tUs u32 · mode u8 · flags u8 · latE7 i32 · lonE7 i32 · bearingX100 i16 · speedDegSX10 u16` | `mode`: 0 off, 1 mirror, 2 joystick. Flags: bit0 `valid` (0 in the 1 Hz keepalive sent while navigation is off or the IMU is unavailable), bit1 `settled`, bit2 `moving`. `lat`/`lon` are the screen centre, `bearing` the Mapbox bearing in (−180, 180] |
 

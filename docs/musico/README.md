@@ -134,9 +134,9 @@ tudo sozinho.
 
 | Coloque no patch | O que chega | Faixa |
 |---|---|---|
-| `[r gaia.acc.x]` | Aceleração no eixo X | −16 a 16 g |
-| `[r gaia.acc.y]` | Aceleração no eixo Y | −16 a 16 g |
-| `[r gaia.acc.z]` | Aceleração no eixo Z | −16 a 16 g |
+| `[r gaia.acc.x]` | Aceleração no eixo X | −4000 a 4000 mg |
+| `[r gaia.acc.y]` | Aceleração no eixo Y | −4000 a 4000 mg |
+| `[r gaia.acc.z]` | Aceleração no eixo Z | −4000 a 4000 mg |
 | `[r gaia.co2]` | CO₂ medido pelo sensor | 400 a 5000 ppm |
 
 Os canais do sensor só chegam quando o Bolota está conectado. Os de clima mudam
@@ -184,6 +184,22 @@ mesmos canais. Para migrar:
    ao tirar o `[s gaia.out]`: os canais que o patch publica são lidos do `.pd`
    (`scripts/patch-manifest.mjs`) e entram no registro gerado, e o pacote
    publicado em `public/patches/` só muda quando o patch é compilado de novo.
+5. **A aceleração agora chega em mg (1000 = 1 g), não mais em contagens brutas do
+   sensor.** O Bolota manda o pacote de movimento na versão 2, e `aceX aceY aceZ`
+   (em `gaia.sensors` e em `gaia.acc.*`) vão de −4000 a 4000. As constantes do
+   patch que eram escritas para as contagens antigas (1 g = 8192) precisam ser
+   convertidas; os valores abaixo já fazem a conta (contagens × 1000 / 8192):
+
+   | Hoje (contagens) | Passa a ser (mg) |
+   |---|---|
+   | `[/ 8000]` | `[/ 1000]` |
+   | `[> 6000]` / `[< -6000]` | `[> 732]` / `[< -732]` |
+   | `[/ 7000]` | `[/ 854.5]` |
+   | `[/ 11000]` | `[/ 1343]` |
+   | `[+ 11000]` e `[/ 22000]` | `[+ 1343]` e `[/ 2686]` |
+
+   O `accEpsilon` pode ficar em 0.05. Ele também é a zona morta do CO₂ (em ppm),
+   e o painel do site aceita agora até 1000.
 
 ### Se a peça toca junto com uma animação
 

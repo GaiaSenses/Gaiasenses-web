@@ -3,8 +3,8 @@
  *
  * Two kinds of payload exist:
  *
- *  - the sensor list on `gaia.sensors` (roll, pitch, yaw, accX, accY, accZ,
- *    co2) — the raw ball, for a patch that wants to interpret it itself;
+ *  - the sensor list on `gaia.sensors` (roll, pitch, yaw, accX, accY, accZ
+ *    in mg, co2) — the raw ball, for a patch that wants to interpret it itself;
  *  - the canonical channels: `gaia.lat`/`gaia.lon` from the map centre,
  *    `gaia.acc.*` and `gaia.co2`, each behind its own dead-band.
  *
