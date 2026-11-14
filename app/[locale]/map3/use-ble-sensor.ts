@@ -2,7 +2,13 @@ import { useRef, useCallback, useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { MapRef } from "react-map-gl/mapbox";
 import type { espCo2Response, GaiaballNav } from "./ble-decode";
-import { decideNavReentry } from "./nav-reentry";
+import {
+  NAV_TRACKER_RESET,
+  navTrackerReenter,
+  navTrackerStep,
+  type NavTrackerEffects,
+  type NavTrackerState,
+} from "./nav-tracker";
 
 type UseBLESensorOptions = {
   mapRef: React.RefObject<MapRef>;
@@ -21,7 +27,8 @@ type UseBLESensorOptions = {
  * calibration, filtering or stop detection happens here any more. The ball
  * says where the centre is, which way is up, and — through `settled` — when it
  * stopped; this hook only applies that to the map and opens the weather popup
- * when the ball comes to rest.
+ * when the ball comes to rest. The decisions live in nav-tracker.ts (a pure
+ * step function); this hook holds its state and performs its effects.
  */
 export function useBLESensor({
   mapRef,
@@ -49,19 +56,12 @@ export function useBLESensor({
     isCompositionPlayingRef.current = searchParams.get("mode") === "player";
   }, [searchParams]);
 
-  // Stop detection is the ball's (`settled`); what is tracked here is only the
-  // edge. `previousSettledRef` is null after a (re)connect and after a
-  // valid = 0 keepalive, until the next applied packet (or a re-entry seeds
-  // it), so being at rest when the link comes up is never mistaken for having
-  // just stopped. `sawMovementRef` records that a pose with settled = false
-  // was applied since the last connect — the flags' `moving` bit is never
-  // consulted (mirror mode may send valid|settled|moving).
-  const previousSettledRef = useRef<boolean | null>(null);
-  const sawMovementRef = useRef(false);
-  // The latest valid pose, kept even while packets are ignored (player mode,
-  // auto mode), so the globe can catch up when it listens again. Cleared when
-  // the ball says its navigation is off (valid = 0): that pose is disowned.
-  const latestValidNavRef = useRef<GaiaballNav | null>(null);
+  // Stop detection is the ball's (`settled`); what is tracked here is the
+  // settled edge plus the latest valid pose, kept even while packets are
+  // ignored (player mode, auto mode) so the globe can catch up when it listens
+  // again. Reset on connect, on disconnect and by a valid = 0 keepalive; the
+  // first settled packet after a reset syncs the globe once (nav-tracker.ts).
+  const navTrackerRef = useRef<NavTrackerState>(NAV_TRACKER_RESET);
 
   // Whether the ball steers the globe: URL mode=map and auto mode off. Kept in
   // a ref written only by the re-entry effect below, so the gate opening and
@@ -72,9 +72,7 @@ export function useBLESensor({
   const navGateOpenRef = useRef(navGateOpen);
 
   const resetNavTracking = useCallback(() => {
-    previousSettledRef.current = null;
-    sawMovementRef.current = false;
-    latestValidNavRef.current = null;
+    navTrackerRef.current = NAV_TRACKER_RESET;
   }, []);
 
   const handleMotionStop = useCallback(() => {
@@ -97,6 +95,22 @@ export function useBLESensor({
     }
   }, [searchParams, inputModeRef, mapRef, pathname, router]);
 
+  /** Performs what the tracker decided: state first, then the map, then the popup. */
+  const applyNavEffects = useCallback(
+    (fx: NavTrackerEffects) => {
+      navTrackerRef.current = fx.state;
+      if (fx.jumpTo) {
+        mapRef.current?.jumpTo({
+          center: fx.jumpTo.center,
+          bearing: fx.jumpTo.bearing,
+        });
+      }
+      if (fx.motionStop) handleMotionStop();
+      else if (fx.reopenPopup) reopenPopup();
+    },
+    [mapRef, handleMotionStop, reopenPopup],
+  );
+
   /**
    * Called for every NavPacket (up to navNotifyHz, 50 Hz by default). The map
    * is moved imperatively with `jumpTo` — never through React state — so a
@@ -104,47 +118,21 @@ export function useBLESensor({
    *
    * While settled the map is left alone: the pose was already applied on the
    * way in, and a `jumpTo` would fire move events that hide the popup the stop
-   * just opened.
+   * just opened. The one exception is the first settled packet after a
+   * connect or a valid = 0 reset, which syncs the globe once.
    */
   const handleOnNav = useCallback(
     (nav: GaiaballNav) => {
-      if (!nav.valid) {
-        // Navigation off or IMU unavailable (1 Hz keepalive): forget the edge,
-        // so motion before the dropout cannot turn into a popup after it.
-        previousSettledRef.current = null;
-        latestValidNavRef.current = null;
-        return;
-      }
-      latestValidNavRef.current = nav;
-
-      // Player mode and auto mode (which has precedence) close the gate; the
-      // pose above is still remembered for when it reopens.
-      if (!navGateOpenRef.current) return;
-      if (inputModeRef.current === "mouse") return;
-
-      const wasSettled = previousSettledRef.current;
-      previousSettledRef.current = nav.settled;
-
-      if (!nav.settled) {
-        sawMovementRef.current = true;
-        mapRef.current?.jumpTo({
-          center: [nav.lon, nav.lat],
-          bearing: nav.bearing,
-        });
-        return;
-      }
-
-      if (wasSettled === false && sawMovementRef.current) {
-        // The packet that says "stopped" carries the final pose: apply it
-        // once, then ask for the weather of where the globe came to rest.
-        mapRef.current?.jumpTo({
-          center: [nav.lon, nav.lat],
-          bearing: nav.bearing,
-        });
-        handleMotionStop();
-      }
+      applyNavEffects(
+        navTrackerStep(navTrackerRef.current, nav, {
+          gateOpen: navGateOpenRef.current,
+          inputMode: inputModeRef.current,
+          urlLat: Number(searchParams.get("lat") ?? initialLat),
+          urlLng: Number(searchParams.get("lng") ?? initialLng),
+        }),
+      );
     },
-    [inputModeRef, mapRef, handleMotionStop],
+    [applyNavEffects, inputModeRef, searchParams, initialLat, initialLng],
   );
 
   /**
@@ -160,41 +148,21 @@ export function useBLESensor({
     const wasOpen = navGateOpenRef.current;
     navGateOpenRef.current = navGateOpen;
     if (wasOpen || !navGateOpen) return;
-    if (inputModeRef.current === "mouse") return;
-
-    const urlLat = Number(searchParams.get("lat") ?? initialLat);
-    const urlLng = Number(searchParams.get("lng") ?? initialLng);
-    const decision = decideNavReentry(latestValidNavRef.current, urlLat, urlLng);
-    if (!decision) return;
-
-    previousSettledRef.current = decision.settled;
-    if (!decision.settled) {
-      // A moving pose is about to be applied: the next settled packet is a
-      // real stop and must open the popup.
-      sawMovementRef.current = true;
-    }
-
-    mapRef.current?.jumpTo({
-      center: decision.center,
-      bearing: decision.bearing,
-    });
-
-    if (decision.refreshLocation) {
-      handleMotionStop();
-    } else if (decision.settled) {
-      // Same place: the popup there is still right, but the jumpTo above just
-      // hid it (any move does, while the ball is connected).
-      reopenPopup();
-    }
+    applyNavEffects(
+      navTrackerReenter(navTrackerRef.current, {
+        gateOpen: true,
+        inputMode: inputModeRef.current,
+        urlLat: Number(searchParams.get("lat") ?? initialLat),
+        urlLng: Number(searchParams.get("lng") ?? initialLng),
+      }),
+    );
   }, [
     navGateOpen,
     searchParams,
     initialLat,
     initialLng,
     inputModeRef,
-    mapRef,
-    handleMotionStop,
-    reopenPopup,
+    applyNavEffects,
   ]);
 
   const handleControllerConnect = useCallback(
