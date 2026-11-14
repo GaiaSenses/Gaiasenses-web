@@ -104,6 +104,7 @@ export default function BLEControl({
   const onCo2SensorRef = useRef(onCo2Sensor);
   const onNavRef = useRef(onNav);
   const onConnectionLostRef = useRef(onConnectionLost);
+  const onDisconnectRef = useRef(onDisconnect);
 
   // Latest decoded packets for the info card, copied to state at most every
   // INFO_CARD_REFRESH_MS (only when something new arrived).
@@ -125,6 +126,10 @@ export default function BLEControl({
   useEffect(() => {
     onConnectionLostRef.current = onConnectionLost;
   }, [onConnectionLost]);
+
+  useEffect(() => {
+    onDisconnectRef.current = onDisconnect;
+  }, [onDisconnect]);
 
   useEffect(() => {
     if (!isConnected) {
@@ -265,6 +270,9 @@ export default function BLEControl({
       if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
         setError("Could not reconnect to device. Please pair again.");
         setIsConnected(false);
+        // The ball is gone for good: hand the map back to the mouse. Without
+        // this the input mode stayed "controller" and the map stayed locked.
+        onDisconnectRef.current("mouse");
         return;
       }
 

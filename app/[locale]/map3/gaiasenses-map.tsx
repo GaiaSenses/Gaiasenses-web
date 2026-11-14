@@ -46,6 +46,7 @@ import { useMapInteractions } from "./use-map-interactions";
 import { useAutoMode } from "./use-auto-mode";
 import { useBLESensor } from "./use-ble-sensor";
 import { decidePdSend } from "./pd-send-rule";
+import { mapInteractionProps } from "./map-interaction-lock";
 import {
   ClimaData,
   getCompositionDecisionTrace,
@@ -171,6 +172,9 @@ export default function GaiasensesMap({
   const [showCompositionInfoPanel, setShowCompositionInfoPanel] =
     useState(true);
   const [currentCo2Ppm, setCurrentCo2Ppm] = useState<number | null>(null);
+  // Changes only on connect/disconnect (never at packet rate): it locks the
+  // map's mouse/touch handlers while the ball owns the globe.
+  const [isBallConnected, setIsBallConnected] = useState(false);
   const [isPatchLogOpen, setIsPatchLogOpen] = useState(false);
   // Read by the Pd listeners and the poll tick, which outlive renders: with the
   // panel closed they skip the log append, so a Pd message or a poll tick costs
@@ -329,6 +333,7 @@ export default function GaiasensesMap({
   const handleBleConnect = useCallback(
     (inputMode: string) => {
       publishGaiaballConnected(true);
+      setIsBallConnected(true);
       handleControllerConnect(inputMode);
     },
     [handleControllerConnect],
@@ -337,6 +342,7 @@ export default function GaiasensesMap({
   const handleBleDisconnect = useCallback(
     (inputMode: string) => {
       publishGaiaballConnected(false);
+      setIsBallConnected(false);
       handleControllerDisconnect(inputMode);
     },
     [handleControllerDisconnect],
@@ -904,6 +910,7 @@ export default function GaiasensesMap({
         }}
         mapStyle="mapbox://styles/mapbox/standard"
         projection={{ name: "globe" }}
+        {...mapInteractionProps(isBallConnected)}
         onMove={handleMove}
         onMoveEnd={(e: ViewStateChangeEvent) => {
           handleMoveEnd(e);
@@ -911,7 +918,8 @@ export default function GaiasensesMap({
         }}
       >
         <FullscreenControl containerId="the-container" />
-        <NavigationControl />
+        {/* With the ball connected the compass would reset a bearing the ball owns. */}
+        <NavigationControl showCompass={!isBallConnected} />
         <AutoMove
           isActive={autoActive}
           locations={autoLocations}
@@ -928,7 +936,8 @@ export default function GaiasensesMap({
           onDisconnect={handleBleDisconnect}
           onConnectionLost={handleBleConnectionLost}
         />
-        <GeolocateControl onGeolocate={onGeolocate} />
+        {/* Geolocation recentres the map: not while the ball owns the globe. */}
+        {!isBallConnected && <GeolocateControl onGeolocate={onGeolocate} />}
         {showPopup && (
           <Popup
             key="info-popup"
