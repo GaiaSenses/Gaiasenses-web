@@ -512,7 +512,9 @@ accepts up to 1000.
 
 ```text
 App → Pd   gaia.sensors   (every pollMs, list):
-           [gyroX gyroY gyroZ accX accY accZ co2]   (acc in mg, 1000 = 1 g)
+           [gyroX gyroY gyroZ accX accY accZ co2]
+           gyro* = roll/pitch/yaw in degrees (from the quaternion, not a gyroscope)
+           acc*  = mg (1000 = 1 g); co2 = ppm
 
 Pd → App   gaia.out       (list):
            [latitude longitude]   → only shown in the patch I/O log
