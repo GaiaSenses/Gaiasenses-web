@@ -27,6 +27,7 @@
 14. [Reading Order for New Developers](#-reading-order-for-new-developers)
 15. [Related Repositories](#-related-repositories)
 16. [Known Issues & Tech Debt](#%EF%B8%8F-known-issues--tech-debt)
+17. [License](#-license)
 
 ---
 
@@ -286,7 +287,7 @@ sequenceDiagram
     U->>GM: hydrate
     Note over GM: user clicks Start 🔊
     GM->>PD: init patch + send lat/lng/accel/CO₂ every 64 ms
-    PD-->>GM: [lat, lng] target (when BLE sensor drives the globe)
+    PD-->>GM: gaia.out [lat, lng] (patch I/O log only)
     GM->>SC: router.replace(?lat&lng) on map move → refetch
 ```
 
@@ -466,12 +467,12 @@ own copy of the binding names, and that copy is what went stale. A shape of it:
 | Globe | `gaia.lat`, `gaia.lon`, `gaia.speed` |
 | Weather at the point the globe faces | `gaia.temp`, `gaia.humidity`, `gaia.clouds`, `gaia.rain`, `gaia.wind.speed`, `gaia.wind.deg`, `gaia.lightning`, `gaia.fire` |
 | Bolota BLE sensor, only while connected | `gaia.acc.x/y/z`, `gaia.co2`, `gaia.sensors` |
-| Patch → app | `[s gaia.out]` — send a list of two floats and the globe moves there |
+| Patch → app | `[s gaia.out]` — a list of two floats, shown only in the patch I/O log (the globe no longer follows it) |
 | Animation events | `[r bolt]` (lightningBolts), `[r start]` / `[s paint]` (lluvia) |
 
-Every patch in the repository is on the vocabulary. The manifest still resolves
-the old names — `latitude`, `aceX`, `co2`, `input`, `output` — as aliases, so a
-patch written before it arrived keeps working, but none is left that needs them.
+The manifest still resolves the old names — `latitude`, `aceX`, `co2`, `input`,
+`output` — as aliases, so a patch written before the vocabulary arrived keeps
+working. `mapa15`, the globe patch, is the one that still needs them.
 A patch that a musician sends in with old names will run; standardising it is a
 rename of the send and receive objects, nothing more.
 
@@ -486,18 +487,26 @@ author, licence, when it may activate, and tuning.
 
 ```jsonc
 {
-  "id": "paraisoGaia43",
-  "label": "Map sound 43",
-  "author": { "name": "…" },
+  "$schema": "../../schemas/gaia.patch.schema.json",
+  "schemaVersion": 1,
+  "id": "mapa15",
+  "label": "TesteGlobo2.0",
+  "description": "Uma frase sobre a obra.",
+  "author": { "name": "GabrielDincao" },
   "license": "CC-BY-4.0",
-  "build": { "initialMemory": 64 },
-  "activation": { "moments": ["map", "player"] },
-  "tuning": { "pollMs": 64, "epsilon": 0.5, "accEpsilon": 0.05 }
+  "build": { "initialMemory": 256 },
+  "activation": { "moments": ["map"] }
 }
 ```
 
-`tuning` controls how often values are sent and how much they must change to be
-sent again — values below the epsilon are not re-sent.
+That is the manifest of the globe patch (`patches/mapa15/patch.json`).
+`mapa15` is the only patch with the `map` moment, so it is the one the globe
+plays. An optional `tuning` block, e.g. `{ "pollMs": 64, "epsilon": 0.5,
+"accEpsilon": 0.05 }`, controls how often values are sent and how much they must
+change to be sent again — values below the epsilon are not re-sent. The defaults
+are `pollMs` 100, `epsilon` 0.0001 and `accEpsilon` 0.05; `accEpsilon` is in mg
+for acceleration and is also the CO₂ dead band (ppm), and the patch log panel
+accepts up to 1000.
 
 ### App ⇄ Pd message contract
 
@@ -513,11 +522,21 @@ The patch is an **audio sink only**: since 2026-11 the Gaiaball computes the
 navigation itself and the site applies it (see the BLE Sensor Pipeline section),
 so `gaia.out` no longer moves the globe. The globe's position reaches patches as
 the canonical `gaia.lat`/`gaia.lon` channels (map centre). **Transition rule**
-(`pd-send-rule.ts`; it keeps paraisoGaia43, the one patch that still
-publishes `gaia.out`, working): with a ball connected, a patch that has a
+(`pd-send-rule.ts`; it keeps `mapa15`, the globe patch, which still
+publishes `gaia.out` on `[s output]` and hears `gaia.sensors` on `[r input]`,
+working): with a ball connected, a patch that has a
 `gaia.sensors` receiver *and* publishes `gaia.out` gets only `gaia.sensors`; one
 with a sensors receiver and no `gaia.out` gets `gaia.sensors` **and** the
 canonical channels; otherwise the canonical channels alone.
+
+**The globe patch still uses legacy names and raw-count constants.** `mapa15`
+hears `gaia.sensors` on `[r input]` and `gaia.acc.*` on `[r aceX]`/`[r aceY]`/`[r aceZ]`
+(see `pd4web-patches.generated.ts`), so with a ball connected it receives only
+the sensor list. It still integrates acceleration with constants written for raw
+counts, so it needs its author's mg edit before release (`docs/musico/README.md`,
+"Nota para quem mantém o patch do globo"). Its microphone branch
+(`adc~ → sigmund04~`) receives silence on the site, which opens audio with no
+input (`channelCountIn: 0` in `pd4web-context.tsx`).
 
 Available Pd4Web methods: `sendBang`, `sendFloat`, `sendList`, `sendSymbol` and
 listeners `onBangReceived`, `onFloatReceived`, `onListReceived`,
@@ -592,7 +611,7 @@ The Gaiaball computes the navigation itself — in *mirror* mode (the globe copi
 
 | Packet | Size | Layout | Notes |
 |---|---|---|---|
-| IMU (char `…0001`, type `0x01`) | ≥ 27 B | `ver u8 · type u8 · seq u16 · tUs u32 · quatW/X/Y/Z i16 · accX/Y/Z i16 · flags u8 · rmsL/rmsR/peakL/peakR u8` | Quaternion is Q14 (`int16 / 16384`); version byte is `2` (CO₂ and Nav stay `1`); accel is int16 in mg (1000 = 1 g). Flags: bit0 `quatValid` (packet dropped when 0), bit1 `nineAxis`, bit2 `moving`, bit3 `audioValid` (the microphone envelope, u8 half-dB on the wire — dBFS = value / 2 − 120, is exposed as `imu.audio` only when set; no Pd channel carries it) |
+| IMU (char `…0001`, type `0x01`) | ≥ 27 B | `ver u8 · type u8 · seq u16 · tUs u32 · quatW/X/Y/Z i16 · accX/Y/Z i16 · flags u8 · rmsL/rmsR/peakL/peakR u8` | Quaternion is Q14 (`int16 / 16384`); version byte is `2` (CO₂ and Nav stay `1`); accel is int16 in mg (1000 = 1 g). Flags: bit0 `quatValid` (packet dropped when 0), bit1 `nineAxis`, bit2 `moving`, bit3 `audioValid` (the microphone envelope, u8 half-dB on the wire — dBFS = value / 2 − 120, is exposed as `imu.audio` only when set; no Pd channel carries it), bit4 `breath` (the ball recognised a breath; latched until sent; the site does not read it yet) |
 | CO₂ (char `…0003`, type `0x02`) | 12 B | `ver u8 · type u8 · seq u16 · tMs u32 · ppm u16 · flags u8 · ageS u8` | Flags: bit0 `valid`, bit1 `stale` (ppm still delivered; one `console.warn` per connection), bit2 `virtualActive`, bit3 `trigger` |
 | Nav (char `…0006`, type `0x07`) | ≥ 22 B | `ver u8 · type u8 · seq u16 · tUs u32 · mode u8 · flags u8 · latE7 i32 · lonE7 i32 · bearingX100 i16 · speedDegSX10 u16` | `mode`: 0 off, 1 mirror, 2 joystick. Flags: bit0 `valid` (0 in the 1 Hz keepalive sent while navigation is off or the IMU is unavailable), bit1 `settled`, bit2 `moving`. `lat`/`lon` are the screen centre, `bearing` the Mapbox bearing in (−180, 180] |
 
@@ -614,7 +633,7 @@ Full protocol (UUIDs, commands, config TLV, golden vectors): [`firmware/docs/pro
 
 **CO₂ as a trigger.** The ball owns the threshold and hysteresis (`co2TriggerPpm`, `co2TriggerHystPpm`, set in the config-app) and forces `trigger` off when the reading is stale. The site follows the **level**, packet by packet: `trigger` = 1 with no composition playing opens one; `trigger` = 0 while a composition plays closes it and returns to the map. There is no threshold slider or simulator on the site any more.
 
-**Deploy order.** Flash the balls and publish this site **in the same window**, after the paraisoGaia43 patch author's mg edit is merged (it is the only patch that reads acceleration: `gaia.acc.*` and `gaia.sensors` are now in mg; the migration table is in `docs/musico/README.md`). The IMU packet is now v2 and neither order works alone: the previous site rejects v2 (it requires version 1 and at least 31 bytes), and this site rejects v1 (the IMU goes silent; the site shows the "atualize o firmware da bola" warning). The globe still needs characteristic `…0006`, and a firmware older than the navigation build never sets the CO₂ `trigger` bit.
+**Deploy order.** Flash the balls and publish this site **in the same window**, after the `mapa15` author's mg edit is merged (it is the only patch that reads acceleration: `gaia.acc.*` and `gaia.sensors` are now in mg; the migration table is in `docs/musico/README.md`). The IMU packet is now v2 and neither order works alone: the previous site rejects v2 (it requires version 1 and at least 31 bytes), and this site rejects v1 (the IMU goes silent; the site shows the "atualize o firmware da bola" warning). The globe still needs characteristic `…0006`, and a firmware older than the navigation build never sets the CO₂ `trigger` bit.
 
 **What patches receive.** See *App ⇄ Pd message contract* above: the globe position arrives as `gaia.lat`/`gaia.lon`; a patch that publishes `gaia.out` gets only `gaia.sensors` while a ball is connected.
 
@@ -696,7 +715,13 @@ AWS CDK (TypeScript) project that provisions the satellite-data backend consumed
 - 📦 ~~Several declared dependencies have zero imports~~ — removed (HIG-01): `mongodb`, `joy-con-webhid`, `@mediapipe/tasks-vision`, `@xenova/transformers`, `react-webcam`, `react-h5-audio-player`, `react-three-map`, `react-geolocated`. Note that `tone` was **not** dead: `components/compositions/airports/discrete.tsx` loads it with a dynamic `await import("tone")`, which a plain import grep misses.
 - 🗂️ `public/` carries ~191 MB, and `public/audios/` is 176 MB of it — 92% of the repository, with no owner and no plan. git-lfs does not fit the free quota and a CDN runs into the `require-corp` COEP header that Pd4Web needs.
 - 🐘 Postgres is on `15.8.1.111`, which Supabase flags as having outstanding security patches. The free-plan upgrade path is Pause & Restore; it was run and the version did not move.
-- 🧪 Test coverage is thin: 150 contract tests cover the data layer, the health endpoint, BLE decoding, navigation re-entry and the patch send rule (`tests/`, plain `node --test`); components, hooks and the audio pipeline are uncovered. Releases are tagged since [`v1.0.0`](https://github.com/GaiaSenses/Gaiasenses-web/releases/tag/v1.0.0) (2026-09-08).
+- 🧪 Test coverage is thin: 171 contract tests cover the data layer, the health endpoint, BLE decoding, navigation re-entry and the patch send rule (`tests/`, plain `node --test`); components, hooks and the audio pipeline are uncovered. Releases are tagged since [`v1.0.0`](https://github.com/GaiaSenses/Gaiasenses-web/releases/tag/v1.0.0) (2026-09-08).
+
+---
+
+## 📄 License
+
+The project is licensed under the **GNU GPL v3.0** — see [`LICENSE`](LICENSE). A patch or composition may carry its own license in its manifest (`license` in `patch.json` / `composition.json`; `mapa15` declares CC-BY-4.0).
 
 ---
 
