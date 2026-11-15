@@ -9,7 +9,7 @@
  *    `gaia.acc.*` and `gaia.co2`, each behind its own dead-band.
  *
  * A patch that declares a `gaia.sensors` receiver AND publishes `gaia.out`
- * (today only paraisoGaia43) gets the sensor list alone, exactly as before:
+ * (today the globe patch, mapa15 "TesteGlobo2.0") gets the sensor list alone:
  * it builds its own sound from the raw ball. Its `gaia.out` no longer moves
  * the globe — the ball computes the navigation — but the patch still sees the
  * same input it always did.

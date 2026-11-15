@@ -79,11 +79,12 @@ for (const channel of GAIA_CHANNELS) {
  * The secondary receiver names on the map patch, used by the animations that
  * keep it playing (`curves`, `cloudBubble` — both `keepMapPatch: true`).
  *
- * `paraisoGaia43` exposes two independent geographic inputs: `latitude`/
- * `longitude`, fed by the globe, and `lati`/`rotacaoSite`, fed by these sketches.
- * They drive different parts of the patch, so they are not interchangeable and
- * the sketches must keep addressing the second pair. Collected here rather than
- * inlined in four files so the names are searchable and documented.
+ * The original map patch (paraisoGaia43, since replaced by mapa15 "TesteGlobo2.0")
+ * exposed two independent geographic inputs: `latitude`/`longitude`, fed by the
+ * globe, and `lati`/`rotacaoSite`, fed by these sketches. The current globe patch
+ * listens on `aceX`/`aceY`/`aceZ` but not on `lati`/`rotacaoSite`, so a sketch
+ * sending to those two names reaches nothing today. Collected here so the names
+ * stay searchable and documented.
  *
  * A patch written today should use the canonical channels in `GAIA` instead.
  */

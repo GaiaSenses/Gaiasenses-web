@@ -47,8 +47,8 @@ export type Map3Pd4WebMoment = "map" | "player";
 /**
  * Maps a vocabulary channel to the receiver name that actually exists in the
  * patch. The two differ for patches written before the vocabulary existed:
- * `paraisoGaia43` listens on `[r latitude]`, so its entry is
- * `{ "gaia.lat": "latitude" }` and the app sends latitude to `"latitude"`.
+ * the globe patch `mapa15` listens on `[r aceX]`, so its entry is
+ * `{ "gaia.acc.x": "aceX" }` and the app sends that acceleration to `"aceX"`.
  *
  * See `lib/gaia-vocabulary.json` for the channel list and their aliases.
  */

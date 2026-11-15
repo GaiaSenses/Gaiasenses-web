@@ -254,9 +254,11 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
         // patch, which is not something an installation should do behind the
         // visitor's back.
         //
-        // Nothing is lost by closing the door: the only patch here with an
-        // `adc~` is paraisoGaia43, where it feeds `dca~ -> delay16~ -> mono~`
-        // and stops — the branch has no outgoing connection.
+        // The cost of closing the door: the only patch here with an `adc~` is
+        // the globe patch (mapa15, "TesteGlobo2.0"), whose microphone branch
+        // (`adc~ -> visual03~ -> sigmund04~`, a voice-pitch tracker that feeds
+        // `freqVoz`) receives silence on the site. Re-opening the input is a
+        // product decision: it brings back the microphone permission prompt.
         channelCountIn: 0,
       });
 

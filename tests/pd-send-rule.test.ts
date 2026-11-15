@@ -9,7 +9,7 @@ const casos: [
   sendSensorList: boolean,
   sendCanonical: boolean,
 ][] = [
-  // connected + gaia.sensors + gaia.out (paraisoGaia43): the list alone, as before
+  // connected + gaia.sensors + gaia.out (the globe patch, mapa15): the list alone
   [true, true, true, true, false],
   // connected + gaia.sensors, no gaia.out: the list and the canonical channels
   [true, true, false, true, true],
@@ -36,7 +36,7 @@ test("decidePdSend covers all eight input combinations", () => {
   }
 });
 
-test("paraisoGaia43 with the ball connected keeps today's behaviour", () => {
+test("the globe patch (mapa15, publishes gaia.out) with the ball connected gets the sensor list alone", () => {
   const d = decidePdSend({
     sensorConnected: true,
     hasSensorsReceiver: true,

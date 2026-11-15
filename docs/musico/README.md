@@ -159,47 +159,48 @@ está conectado, como antes. Um patch com `[r gaia.sensors]` que não publica
 `gaia.out` recebe a lista **e** os canais `gaia.lat`, `gaia.lon`, `gaia.acc.*` e
 `gaia.co2`. Sem Bolota, todos recebem os canais `gaia.lat`/`gaia.lon` a partir do mapa.
 
-### Nota para quem mantém o paraisoGaia43
+### Nota para quem mantém o patch do globo (mapa15, "TesteGlobo2.0")
 
-O paraisoGaia43 é hoje o único patch que publica `gaia.out`: ele integra o
-acelerômetro recebido em `gaia.sensors` e devolve latitude e longitude. Isso
-deixou de ter efeito — o globo vai para onde o Bolota manda — e, enquanto o patch
-publicar `gaia.out`, ele continua preso à regra de transição acima: com o Bolota
-conectado, recebe só `gaia.sensors`, nunca `gaia.lat`/`gaia.lon`. Além disso, o
-próprio integrador escreve em `gaia.lat` e `gaia.lon`: o patch tem um
-`[s gaia.lat]` e um `[s gaia.lon]` seus (em `patches/paraisoGaia43/main.pd`, perto
-das linhas 2509 e 2526), que competem com os valores que o site manda nesses
-mesmos canais. Para migrar:
+O patch que toca com o globo é o `mapa15` ("TesteGlobo2.0"), que substituiu o
+antigo paraisoGaia43. Ele usa os nomes antigos de alguns canais: ouve
+`gaia.sensors` em `[r input]` e `gaia.acc.*` em `[r aceX]`, `[r aceY]` e
+`[r aceZ]`, e publica `gaia.out` em `[s output]`. Por publicar `gaia.out` e ouvir
+`gaia.sensors`, ele fica preso à regra de transição acima: **com o Bolota
+conectado, recebe só a lista `input`**, nunca `gaia.lat`/`gaia.lon`. O integrador
+do próprio patch (aceleração → `[/ 8000]` → … → `[s latitude]`/`[s longitude]`/
+`[s output]`) monta a posição a partir do movimento; a lista que ele manda em
+`output` não move mais o globo — o globo vai para onde o Bolota manda.
 
-1. Apague do patch a parte que integra a aceleração, o `[s gaia.out]` e os
-   `[s gaia.lat]`/`[s gaia.lon]` do integrador, para que o site seja o único a
-   escrever em `gaia.lat` e `gaia.lon`.
-2. Use os `[r gaia.lat]` e `[r gaia.lon]` que o patch já tem onde antes usava a
-   posição integrada; não é preciso criar outros.
-3. Se o patch ainda quiser o movimento bruto da bola, mantenha o `[r gaia.sensors]`.
-   Sem Bolota ele já recebe `gaia.lat` e `gaia.lon` hoje; sem `gaia.out`, passa a
-   recebê-los também com o Bolota conectado, junto com a lista de sensores.
-4. Rode `npm run patches:validate`, depois `npm run patches:codegen` e
-   `npm run patches:build paraisoGaia43`. Os dois últimos são sempre necessários
-   ao tirar o `[s gaia.out]`: os canais que o patch publica são lidos do `.pd`
-   (`scripts/patch-manifest.mjs`) e entram no registro gerado, e o pacote
-   publicado em `public/patches/` só muda quando o patch é compilado de novo.
-5. **A aceleração agora chega em mg (1000 = 1 g), não mais em contagens brutas do
-   sensor.** O Bolota manda o pacote de movimento na versão 2, e `aceX aceY aceZ`
-   (em `gaia.sensors` e em `gaia.acc.*`) vão de −4000 a 4000. As constantes do
-   patch que eram escritas para as contagens antigas (1 g = 8192) precisam ser
-   convertidas; os valores abaixo já fazem a conta (contagens × 1000 / 8192):
+1. **A aceleração agora chega em mg (1000 = 1 g), não mais em contagens brutas do
+   sensor.** O Bolota manda o pacote de movimento na versão 2: `aceX aceY aceZ`
+   (na lista `input` e em `[r aceX]`/`[r aceY]`/`[r aceZ]`) vão de −4000 a 4000.
+   As constantes do `mapa15` escritas para as contagens antigas (1 g = 8192)
+   precisam ser convertidas; os valores abaixo já fazem a conta
+   (contagens × 1000 / 8192):
 
    | Hoje (contagens) | Passa a ser (mg) |
    |---|---|
-   | `[/ 8000]` | `[/ 1000]` |
+   | `[/ 8000]` (9 objetos) | `[/ 1000]` |
    | `[> 6000]` / `[< -6000]` | `[> 732]` / `[< -732]` |
    | `[/ 7000]` | `[/ 854.5]` |
-   | `[/ 11000]` | `[/ 1343]` |
-   | `[+ 11000]` e `[/ 22000]` | `[+ 1343]` e `[/ 2686]` |
+   | `[+ 11000]` e o `[/ 22000]` logo depois | `[+ 1343]` e `[/ 2686]` |
 
-   O `accEpsilon` pode ficar em 0.05. Ele também é a zona morta do CO₂ (em ppm),
-   e o painel do site aceita agora até 1000.
+   O `[1 6000(` ligado à "gravidade" não muda: ali 6000 é tempo (ms). O
+   `accEpsilon` pode ficar em 0.05; ele também é a zona morta do CO₂ (em ppm), e
+   o painel do site aceita agora até 1000.
+2. **Opcional: seguir a navegação do Bolota.** Para o som acompanhar o globo em vez
+   do integrador, apague a parte que integra a aceleração e o `[s output]`, e use
+   os `[r gaia.lat]`/`[r gaia.lon]` que o patch já tem. Sem `gaia.out`, o patch
+   passa a receber `gaia.lat`, `gaia.lon`, `gaia.acc.*` e `gaia.co2` também com o
+   Bolota conectado, junto com a lista de sensores.
+3. **Microfone.** O `mapa15` tem um `[adc~]` que alimenta um rastreador de altura
+   da voz (`visual03~ → sigmund04~ → freqVoz`). O site abre o áudio do patch sem
+   entrada de microfone, de propósito (sem pedir permissão ao visitante), então
+   essa parte recebe silêncio no site.
+4. Depois de mudar o patch, rode `npm run patches:validate`, `npm run patches:codegen`
+   e `npm run patches:build mapa15`: os canais que o patch publica são lidos do
+   `.pd` (`scripts/patch-manifest.mjs`) e entram no registro gerado, e o pacote
+   publicado em `public/patches/` só muda quando o patch é compilado de novo.
 
 ### Se a peça toca junto com uma animação
 

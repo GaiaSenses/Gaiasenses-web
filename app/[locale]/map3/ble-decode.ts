@@ -212,8 +212,8 @@ export function decodeSensorNotification(
     // peak R), each a u8 in half-dB: dBFS = value / 2 - 120 (0 = the -120 floor),
     // meaningful only while flags bit3 is set. It is exposed to sketches through
     // lib/gaiaball-live.ts; no Pd channel carries it — `gaia.sensors` is a fixed
-    // list of seven values that paraisoGaia43 unpacks, and a new channel is a
-    // decision for the musicians.
+    // list of seven values that the globe patch (mapa15, "TesteGlobo2.0")
+    // unpacks, and a new channel is a decision for the musicians.
     if ((flags & IMU_FLAG_AUDIO_VALID) !== 0) {
       imu.audio = {
         rmsDb: [halfDb(dv.getUint8(23)), halfDb(dv.getUint8(24))],
