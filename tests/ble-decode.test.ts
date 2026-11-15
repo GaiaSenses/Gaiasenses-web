@@ -4,6 +4,7 @@ import {
   decodeSensorNotification,
   decodeCo2Notification,
   decodeNavNotification,
+  isLegacyImuNotification,
   resetCo2StaleWarning,
 } from "../app/[locale]/map3/ble-decode";
 
@@ -437,4 +438,19 @@ test("fuzz: 500 random buffers never throw", () => {
   } finally {
     console.warn = originalWarn;
   }
+});
+
+test("legacy IMU v1 packets are recognised (and v2, other types and runts are not)", () => {
+  const v1 = new Uint8Array(new Uint8Array(hex(GOLDEN_IMU)));
+  v1[0] = 1;
+  assert.equal(isLegacyImuNotification(v1.buffer), true);
+  // a v1 packet of the old 31-byte size is still legacy
+  const v1long = new Uint8Array(31);
+  v1long[0] = 1;
+  v1long[1] = 0x01;
+  assert.equal(isLegacyImuNotification(v1long.buffer), true);
+  assert.equal(isLegacyImuNotification(hex(GOLDEN_IMU)), false); // v2
+  assert.equal(isLegacyImuNotification(hex(GOLDEN_CO2)), false); // version 1 but type 0x02
+  assert.equal(isLegacyImuNotification(new Uint8Array([1]).buffer), false);
+  assert.equal(isLegacyImuNotification(new ArrayBuffer(0)), false);
 });

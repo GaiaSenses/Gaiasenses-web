@@ -164,6 +164,17 @@ export function quatToEulerLegacy(
 
 const halfDb = (v: number) => v / 2 - 120;
 
+/**
+ * True for an IMU packet of the legacy v1 format (version 1, type 0x01): a ball
+ * with old firmware. `decodeSensorNotification` rejects it, so without this the
+ * IMU would just go silent.
+ */
+export function isLegacyImuNotification(buf: ArrayBuffer): boolean {
+  if (!(buf instanceof ArrayBuffer) || buf.byteLength < 2) return false;
+  const dv = new DataView(buf);
+  return dv.getUint8(0) === PROTOCOL_VERSION && dv.getUint8(1) === TYPE_IMU;
+}
+
 export function decodeSensorNotification(
   buf: ArrayBuffer,
 ): espResponse | null {

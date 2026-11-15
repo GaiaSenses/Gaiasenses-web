@@ -614,7 +614,7 @@ Full protocol (UUIDs, commands, config TLV, golden vectors): [`firmware/docs/pro
 
 **CO₂ as a trigger.** The ball owns the threshold and hysteresis (`co2TriggerPpm`, `co2TriggerHystPpm`, set in the config-app) and forces `trigger` off when the reading is stale. The site follows the **level**, packet by packet: `trigger` = 1 with no composition playing opens one; `trigger` = 0 while a composition plays closes it and returns to the map. There is no threshold slider or simulator on the site any more.
 
-**Deploy order.** Flash **every** ball with the navigation firmware *before* publishing this site. The site needs characteristic `…0006` to move the globe, and a firmware older than the navigation build never sets the CO₂ `trigger` bit — CO₂-triggered compositions would silently stop opening.
+**Deploy order.** Flash the balls and publish this site **in the same window**, after the paraisoGaia43 patch author's mg edit is merged (it is the only patch that reads acceleration: `gaia.acc.*` and `gaia.sensors` are now in mg; the migration table is in `docs/musico/README.md`). The IMU packet is now v2 and neither order works alone: the previous site rejects v2 (it requires version 1 and at least 31 bytes), and this site rejects v1 (the IMU goes silent; the site shows the "atualize o firmware da bola" warning). The globe still needs characteristic `…0006`, and a firmware older than the navigation build never sets the CO₂ `trigger` bit.
 
 **What patches receive.** See *App ⇄ Pd message contract* above: the globe position arrives as `gaia.lat`/`gaia.lon`; a patch that publishes `gaia.out` gets only `gaia.sensors` while a ball is connected.
 
