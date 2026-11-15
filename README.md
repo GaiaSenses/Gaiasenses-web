@@ -523,22 +523,31 @@ Pd → App   gaia.out       (list):
 The patch is an **audio sink only**: since 2026-11 the Gaiaball computes the
 navigation itself and the site applies it (see the BLE Sensor Pipeline section),
 so `gaia.out` no longer moves the globe. The globe's position reaches patches as
-the canonical `gaia.lat`/`gaia.lon` channels (map centre). **Transition rule**
-(`pd-send-rule.ts`; it keeps `mapa15`, the globe patch, which still
-publishes `gaia.out` on `[s output]` and hears `gaia.sensors` on `[r input]`,
-working): with a ball connected, a patch that has a
-`gaia.sensors` receiver *and* publishes `gaia.out` gets only `gaia.sensors`; one
-with a sensors receiver and no `gaia.out` gets `gaia.sensors` **and** the
-canonical channels; otherwise the canonical channels alone.
+the canonical `gaia.lat`/`gaia.lon` channels (map centre). The canonical
+channels always go (`pd-send-rule.ts`); with a ball connected, a patch that also
+has a `gaia.sensors` receiver gets the raw list on top. Publishing `gaia.out`
+changes nothing: the old "list only" exception existed for paraisoGaia43 and
+was removed with it.
 
-**The globe patch still uses legacy names and raw-count constants.** `mapa15`
-hears `gaia.sensors` on `[r input]` and `gaia.acc.*` on `[r aceX]`/`[r aceY]`/`[r aceZ]`
-(see `pd4web-patches.generated.ts`), so with a ball connected it receives only
-the sensor list. It still integrates acceleration with constants written for raw
-counts, so it needs its author's mg edit before release (`docs/musico/README.md`,
-"Nota para quem mantém o patch do globo"). Its microphone branch
-(`adc~ → sigmund04~`) receives silence on the site, which opens audio with no
-input (`channelCountIn: 0` in `pd4web-context.tsx`).
+**The globe patch (`mapa15`).** It still uses legacy names: it hears
+`gaia.sensors` on `[r input]` and `gaia.acc.*` on `[r aceX]`/`[r aceY]`/`[r aceZ]`
+(see `pd4web-patches.generated.ts`). Its sound comes from `gaia.lat` (oscillator
+pitch), from how fast `gaia.lon`, `aceX` and `aceY` change (rhythmic triggers)
+and from the microphone; the `gaia.sensors` list only feeds its old position
+integrator, whose result goes to `[s output]` and never reaches the audio. Its
+acceleration constants are already in mg (`docs/musico/README.md`, "Nota para
+quem mantém o patch do globo").
+
+**Microphone.** A patch with an `[adc~]` gets `audioInput: true` in the
+generated registry (`scripts/pd-introspect.mjs`). Before opening it, the site
+asks the visitor for the microphone (`pd4web-mic.ts`): granted, the patch opens
+with one input channel and Pd4Web receives that same stream; refused, or with no
+microphone, the patch opens without an input and still plays. Asking first
+matters because Pd4Web, with an input channel, connects the patch to the
+speakers only after `getUserMedia` resolves — a refusal there would silence the
+whole patch. The tracks are stopped when the patch closes, which turns the
+browser's microphone indicator off. Today `mapa15` is the only patch with an
+`[adc~]`, so the prompt appears when the globe's sound starts.
 
 Available Pd4Web methods: `sendBang`, `sendFloat`, `sendList`, `sendSymbol` and
 listeners `onBangReceived`, `onFloatReceived`, `onListReceived`,
@@ -635,9 +644,9 @@ Full protocol (UUIDs, commands, config TLV, golden vectors): [`firmware/docs/pro
 
 **CO₂ as a trigger.** The ball owns the threshold and hysteresis (`co2TriggerPpm`, `co2TriggerHystPpm`, set in the config-app) and forces `trigger` off when the reading is stale. The site follows the **level**, packet by packet: `trigger` = 1 with no composition playing opens one; `trigger` = 0 while a composition plays closes it and returns to the map. There is no threshold slider or simulator on the site any more.
 
-**Deploy order.** Flash the balls and publish this site **in the same window**, after the `mapa15` author's mg edit is merged (it is the only patch that reads acceleration: `gaia.acc.*` and `gaia.sensors` are now in mg; the migration table is in `docs/musico/README.md`). The IMU packet is now v2 and neither order works alone: the previous site rejects v2 (it requires version 1 and at least 31 bytes), and this site rejects v1 (the IMU goes silent; the site shows the "atualize o firmware da bola" warning). The globe still needs characteristic `…0006`, and a firmware older than the navigation build never sets the CO₂ `trigger` bit.
+**Deploy order.** Flash the balls and publish this site **in the same window**. `mapa15`, the only patch that reads acceleration, already expects `gaia.acc.*` and `gaia.sensors` in mg (the conversion table is in `docs/musico/README.md`). The IMU packet is now v2 and neither order works alone: the previous site rejects v2 (it requires version 1 and at least 31 bytes), and this site rejects v1 (the IMU goes silent; the site shows the "atualize o firmware da bola" warning). The globe still needs characteristic `…0006`, and a firmware older than the navigation build never sets the CO₂ `trigger` bit.
 
-**What patches receive.** See *App ⇄ Pd message contract* above: the globe position arrives as `gaia.lat`/`gaia.lon`; a patch that publishes `gaia.out` gets only `gaia.sensors` while a ball is connected.
+**What patches receive.** See *App ⇄ Pd message contract* above: the globe position arrives as `gaia.lat`/`gaia.lon`, always; with a ball connected, a patch with a `gaia.sensors` receiver also gets the raw list.
 
 **For p5 sketches:** `lib/gaiaball-live.ts` exposes the latest packets (see *Adding a new animation*). The remaining debugging tool is the patch I/O log panel; an eye button on the map shows/hides the composition panel. The motion-tuning panel, smoothing, the mapping methods, the CO₂ threshold and simulator, the `/gaiaball` bench and `npm run sensor:ws` were removed in 2026-11.
 
