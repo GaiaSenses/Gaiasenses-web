@@ -588,7 +588,7 @@ The Gaiaball computes the navigation itself — in *mirror* mode (the globe copi
 | Patch routing | `app/[locale]/map3/pd-send-rule.ts` | Pure rule for what the polling loop sends to the running patch |
 | Live data | `lib/gaiaball-live.ts` | `gaiaball.get()` / `gaiaball.subscribe()`: latest packets for p5 sketches |
 
-**Wire format (Gaiaball firmware, protocol v1).** Packed little-endian structs. `version` must be 1 and `type` the expected one; sizes are *minimums* (a longer packet from a future additive revision still decodes):
+**Wire format (Gaiaball firmware).** Packed little-endian structs. The IMU packet is version 2; the CO₂ and navigation packets are version 1. `version` must match the one expected for the `type`, and `type` must be the expected one; sizes are *minimums* (a longer packet from a future additive revision still decodes):
 
 | Packet | Size | Layout | Notes |
 |---|---|---|---|

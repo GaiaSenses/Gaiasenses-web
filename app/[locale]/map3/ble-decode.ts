@@ -82,19 +82,18 @@ const TYPE_NAV = 0x07;
  * Minimum sizes, not exact ones.
  *
  * `ImuPacket` grew from 23 to 31 bytes in firmware v8, which appended the
- * microphone envelope (four `int16`, dBFS x100) after the flags byte. The
- * protocol version byte stays `1` on purpose: every field is append-only and
- * the earlier bytes are untouched, so a decoder reading offsets 0..22 keeps
- * working. `firmware/docs/protocol.md` spells out the consequence — "a decoder
- * that checks an exact length must be updated (the config-app and the Pd
- * bridge were)" — and this one was the third, written against the 23-byte
- * packet and rejecting everything the v8 firmware sends.
+ * microphone envelope (four `int16`, dBFS x100) after the flags byte. That
+ * growth kept the version byte at `1` on purpose: every field was append-only
+ * and the earlier bytes were untouched, so a decoder reading offsets 0..22
+ * kept working. `firmware/docs/protocol.md` spells out the consequence — "a
+ * decoder that checks an exact length must be updated" — and this one was
+ * written against the 23-byte packet and rejected everything the v8 firmware
+ * sent.
  *
  * Which is why the comparison below is `<` and not `!==`. An exact check is a
  * bomb with a timer on it: the next append breaks the site again, silently,
  * because a rejected notification is indistinguishable from a ball that is
- * not there. The Pd bridge (`pd-gaiaball/gaiaball_bridge.py`) already reads
- * `len(data) < 31` for the same reason.
+ * not there.
  *
  * Version 2 of the movement packet (the only one accepted now) changed the
  * meaning of the acceleration (raw DMP counts -> int16 milli-g) and shrank the
