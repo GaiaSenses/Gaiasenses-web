@@ -681,7 +681,6 @@ export default function GaiasensesMap({
       const { sendSensorList, sendCanonical } = decidePdSend({
         sensorConnected: inputModeRef.current !== "mouse",
         hasSensorsReceiver: Boolean(receivers[GAIA.SENSORS]),
-        publishesOut: Boolean(outputListReceiver),
       });
 
       const tickLogs: Omit<Pd4WebPatchLogEntry, "id">[] = [];
