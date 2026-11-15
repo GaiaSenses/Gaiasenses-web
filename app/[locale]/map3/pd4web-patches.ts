@@ -95,6 +95,13 @@ export type Map3Pd4WebPatch = {
    * been built, in which case the loader falls back to the bundle folder.
    */
   readonly runtime?: string;
+  /**
+   * The patch has an `[adc~]`, so it listens to the microphone. The site asks
+   * the visitor for it before opening the patch and, if refused, opens the
+   * patch without an input channel (see `pd4web-mic.ts`). Derived from the
+   * `.pd` files by `scripts/pd-introspect.mjs`; absent means no microphone.
+   */
+  readonly audioInput?: boolean;
   readonly activation: {
     /** App moments in which this patch should be loaded and played. */
     readonly moments: readonly Map3Pd4WebMoment[];

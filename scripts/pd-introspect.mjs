@@ -148,6 +148,9 @@ export function introspectPatch(patchDir, mainName = "main.pd") {
     patchDir,
     mainName,
     files: [mainPath, ...libs],
+    // An `[adc~]` anywhere in the project means the patch listens to the
+    // microphone; the site then asks the visitor for it (see pd4web-mic.ts).
+    usesAudioInput: objectClasses.has("adc~"),
     receives: [...receives].sort(),
     sends: [...sends].sort(),
     objectClasses: [...objectClasses].sort(),
@@ -183,6 +186,7 @@ function main() {
   console.log(`  [declare -path Libs]: ${report.declaresLibsPath ? "sim" : "NÃO"}`);
   console.log(`  recebe : ${report.receives.join(", ") || "(nada)"}`);
   console.log(`  envia  : ${report.sends.join(", ") || "(nada)"}`);
+  console.log(`  microfone [adc~]: ${report.usesAudioInput ? "sim" : "não"}`);
   if (report.externals.length) {
     console.log(`  externals: ${report.externals.join(", ")}`);
   }
