@@ -332,9 +332,9 @@ describe("mapeadores puros — o caminho feliz que o stub não alcança", () => 
       snowfall: 0,
       weatherCode: 61,
       cloudCover: 40,
-      windSpeed10m: 11.248,
+      windSpeed10m: 3.124,
       windDirection10m: 130.44,
-      windGusts10m: 24.57,
+      windGusts10m: 6.825,
       surfacePressure: 932.42,
       pressureMsl: 1013.21,
       isDay: 1,
@@ -352,7 +352,7 @@ describe("mapeadores puros — o caminho feliz que o stub não alcança", () => 
       showers: 0,
       snowfall: 0,
       weatherCode: 61,
-      wind: { speed: 11.2, direction: 130.4, gust: 24.6 },
+      wind: { speed: 3.1, direction: 130.4, gust: 6.8 },
       isDay: true,
       observedAt: "2026-10-08T17:45:00.000Z",
     });
@@ -395,11 +395,11 @@ describe("GET /api/v1 — self-description", () => {
     const corpo = await res.json();
     assert.equal(corpo.version, "1.0");
     assert.ok(corpo.endpoints["/api/v1/now"]);
-    // Achado da revisão, verificado ao vivo: a Open-Meteo responde vento em
-    // km/h (não m/s, a convenção que todo mundo assume) e neve em cm. Sem as
-    // unidades declaradas, quem consome erra por 3,6×.
+    // A Open-Meteo responde vento em km/h por padrão; a v1 pede m/s (#241),
+    // a unidade do resto do projeto. Neve continua em cm. Sem as unidades
+    // declaradas, quem consome erra.
     const unidades = corpo.endpoints["/api/v1/now"].units;
-    assert.equal(unidades["weather.wind"], "km/h");
+    assert.equal(unidades["weather.wind"], "m/s");
     assert.equal(unidades["weather.snowfall"], "cm");
     assert.equal(unidades["rainSatellite.rateMmH"], "mm/h");
     assert.equal(res.headers.get("access-control-allow-origin"), "*");

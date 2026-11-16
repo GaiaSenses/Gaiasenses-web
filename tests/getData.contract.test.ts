@@ -165,6 +165,21 @@ describe("BUG-02 — clima também não se fabrica", () => {
     );
   });
 
+  /**
+   * #241 (T55): a Open-Meteo responde o vento em km/h por padrão, e o projeto
+   * inteiro trabalha em m/s. Sem o parâmetro, o vento entrava 3,6× maior no
+   * critério de decisão, no painel, nas obras, no GaiaLogs e na API pública.
+   * A unidade é pedida na fonte para que nenhum consumidor precise converter.
+   */
+  test("o vento é pedido em m/s à Open-Meteo", async () => {
+    responderCom(explodir("ENOTFOUND api.open-meteo.com"));
+    await getWeather("-23.55", "-46.63");
+    assert.ok(chamadas.length > 0, "getWeather deveria consultar a Open-Meteo");
+    const url = new URL(chamadas[0].url);
+    assert.equal(url.hostname, "api.open-meteo.com");
+    assert.equal(url.searchParams.get("wind_speed_unit"), "ms");
+  });
+
   test("o shape legado sai do dado real, campo a campo", async () => {
     const { toRainfallResponse } = await import("@/components/getData");
     const resultado = toRainfallResponse({
@@ -181,9 +196,9 @@ describe("BUG-02 — clima também não se fabrica", () => {
         snowfall: 0,
         weatherCode: 61,
         cloudCover: 40.26,
-        windSpeed10m: 11.248,
+        windSpeed10m: 3.124,
         windDirection10m: 130.44,
-        windGusts10m: 24.57,
+        windGusts10m: 6.825,
         surfacePressure: 932.4,
         pressureMsl: 1013.2,
         isDay: 1,
@@ -195,7 +210,8 @@ describe("BUG-02 — clima também não se fabrica", () => {
     assert.equal(resultado.main.humidity, 71);
     assert.equal(resultado.main.pressure, 932.4);
     assert.equal(resultado.clouds, 40.3);
-    assert.deepEqual(resultado.wind, { deg: 130.4, gust: 24.6, speed: 11.2 });
+    // Em m/s: a fonte já é pedida em m/s (#241), e o adaptador só arredonda.
+    assert.deepEqual(resultado.wind, { deg: 130.4, gust: 6.8, speed: 3.1 });
     // A cadeia showers || rain || precipitation é a do código em produção:
     // showers 0 é falsy, então vale o rain.
     assert.deepEqual(resultado.rain, { "1h": 0.1 });

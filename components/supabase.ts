@@ -13,6 +13,14 @@ import { minimizarLocalizacao } from "./localizacao";
  *
  * Always filter on `origin = 'production'` when analysing GaiaLogs.
  *
+ * Wind unit (#241): `wind_speed` is m/s only from the production deploy of the
+ * #241 fix onwards. Every row before it — the whole column since GaiaLogs
+ * started on 14/07/2025 — holds km/h, because Open-Meteo answers in km/h by
+ * default and nothing converted it. Split the corpus at that deploy (by
+ * `date_timeplayed`) and divide the older rows by 3.6. A per-row marker is
+ * planned with the `scoringVersion` column of #107; until then, the deploy
+ * time is the boundary.
+ *
  * Needs this column on the GaiaLogs table:
  *   alter table "GaiaLogs" add column if not exists origin text not null default 'unknown';
  *
@@ -79,7 +87,7 @@ export async function insertSatelliteData({
     name,
     temperature,
     humidity: Math.round(humidity),
-    wind_speed,
+    wind_speed, // m/s desde a #241; km/h nas linhas anteriores
     lightning_count,
     fireSpots_count: fire_count,
     date_timeplayed,
