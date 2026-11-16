@@ -18,6 +18,8 @@ export type DueRow = {
   subscription: PushSubscriptionJSON;
   locale?: string | null;
   fail_count?: number | null;
+  /** Status da última tentativa (201 = aceito, null = erro de rede ou nenhuma). */
+  last_status?: number | null;
 };
 
 export interface PushStore {
@@ -92,15 +94,23 @@ async function processRow(
     const status = statusOf(err);
     const kind = classifyPushError(status);
 
-    if (kind === "gone" || (kind === "permanent" && failCount >= MAX_PERMANENT_FAILURES)) {
+    // fail_count conta falhas seguidas do MESMO tipo. Duas quedas do serviço
+    // (503) seguidas de um 403 não somam três falhas permanentes: a contagem
+    // recomeça quando o tipo muda. Só assim "apaga depois de 3 permanentes
+    // seguidas" vale de fato antes de remover dado pessoal.
+    const prev = row.fail_count ?? 0;
+    const sameKind = prev > 0 && classifyPushError(row.last_status ?? null) === kind;
+    const streak = sameKind ? prev + 1 : 1;
+
+    if (kind === "gone" || (kind === "permanent" && streak >= MAX_PERMANENT_FAILURES)) {
       // Guardar PII de quem não recebe mais nada também não se justifica perante a LGPD.
       await safe(() => store.remove(row.user_id), log);
       log(`[push] ${row.user_id}: removido (${status ?? "sem status"}, ${kind})`);
       return "removed";
     }
 
-    await safe(() => store.markFailed(row.user_id, status, failCount), log);
-    log(`[push] ${row.user_id}: falhou (${status ?? "rede"}, ${kind}, tentativa ${failCount})`);
+    await safe(() => store.markFailed(row.user_id, status, streak), log);
+    log(`[push] ${row.user_id}: falhou (${status ?? "rede"}, ${kind}, tentativa ${streak})`);
     return "retryLater";
   }
 

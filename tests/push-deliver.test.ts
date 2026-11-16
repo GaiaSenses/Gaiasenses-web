@@ -107,8 +107,8 @@ describe("deliverDue", () => {
   test("erro permanente é registrado e apaga só depois do limite", async () => {
     const abaixo = MAX_PERMANENT_FAILURES - 2; // próxima falha ainda não atinge o limite
     const { store, chamadas } = storeFalso([
-      linha("nova", { fail_count: abaixo }),
-      linha("no-limite", { fail_count: MAX_PERMANENT_FAILURES - 1 }),
+      linha("nova", { fail_count: abaixo, last_status: 403 }),
+      linha("no-limite", { fail_count: MAX_PERMANENT_FAILURES - 1, last_status: 403 }),
     ]);
     const resumo = await deliverDue({
       store,
@@ -124,8 +124,32 @@ describe("deliverDue", () => {
     assert.deepEqual(chamadas.removed, ["no-limite"]);
   });
 
+  /**
+   * fail_count conta falhas seguidas do mesmo tipo. Antes, quedas temporárias
+   * do serviço somavam com o primeiro erro permanente, e uma linha era apagada
+   * depois de UM 403, contra a regra de três permanentes seguidas.
+   */
+  test("falhas temporárias antes não contam para apagar por erro permanente", async () => {
+    const { store, chamadas } = storeFalso([
+      linha("a", { fail_count: MAX_PERMANENT_FAILURES - 1, last_status: 503 }),
+      linha("b", { fail_count: MAX_PERMANENT_FAILURES - 1, last_status: null }),
+    ]);
+    const resumo = await deliverDue({
+      store,
+      send: async () => {
+        throw erroHttp(403);
+      },
+      now: AGORA,
+    });
+    assert.equal(resumo.removed, 0);
+    assert.deepEqual(chamadas.failed, [
+      { id: "a", status: 403, count: 1 },
+      { id: "b", status: 403, count: 1 },
+    ]);
+  });
+
   test("erro temporário nunca apaga, só registra e tenta amanhã", async () => {
-    const { store, chamadas } = storeFalso([linha("a", { fail_count: 50 })]);
+    const { store, chamadas } = storeFalso([linha("a", { fail_count: 50, last_status: 503 })]);
     const resumo = await deliverDue({
       store,
       send: async () => {

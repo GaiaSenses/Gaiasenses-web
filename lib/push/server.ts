@@ -22,6 +22,14 @@ const CLAIM_RPC = "claim_due_push_subscriptions";
 const TTL_REMINDER = 60 * 60 * 12;
 const TTL_WELCOME = 60 * 60;
 
+/**
+ * Prazo de cada envio. Sem ele, um serviço que aceita a conexão e não responde
+ * prende o lote inteiro até a Vercel matar o cron (maxDuration 60 s) e todo
+ * mundo depois dele perde o lembrete do dia. O erro de prazo não tem
+ * statusCode, então conta como falha temporária.
+ */
+const SEND_TIMEOUT_MS = 10_000;
+
 let vapidReady = false;
 
 function ensureVapid() {
@@ -38,7 +46,11 @@ function ensureVapid() {
 function makeSender(ttl: number): PushSender {
   return async (subscription, payload) => {
     ensureVapid();
-    await webpush.sendNotification(subscription, payload, { TTL: ttl, urgency: "normal" });
+    await webpush.sendNotification(subscription, payload, {
+      TTL: ttl,
+      urgency: "normal",
+      timeout: SEND_TIMEOUT_MS,
+    });
   };
 }
 
@@ -193,18 +205,25 @@ export async function existsByEndpoint(endpoint: string): Promise<boolean> {
 /**
  * O navegador trocou o endpoint (evento pushsubscriptionchange no sw.js).
  * O endpoint antigo funciona como prova de posse: só quem o tinha sabe qual é.
+ *
+ * O endereço é outro, então o histórico de falhas do antigo não vale para ele.
+ * Se o endereço novo já tem linha própria (a pessoa se reinscreveu pelo
+ * formulário ao mesmo tempo), a linha antiga só sobra: é apagada, em vez de o
+ * índice único derrubar a rota com 500 e o endpoint velho ficar para o 410.
  */
 export async function replaceSubscription(
   oldEndpoint: string,
   subscription: PushSubscriptionJSON,
 ): Promise<number> {
-  const { data, error } = await getSupabaseAdmin()
-    .from(TABLE)
-    .update({ subscription })
-    .eq("subscription->>endpoint", oldEndpoint)
-    .select("user_id");
-  if (error) throw new Error(`update falhou: ${error.code} ${error.message}`);
-  return data?.length ?? 0;
+  const db = getSupabaseAdmin();
+  const update = (values: Record<string, unknown>) =>
+    db.from(TABLE).update(values).eq("subscription->>endpoint", oldEndpoint).select("user_id");
+
+  let res = await update({ subscription, fail_count: 0, last_status: null });
+  if (isMissingColumn(res.error)) res = await update({ subscription });
+  if (res.error?.code === "23505") return deleteByEndpoint(oldEndpoint);
+  if (res.error) throw new Error(`update falhou: ${res.error.code} ${res.error.message}`);
+  return res.data?.length ?? 0;
 }
 
 export type PushStats = {

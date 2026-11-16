@@ -5,7 +5,7 @@
 import { test, describe, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
-import { parseSubscription, validateSubscribeInput } from "@/lib/push/validation";
+import { parseEndpoint, parseSubscription, validateSubscribeInput } from "@/lib/push/validation";
 import { buildPayload, classifyPushError } from "@/lib/push/messages";
 import { isCronAuthorized } from "@/lib/push/cron-auth";
 
@@ -36,6 +36,42 @@ describe("parseSubscription", () => {
       { ...SUB, keys: { p256dh: "", auth: "x" } },
     ]) {
       assert.equal(parseSubscription(ruim), null, JSON.stringify(ruim)?.slice(0, 80));
+    }
+  });
+
+  /**
+   * A confirmação sai na hora da inscrição, para o endpoint que o cliente
+   * manda. Endpoint fora dos serviços de push faria o servidor disparar POSTs
+   * para um endereço escolhido por qualquer pessoa.
+   */
+  test("recusa endpoint fora dos serviços de push", () => {
+    for (const endpoint of [
+      "https://vitima.example/qualquer",
+      "https://fcm.googleapis.com.atacante.example/x",
+      "https://atacantefcm.googleapis.com/x",
+      "https://user:senha@fcm.googleapis.com/fcm/send/abc",
+      "https://169.254.169.254/latest/meta-data",
+    ]) {
+      assert.equal(parseSubscription({ ...SUB, endpoint }), null, endpoint);
+    }
+  });
+});
+
+describe("parseEndpoint", () => {
+  test("aceita os serviços de push dos navegadores", () => {
+    for (const endpoint of [
+      "https://fcm.googleapis.com/fcm/send/abc", // Chrome, Edge, Opera
+      "https://updates.push.services.mozilla.com/wpush/v2/abc", // Firefox
+      "https://web.push.apple.com/abc", // Safari
+      "https://wns2-par02p.notify.windows.com/w/?token=abc", // WNS
+    ]) {
+      assert.equal(parseEndpoint(endpoint), endpoint);
+    }
+  });
+
+  test("recusa o que não é string https de serviço de push", () => {
+    for (const ruim of [undefined, null, 42, "", "http://fcm.googleapis.com/x", "https://exemplo.com/x"]) {
+      assert.equal(parseEndpoint(ruim), null, String(ruim));
     }
   });
 });

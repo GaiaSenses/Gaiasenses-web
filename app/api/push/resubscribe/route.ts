@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { parseSubscription } from "@/lib/push/validation";
+import { parseEndpoint, parseSubscription } from "@/lib/push/validation";
 import { replaceSubscription } from "@/lib/push/server";
 
 export const dynamic = "force-dynamic";
@@ -22,14 +22,14 @@ export async function POST(request: Request) {
   }
 
   const b = (body ?? {}) as { oldEndpoint?: unknown; subscription?: unknown };
-  const old = parseSubscription({ endpoint: b.oldEndpoint, keys: { p256dh: "x", auth: "x" } });
+  const oldEndpoint = parseEndpoint(b.oldEndpoint);
   const subscription = parseSubscription(b.subscription);
-  if (!old || !subscription) {
+  if (!oldEndpoint || !subscription) {
     return NextResponse.json({ error: "invalid subscription" }, { status: 400 });
   }
 
   try {
-    const updated = await replaceSubscription(old.endpoint, subscription);
+    const updated = await replaceSubscription(oldEndpoint, subscription);
     return NextResponse.json({ updated }, { status: updated ? 200 : 404 });
   } catch (err) {
     console.error("[push] resubscribe falhou:", (err as Error)?.message ?? err);

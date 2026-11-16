@@ -30,6 +30,10 @@ self.addEventListener('push', (event) => {
 			icon: data.icon || '/icon-192.png',
 			badge: '/badge.png',
 			tag: data.tag,
+			// Com o mesmo tag, o lembrete de hoje substitui o de ontem; sem
+			// renotify, a troca é silenciosa (sem som nem vibração) e a pessoa não
+			// percebe que chegou. renotify sem tag lança TypeError, daí a condição.
+			renotify: Boolean(data.tag),
 			data: { url: data.url || '/' },
 		}),
 	);

@@ -23,7 +23,7 @@ import {
   saveSubscription,
   sendWelcome,
 } from "./server";
-import { validateSubscribeInput, type ValidationError } from "./validation";
+import { parseEndpoint, validateSubscribeInput, type ValidationError } from "./validation";
 
 export type SubscribeResult =
   | { ok: true; status: "created" | "updated"; confirmed: boolean }
@@ -77,12 +77,11 @@ export async function subscribeUser(raw: unknown): Promise<SubscribeResult> {
   }
 }
 
+/** Aceita o endpoint puro ou o objeto da inscrição; a regra é a de parseEndpoint. */
 function endpointOf(raw: unknown): string | null {
-  const endpoint =
-    typeof raw === "string" ? raw : (raw as { endpoint?: unknown } | null)?.endpoint;
-  return typeof endpoint === "string" && endpoint.startsWith("https://") && endpoint.length <= 2048
-    ? endpoint
-    : null;
+  return parseEndpoint(
+    typeof raw === "string" ? raw : (raw as { endpoint?: unknown } | null)?.endpoint,
+  );
 }
 
 /**

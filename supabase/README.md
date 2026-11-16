@@ -14,8 +14,8 @@ Dashboard → **SQL Editor** → **New query** → cole o arquivo → **Run**.
 
 ## Ordem recomendada
 
-As migrações 1 a 4 **já foram aplicadas em 2026-08-04** e verificadas
-contra o banco real. Estão aqui como registro do que foi feito e por quê.
+As migrações 1 a 4 **foram aplicadas em 2026-08-04** e a 5 **em 2026-11-16**,
+todas verificadas contra o banco real. Estão aqui como registro do que foi feito e por quê.
 
 | # | Arquivo | O que faz |
 |---|---|---|
@@ -23,7 +23,7 @@ contra o banco real. Estão aqui como registro do que foi feito e por quê.
 | 2 | `migrations/2026-08-04-gaialogs-origin.sql` | Coluna `origin` no `GaiaLogs` |
 | 3 | `migrations/2026-08-04-gaialogs-restringir-concessoes.sql` | `anon` no `GaiaLogs` fica só com INSERT |
 | 4 | `migrations/2026-08-05-gaiasubs-endpoint-unico.sql` | Índice único no endpoint da subscription (SEC-03) |
-| 5 | `migrations/2026-11-16-gaiasubs-entrega.sql` | **Pendente de aplicação.** Colunas `locale`, `last_sent_at`, `last_status`, `fail_count`, `claimed_until` + função `claim_due_push_subscriptions` (reserva atômica do cron). O app funciona sem ela, em modo antigo, e avisa no log |
+| 5 | `migrations/2026-11-16-gaiasubs-entrega.sql` | **Aplicada em 2026-11-16.** Colunas `locale`, `last_sent_at`, `last_status`, `fail_count`, `claimed_until` + função `claim_due_push_subscriptions` (reserva atômica do cron). Conferida pela API: colunas e padrões, função executável só pela service role (`anon` recebe 42501) |
 | — | `auditoria-rls.sql` | Diagnóstico de RLS e permissões (somente leitura) |
 
 ## Estado verificado após as migrações
