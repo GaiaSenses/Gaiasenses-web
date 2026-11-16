@@ -6,6 +6,7 @@ import {
   decodeCo2Notification,
   decodeNavNotification,
   decodeSensorNotification,
+  isLegacyImuNotification,
   resetCo2StaleWarning,
   type espCo2Response,
   type espResponse,
@@ -94,6 +95,9 @@ export default function BLEControl({
   const [error, setError] = useState<string | null>(null);
   // null = not known yet (not connected); false = the firmware lacks it.
   const [hasNav, setHasNav] = useState<boolean | null>(null);
+  // true once a legacy (v1) IMU packet arrived: the ball has old firmware.
+  const [legacyImu, setLegacyImu] = useState(false);
+  const legacyImuRef = useRef(false);
   const [info, setInfo] = useState<InfoCardData>(EMPTY_INFO);
 
   // Kept in a ref so the gattserverdisconnected closure can always access the latest device
@@ -154,8 +158,15 @@ export default function BLEControl({
     const value = characteristic.value;
     if (!value) return;
     // null = not a valid IMU packet → skip (the decoder never throws)
-    const parsedData = decodeSensorNotification(toArrayBuffer(value));
-    if (!parsedData) return;
+    const buffer = toArrayBuffer(value);
+    const parsedData = decodeSensorNotification(buffer);
+    if (!parsedData) {
+      if (!legacyImuRef.current && isLegacyImuNotification(buffer)) {
+        legacyImuRef.current = true;
+        setLegacyImu(true);
+      }
+      return;
+    }
     onSensorRef.current(parsedData);
     latestInfoRef.current.imu = parsedData;
     infoDirtyRef.current = true;
@@ -242,6 +253,8 @@ export default function BLEControl({
       infoDirtyRef.current = false;
       setInfo(EMPTY_INFO);
       setHasNav(navCharacteristic !== null);
+      legacyImuRef.current = false;
+      setLegacyImu(false);
       setBleDevice({
         device,
         server,
@@ -366,6 +379,8 @@ export default function BLEControl({
     infoDirtyRef.current = false;
     setInfo(EMPTY_INFO);
     setHasNav(null);
+    legacyImuRef.current = false;
+    setLegacyImu(false);
     setError(null);
     onDisconnect("mouse");
   };
@@ -456,9 +471,11 @@ export default function BLEControl({
             <p>pitch: {info.imu?.euler.pitch.toFixed(3)}</p>
             <p>yaw: {info.imu?.euler.yaw.toFixed(3)}</p>
             <p>CO₂: {info.co2?.co2.ppm.toFixed(0)} ppm</p>
-            {hasNav === false ? (
+            {hasNav === false || legacyImu ? (
               <p className="text-xs font-medium text-amber-700">
-                Firmware da bola sem navegação — atualize o firmware
+                {hasNav === false
+                  ? "Firmware da bola sem navegação — atualize o firmware"
+                  : "Firmware da bola desatualizado — atualize o firmware da bola"}
               </p>
             ) : (
               <>

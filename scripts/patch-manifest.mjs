@@ -41,7 +41,7 @@ for (const channel of vocabulary.channels) {
 const VALID_MOMENTS = new Set(["map", "player"]);
 const VALID_MEMORY = new Set([32, 64, 128, 256, 512]);
 // camelCase is allowed because the patches that predate this pipeline use it
-// (paraisoGaia43); new patches are asked for lowercase-with-hyphens in the tutorial.
+// (e.g. the removed paraisoGaia43); new patches are asked for lowercase-with-hyphens.
 const ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9-]{1,39}$/;
 
 /**
@@ -161,9 +161,9 @@ function resolveChannels(introspection) {
   const legacyAliases = [];
   const ambiguous = [];
 
-  // A patch may expose more than one name for the same channel — paraisoGaia43
-  // has both [r latitude] (fed by the map) and [r lati] (fed by the curves and
-  // cloudBubble sketches). Only one can be the app's target, so the winner is
+  // A patch may expose more than one name for the same channel — the globe patch
+  // mapa15 has both [r gaia.lat] and [r latitude]. Only one can be the app's
+  // target, so the winner is
   // picked by declared priority — canonical name first, then aliases in the
   // order they appear in the vocabulary — rather than by set iteration order,
   // which would make the build non-deterministic.

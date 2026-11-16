@@ -3,20 +3,23 @@
  *
  * Two kinds of payload exist:
  *
- *  - the sensor list on `gaia.sensors` (roll, pitch, yaw, accX, accY, accZ,
- *    co2) — the raw ball, for a patch that wants to interpret it itself;
+ *  - the sensor list on `gaia.sensors` (roll, pitch, yaw, accX, accY, accZ
+ *    in mg, co2) — the raw ball, for a patch that wants to interpret it itself;
  *  - the canonical channels: `gaia.lat`/`gaia.lon` from the map centre,
  *    `gaia.acc.*` and `gaia.co2`, each behind its own dead-band.
  *
- * A patch that declares a `gaia.sensors` receiver AND publishes `gaia.out`
- * (today only paraisoGaia43) gets the sensor list alone, exactly as before:
- * it builds its own sound from the raw ball. Its `gaia.out` no longer moves
- * the globe — the ball computes the navigation — but the patch still sees the
- * same input it always did.
+ * The canonical channels always go. With a Gaiaball connected the map centre
+ * is wherever the ball's navigation put the globe, so `gaia.lat`/`gaia.lon`
+ * are the ball's position; a patch that also declares `gaia.sensors` gets the
+ * raw list on top.
  *
- * A patch with a sensors receiver and no `gaia.out` gets both, since nothing
- * in it stands in for the map position. With no ball connected, or no sensors
- * receiver, the canonical channels are the whole story.
+ * There used to be an exception: a patch that published `gaia.out` got the
+ * list alone while the ball was connected, so that paraisoGaia43 kept hearing
+ * exactly what it was built for. That patch is gone, and its successor, the
+ * globe patch mapa15 ("TesteGlobo2.0"), still publishes `gaia.out` but builds
+ * its sound from `gaia.lat`, `gaia.lon` and `gaia.acc.*` — the exception would
+ * have cut every one of them whenever a ball was connected. `gaia.out` itself
+ * no longer steers anything; it only shows up in the patch I/O log.
  *
  * Pure module (no React, no pd4web): importable from node:test.
  */
@@ -26,8 +29,6 @@ export type PdSendInputs = {
   sensorConnected: boolean;
   /** The patch declares a receiver for `gaia.sensors`. */
   hasSensorsReceiver: boolean;
-  /** The patch publishes `gaia.out`. */
-  publishesOut: boolean;
 };
 
 export type PdSendDecision = Readonly<{
@@ -36,10 +37,6 @@ export type PdSendDecision = Readonly<{
 }>;
 
 // Shared, frozen answers: the loop asks every tick and needs no fresh object.
-const SENSOR_LIST_ONLY: PdSendDecision = Object.freeze({
-  sendSensorList: true,
-  sendCanonical: false,
-});
 const SENSOR_LIST_AND_CANONICAL: PdSendDecision = Object.freeze({
   sendSensorList: true,
   sendCanonical: true,
@@ -52,10 +49,8 @@ const CANONICAL_ONLY: PdSendDecision = Object.freeze({
 export function decidePdSend({
   sensorConnected,
   hasSensorsReceiver,
-  publishesOut,
 }: PdSendInputs): PdSendDecision {
-  if (sensorConnected && hasSensorsReceiver) {
-    return publishesOut ? SENSOR_LIST_ONLY : SENSOR_LIST_AND_CANONICAL;
-  }
-  return CANONICAL_ONLY;
+  return sensorConnected && hasSensorsReceiver
+    ? SENSOR_LIST_AND_CANONICAL
+    : CANONICAL_ONLY;
 }

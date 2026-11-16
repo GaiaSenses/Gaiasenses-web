@@ -4,20 +4,20 @@ import {
   decodeSensorNotification,
   decodeCo2Notification,
   decodeNavNotification,
+  isLegacyImuNotification,
   resetCo2StaleWarning,
 } from "../app/[locale]/map3/ble-decode";
 
 // Golden vectors copied byte for byte from the firmware's own protocol tests
 // (gaiaball firmware/test/test_protocol/test_protocol.cpp), which are the
-// source of truth for the wire format. The IMU one is the v8 packet: 31 bytes,
-// flags 0x0B (quatValid | nineAxis | audioValid) and the microphone envelope
-// in the last eight — rms L = 0.00 dBFS, rms R = -20.00, peak L = 0.00,
-// peak R = -6.02, each as dBFS x100. The vector used to be the pre-v8 one,
-// 23 bytes and flags 0x03, which is how the decoder came to reject every
-// packet the firmware actually sends.
+// source of truth for the wire format. The IMU one is the v2 packet: 27 bytes,
+// acceleration in milli-g (1000, -500, 151), flags 0x0B (quatValid | nineAxis |
+// audioValid) and the microphone envelope in the last four bytes, each a u8 in
+// half-dB: dBFS = value / 2 - 120. rms L = 0, rms R = -20, peak L = 0,
+// peak R = -6 dBFS.
 const GOLDEN_IMU =
-  "01 01 02 01 0D 0C 0B 0A 00 40 00 00 00 00 00 00 01 00 FE FF 03 00 0B" +
-  " 00 00 30 F8 00 00 A6 FD";
+  "02 01 02 01 0D 0C 0B 0A 00 40 00 00 00 00 00 00 E8 03 0C FE 97 00 0B" +
+  " F0 C8 F0 E4";
 const GOLDEN_CO2 = "01 02 02 01 0D 0C 0B 0A E8 03 05 07";
 
 // NavPacket golden vectors, verbatim from the protocol contract shared by the
@@ -54,9 +54,9 @@ function imuPacket(opts: {
   /** Total length, to stand in for a future firmware that appends more. */
   size?: number;
 }): ArrayBuffer {
-  const buf = new ArrayBuffer(opts.size ?? 31);
+  const buf = new ArrayBuffer(opts.size ?? 27);
   const dv = new DataView(buf);
-  dv.setUint8(0, 1);
+  dv.setUint8(0, 2);
   dv.setUint8(1, 0x01);
   dv.setUint16(2, 7, true);
   dv.setUint32(4, 123456, true);
@@ -69,10 +69,8 @@ function imuPacket(opts: {
   dv.setInt16(18, ay, true);
   dv.setInt16(20, az, true);
   dv.setUint8(22, opts.flags ?? 0b001);
-  // Silence, as the firmware encodes it: the -120.00 dBFS floor on all four.
-  if (buf.byteLength >= 31) {
-    for (const offset of [23, 25, 27, 29]) dv.setInt16(offset, -12000, true);
-  }
+  // Silence, as the firmware encodes it: 0x00 = the -120 dBFS floor on all
+  // four bytes (23..26), which a fresh ArrayBuffer already holds.
   return buf;
 }
 
@@ -86,20 +84,20 @@ const near = (a: number | null | undefined, b: number, tol = 0.1) =>
 // Binary IMU
 // ---------------------------------------------------------------------------
 
-test("golden IMU vector decodes to identity quat, zero euler, acc (1,-2,3)", () => {
+test("golden IMU vector decodes to identity quat, zero euler, acc (1000,-500,151) mg", () => {
   const r = decodeSensorNotification(hex(GOLDEN_IMU));
   assert.ok(r);
   assert.deepEqual(r.quat, { quat_w: 1, quat_x: 0, quat_y: 0, quat_z: 0 });
   assert.equal(Math.abs(r.euler.roll ?? NaN), 0);
   assert.equal(Math.abs(r.euler.pitch ?? NaN), 0);
   assert.equal(Math.abs(r.euler.yaw ?? NaN), 0);
-  assert.deepEqual(r.acc, { x: 1, y: -2, z: 3 });
+  assert.deepEqual(r.acc, { x: 1000, y: -500, z: 151 });
 });
 
 test("golden IMU vector (flags 0x0B) exposes the microphone envelope in dBFS", () => {
   const r = decodeSensorNotification(hex(GOLDEN_IMU));
   assert.ok(r);
-  assert.deepEqual(r.audio, { rmsDb: [0, -20], peakDb: [0, -6.02] });
+  assert.deepEqual(r.audio, { rmsDb: [0, -20], peakDb: [0, -6] });
 });
 
 test("audio envelope is absent unless flags bit3 (audioValid) is set", () => {
@@ -159,34 +157,34 @@ test("quatValid=0 packet → null", () => {
 
 test("wrong version / type / short packet → null", () => {
   const b = new Uint8Array(hex(GOLDEN_IMU));
-  const v2 = b.slice();
-  v2[0] = 2;
-  assert.equal(decodeSensorNotification(v2.buffer), null);
+  const v1 = b.slice();
+  v1[0] = 1;
+  assert.equal(decodeSensorNotification(v1.buffer), null);
   const t2 = b.slice();
   t2[1] = 0x02;
   assert.equal(decodeSensorNotification(t2.buffer), null);
-  assert.equal(decodeSensorNotification(b.slice(0, 22).buffer), null);
-  // the pre-v8 23-byte packet: no shipped firmware sends it, and the Pd bridge
+  assert.equal(decodeSensorNotification(b.slice(0, 26).buffer), null);
+  // the pre-v2 23-byte packet: no shipped firmware sends it, and the Pd bridge
   // does not accept it either
   assert.equal(decodeSensorNotification(b.slice(0, 23).buffer), null);
   // a CO2 packet arriving on the sensor characteristic is ignored
   assert.equal(decodeSensorNotification(hex(GOLDEN_CO2)), null);
 });
 
-test("a packet longer than v8 still decodes (fields are append-only)", () => {
+test("a packet longer than v2 still decodes (fields are append-only)", () => {
   // This is the regression guard for the bug this branch shipped with: an
   // exact-length check turns every notification of the next firmware into
   // silence, and silence here looks exactly like a ball that is not there.
   const q = Math.round(Math.cos(Math.PI / 4) * 16384);
   const futuro = decodeSensorNotification(
-    imuPacket({ w: q, x: 0, y: 0, z: q, acc: [1, -2, 3], size: 48 }),
+    imuPacket({ w: q, x: 0, y: 0, z: q, acc: [1000, -500, 151], size: 44 }),
   );
   assert.ok(futuro);
-  assert.deepEqual(futuro.acc, { x: 1, y: -2, z: 3 });
+  assert.deepEqual(futuro.acc, { x: 1000, y: -500, z: 151 });
   near(futuro.euler.yaw, -90);
 });
 
-test("a CO2 packet longer than v8 still decodes", () => {
+test("a CO2 packet longer than v2 still decodes", () => {
   const b = new Uint8Array(hex(GOLDEN_CO2));
   const maior = new Uint8Array(20);
   maior.set(b);
@@ -440,4 +438,19 @@ test("fuzz: 500 random buffers never throw", () => {
   } finally {
     console.warn = originalWarn;
   }
+});
+
+test("legacy IMU v1 packets are recognised (and v2, other types and runts are not)", () => {
+  const v1 = new Uint8Array(new Uint8Array(hex(GOLDEN_IMU)));
+  v1[0] = 1;
+  assert.equal(isLegacyImuNotification(v1.buffer), true);
+  // a v1 packet of the old 31-byte size is still legacy
+  const v1long = new Uint8Array(31);
+  v1long[0] = 1;
+  v1long[1] = 0x01;
+  assert.equal(isLegacyImuNotification(v1long.buffer), true);
+  assert.equal(isLegacyImuNotification(hex(GOLDEN_IMU)), false); // v2
+  assert.equal(isLegacyImuNotification(hex(GOLDEN_CO2)), false); // version 1 but type 0x02
+  assert.equal(isLegacyImuNotification(new Uint8Array([1]).buffer), false);
+  assert.equal(isLegacyImuNotification(new ArrayBuffer(0)), false);
 });

@@ -85,7 +85,7 @@ const OBSOLETE_STORAGE_KEYS = [
  * from a patch bug.
  *
  * It is `true` again, which is the documented contract: the globe's position
- * is sent at `pollMs` (64 ms ≈ 15 Hz for paraisoGaia43), gated only by the
+ * is sent at the patch's `pollMs` (100 ms ≈ 10 Hz by default), gated only by the
  * `epsilon` dead-band that drops sub-degree jitter. To silence a patch, mute
  * it or change the patch — not by cutting the data it is built to receive.
  */
@@ -476,7 +476,7 @@ export default function GaiasensesMap({
     const accEpsilon = clampPatchEpsilon(patchLogControls.accEpsilon);
     const alwaysSendMovement = patchLogControls.alwaysSendMovement;
 
-    // `gaia.out` (paraisoGaia43) used to steer the globe. The ball computes the
+    // `gaia.out` (published by the globe patch) used to steer the globe. The ball computes the
     // navigation now, so the list is only shown in the patch I/O log, and only
     // while that panel is open.
     const outputListReceiver = senders[GAIA.OUT];
@@ -682,7 +682,6 @@ export default function GaiasensesMap({
       const { sendSensorList, sendCanonical } = decidePdSend({
         sensorConnected: inputModeRef.current !== "mouse",
         hasSensorsReceiver: Boolean(receivers[GAIA.SENSORS]),
-        publishesOut: Boolean(outputListReceiver),
       });
 
       const tickLogs: Omit<Pd4WebPatchLogEntry, "id">[] = [];

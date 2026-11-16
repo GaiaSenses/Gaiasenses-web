@@ -40,33 +40,33 @@
       "direction": "in",
       "kind": "float",
       "source": "sensor",
-      "unit": "g",
-      "range": [-16, 16],
+      "unit": "mg",
+      "range": [-4000, 4000],
       "aliases": ["aceX"],
       "label": "Aceleração no eixo X (sensor Bolota)",
-      "help": "Só chega quando o sensor BLE está conectado."
+      "help": "Em mg (1000 = 1 g). Só chega quando o sensor BLE está conectado."
     },
     {
       "id": "gaia.acc.y",
       "direction": "in",
       "kind": "float",
       "source": "sensor",
-      "unit": "g",
-      "range": [-16, 16],
+      "unit": "mg",
+      "range": [-4000, 4000],
       "aliases": ["aceY"],
       "label": "Aceleração no eixo Y (sensor Bolota)",
-      "help": "Só chega quando o sensor BLE está conectado."
+      "help": "Em mg (1000 = 1 g). Só chega quando o sensor BLE está conectado."
     },
     {
       "id": "gaia.acc.z",
       "direction": "in",
       "kind": "float",
       "source": "sensor",
-      "unit": "g",
-      "range": [-16, 16],
+      "unit": "mg",
+      "range": [-4000, 4000],
       "aliases": ["aceZ"],
       "label": "Aceleração no eixo Z (sensor Bolota)",
-      "help": "Só chega quando o sensor BLE está conectado."
+      "help": "Em mg (1000 = 1 g). Só chega quando o sensor BLE está conectado."
     },
     {
       "id": "gaia.co2",
@@ -172,7 +172,7 @@
       "source": "sensor",
       "aliases": ["input"],
       "label": "Pacote completo do sensor",
-      "help": "Lista de 7 valores: giroX giroY giroZ aceX aceY aceZ co2. Use [list split] para separar. Regra de transição: um patch que também publica gaia.out recebe só esta lista enquanto o Bolota está conectado; os outros patches recebem esta lista e também gaia.lat, gaia.lon, gaia.acc.* e gaia.co2."
+      "help": "Lista de 7 valores: giroX giroY giroZ aceX aceY aceZ co2, com aceX aceY aceZ em mg. Use [list split] para separar. Regra de transição: um patch que também publica gaia.out recebe só esta lista enquanto o Bolota está conectado; os outros patches recebem esta lista e também gaia.lat, gaia.lon, gaia.acc.* e gaia.co2."
     },
     {
       "id": "gaia.out",

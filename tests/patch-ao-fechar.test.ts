@@ -26,9 +26,9 @@ function patchDeObra(): Map3Pd4WebPatch {
 
 function patchDoMapa(): Map3Pd4WebPatch {
   return {
-    id: "paraisoGaia43",
-    label: "Map sound 43",
-    bundleFolder: "patches/paraisoGaia43",
+    id: "mapa15",
+    label: "TesteGlobo2.0",
+    bundleFolder: "patches/mapa15",
     activation: { moments: ["map"], compositions: [] },
     channels: { receivers: {} },
   } as unknown as Map3Pd4WebPatch;

@@ -50,8 +50,12 @@ jobs:
           if [ -n "${{ inputs.slugs }}" ]; then
             SLUGS=$(echo "${{ inputs.slugs }}" | tr ',' '\n' | sed '/^$/d' | jq -R . | jq -sc .)
           elif [ -n "${{ github.event.pull_request.base.sha }}" ]; then
+            # A deleted patch shows up in the diff too; only folders that still have
+            # a patch.json can be built.
             SLUGS=$(git diff --name-only "${{ github.event.pull_request.base.sha }}"...HEAD -- patches/ \
-                    | awk -F/ 'NF>1 {print $2}' | sort -u | jq -R . | jq -sc .)
+                    | awk -F/ 'NF>1 {print $2}' | sort -u \
+                    | while read -r slug; do if [ -f "patches/$slug/patch.json" ]; then echo "$slug"; fi; done \
+                    | jq -R . | jq -sc .)
           else
             SLUGS=$(ls patches | jq -R . | jq -sc .)
           fi

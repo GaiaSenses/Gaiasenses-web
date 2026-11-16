@@ -8,6 +8,8 @@
  *     if (bola.connected && bola.imu) { ... bola.imu.acc.x ... }
  *   };
  *
+ * `imu.acc` is in mg (1000 = 1 g), straight from the packet.
+ *
  * Module-level, not React state: the BLE wiring publishes every decoded packet
  * here and nothing re-renders because of it. `get()` hands back the current
  * snapshot as is — no copy, no allocation — so calling it in `draw()` at 60 fps

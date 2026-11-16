@@ -10,6 +10,11 @@ import {
   type PropsWithChildren,
 } from "react";
 import {
+  lendMicStream,
+  requestPatchMicrophone,
+  stopMicStream,
+} from "./pd4web-mic";
+import {
   getMap3Pd4WebPatchById,
   getPatchRuntimeUrl,
   type Map3Pd4WebPatch,
@@ -173,6 +178,17 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
   // ainda: registra o pedido aqui e o próprio startPatch desfaz tudo ao
   // concluir, em vez de deixar o patch nascer tocando sem ninguém no comando.
   const stopRequestedRef = useRef(false);
+  // Microphone of a patch with `[adc~]`: the stream the site obtained (and
+  // lent to pd4web), and the undo for the loan if pd4web never asked for it.
+  const micStreamRef = useRef<MediaStream | null>(null);
+  const micRestoreRef = useRef<(() => void) | null>(null);
+
+  const releaseMic = useCallback(() => {
+    micRestoreRef.current?.();
+    micRestoreRef.current = null;
+    stopMicStream(micStreamRef.current);
+    micStreamRef.current = null;
+  }, []);
 
   /**
    * Load a compiled patch. This is purely asset-loading + `openPatch()` —
@@ -236,6 +252,21 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
           path === "pd4web.wasm" ? wasmUrl : `/${bundleFolder}/${path}`,
       });
 
+      // A patch with `[adc~]` gets the microphone only after the visitor says
+      // yes; a refusal opens it without an input channel, so it still plays.
+      // See pd4web-mic.ts for why the site asks instead of pd4web.
+      let micStream: MediaStream | null = null;
+      if (patch.audioInput) {
+        micStream = await requestPatchMicrophone(navigator.mediaDevices);
+        if (micStream) {
+          micStreamRef.current = micStream;
+          micRestoreRef.current = lendMicStream(
+            navigator.mediaDevices,
+            micStream,
+          );
+        }
+      }
+
       const instance = new pdModule.Pd4Web();
 
       // Deliberately no `soundToggleId` — we drive audio ourselves through
@@ -244,20 +275,13 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
       instance.openPatch("index.pd", {
         //canvasId: P4DWEB_CANVAS_ID,
         renderGui: false,
-        // No audio input, ever.
-        //
-        // With any input channel Pd4Web's `JS_GetMicAccess` calls
-        // `getUserMedia({audio: ...})` and chains a bare `.then()`, so a
-        // visitor who refuses the microphone — or a kiosk with none — gets an
-        // uncaught `NotAllowedError: Permission denied` on the first unmute.
-        // And when the microphone *is* granted it is routed straight into the
-        // patch, which is not something an installation should do behind the
-        // visitor's back.
-        //
-        // Nothing is lost by closing the door: the only patch here with an
-        // `adc~` is paraisoGaia43, where it feeds `dca~ -> delay16~ -> mono~`
-        // and stops — the branch has no outgoing connection.
-        channelCountIn: 0,
+        // One input channel only when the visitor granted the microphone
+        // above. With an input channel Pd4Web's `JS_GetMicAccess` calls
+        // `getUserMedia` with a bare `.then()` and connects the patch to the
+        // speakers only inside it, so opening with an input the visitor
+        // refused would leave the whole patch silent. `[adc~ 1]` is the only
+        // input any patch here reads.
+        channelCountIn: micStream ? 1 : 0,
       });
 
       // Começa a tocar sozinho. `init()` continua fora daqui de propósito —
@@ -294,6 +318,7 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
       return patch;
     } catch (error) {
       console.error("Error while starting patch:", error);
+      releaseMic();
       setStatus(`Failed to start ${patch.label}.`);
       return null;
     } finally {
@@ -303,7 +328,7 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
       // Se a carga falhou, um pedido pendente já está satisfeito: nada toca.
       stopRequestedRef.current = false;
     }
-  }, []);
+  }, [releaseMic]);
 
   /** Stop the active patch and release its audio resources. */
   const stopPatch = useCallback(async () => {
@@ -346,6 +371,9 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
     } catch (error) {
       console.error("Error while stopping patch:", error);
     } finally {
+      // Pd4Web never stops the microphone tracks; closing the context alone
+      // leaves the browser's microphone indicator on.
+      releaseMic();
       window.Pd4Web = undefined;
       pd4webRef.current = null;
       isStoppingRef.current = false;
@@ -359,7 +387,7 @@ export function Pd4WebProvider({ children }: PropsWithChildren) {
       setIsMuted(false);
       setIsAudioStarted(false);
     }
-  }, []);
+  }, [releaseMic]);
 
   /**
    * Toggle audio on/off via pd4web's own `toggleAudio()`.

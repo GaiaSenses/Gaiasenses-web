@@ -154,10 +154,11 @@ function installRuntime(wasmPath) {
  * Install a bundle that was compiled elsewhere, for patches that the current
  * Pd4Web cannot rebuild yet.
  *
- * `paraisoGaia43` is the reason this exists: Pd4Web 3.3 accepts only one graph
- * in a main patch and that patch has more than one, so recompiling it would mean
- * rearranging someone's artwork. The already-working bundle keeps shipping while
- * the manifest records exactly what has to change for it to build again.
+ * The original map patch (paraisoGaia43, since removed) is why this exists:
+ * Pd4Web 3.3 accepts only one graph in a main patch and that patch had more than
+ * one, so recompiling it would have meant rearranging someone's artwork. A patch
+ * in the same situation can keep shipping its working bundle while the manifest
+ * records exactly what has to change for it to build again.
  */
 function installPrebuilt(slug, manifest) {
   const from = manifest.build?.prebuiltFrom ?? slug;
@@ -211,7 +212,8 @@ function installPrebuilt(slug, manifest) {
  * Turn graph-on-parent off so a patch with more than one graph can compile.
  *
  * pd4web 3.3 refuses a main patch containing more than one graph, which is what
- * kept paraisoGaia43 on the prebuilt escape hatch. The graphs in question are
+ * kept the original map patch (paraisoGaia43, since removed) on the prebuilt
+ * escape hatch. The graphs in question were
  * `visual03~`, an oscilloscope-style array display, and the main canvas itself.
  *
  * Graph-on-parent is a display property: it decides whether a subpatch draws its

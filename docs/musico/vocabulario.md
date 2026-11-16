@@ -49,17 +49,17 @@ recebe nada. Confira a grafia com atenção, inclusive maiúsculas e minúsculas
 
 | Coloque no patch | O que chega | Faixa de valores | Nomes antigos aceitos |
 |---|---|---|---|
-| `[r gaia.acc.x]` | Aceleração no eixo X (sensor Bolota) | -16 a 16 g | `aceX` |
-| `[r gaia.acc.y]` | Aceleração no eixo Y (sensor Bolota) | -16 a 16 g | `aceY` |
-| `[r gaia.acc.z]` | Aceleração no eixo Z (sensor Bolota) | -16 a 16 g | `aceZ` |
+| `[r gaia.acc.x]` | Aceleração no eixo X (sensor Bolota) | -4000 a 4000 mg | `aceX` |
+| `[r gaia.acc.y]` | Aceleração no eixo Y (sensor Bolota) | -4000 a 4000 mg | `aceY` |
+| `[r gaia.acc.z]` | Aceleração no eixo Z (sensor Bolota) | -4000 a 4000 mg | `aceZ` |
 | `[r gaia.co2]` | CO₂ medido pelo sensor | 400 a 5000 ppm | `co2` |
 | `[r gaia.sensors]` | Pacote completo do sensor |  | `input` |
 
-- `gaia.acc.x` — Só chega quando o sensor BLE está conectado.
-- `gaia.acc.y` — Só chega quando o sensor BLE está conectado.
-- `gaia.acc.z` — Só chega quando o sensor BLE está conectado.
+- `gaia.acc.x` — Em mg (1000 = 1 g). Só chega quando o sensor BLE está conectado.
+- `gaia.acc.y` — Em mg (1000 = 1 g). Só chega quando o sensor BLE está conectado.
+- `gaia.acc.z` — Em mg (1000 = 1 g). Só chega quando o sensor BLE está conectado.
 - `gaia.co2` — Ar livre fica perto de 420 ppm. Sala fechada com gente passa de 1000 ppm.
-- `gaia.sensors` — Lista de 7 valores: giroX giroY giroZ aceX aceY aceZ co2. Use [list split] para separar. Regra de transição: um patch que também publica gaia.out recebe só esta lista enquanto o Bolota está conectado; os outros patches recebem esta lista e também gaia.lat, gaia.lon, gaia.acc.* e gaia.co2.
+- `gaia.sensors` — Lista de 7 valores: giroX giroY giroZ aceX aceY aceZ co2, com aceX aceY aceZ em mg. Use [list split] para separar. Regra de transição: um patch que também publica gaia.out recebe só esta lista enquanto o Bolota está conectado; os outros patches recebem esta lista e também gaia.lat, gaia.lon, gaia.acc.* e gaia.co2.
 
 ---
 
