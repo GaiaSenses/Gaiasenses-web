@@ -76,11 +76,6 @@ export const comps = Object.entries(CompositionsInfo).filter(([key]) =>
 
 export const enabledCompositionKeys = comps.map(([key]) => key);
 
-export const DEFAULT_CO2_LEVEL_THRESHOLD = 1200;
-
-// Backward-compatible alias while migrating call sites to the default constant.
-export const CO2_LEVEL_THRESHOLD = DEFAULT_CO2_LEVEL_THRESHOLD;
-
 export function* shuffle(array: any[]): Generator<any> {
   let i = array.length;
   while (i--) {
