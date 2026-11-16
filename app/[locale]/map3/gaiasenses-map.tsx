@@ -32,6 +32,7 @@ import {
 } from "@/lib/gaiaball-live";
 
 import InfoButton from "./info-button";
+import GaiaballConfigButton from "./gaiaball-config-button";
 import NotificationDialog from "./notifications-dialog";
 import BLEControl from "./ble-control";
 import AutoMove from "./auto-move";
@@ -847,6 +848,9 @@ export default function GaiasensesMap({
       </div>
       <div>
         <InfoButton />
+      </div>
+      <div>
+        <GaiaballConfigButton />
       </div>
       <div className="absolute right-4 bottom-4 z-20 pointer-events-auto">
         <Button
