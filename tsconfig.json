@@ -28,8 +28,7 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "app/[locale]/map3/orientation-smoother.worker.js",
-    "lib/notifications.js"
+    "app/[locale]/map3/orientation-smoother.worker.js"
   ],
   "exclude": ["node_modules"]
 }
