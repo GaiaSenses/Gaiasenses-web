@@ -26,6 +26,7 @@ import {
 import { GAIA } from "@/lib/gaia-vocabulary";
 
 import InfoButton from "./info-button";
+import GaiaballConfigButton from "./gaiaball-config-button";
 import NotificationDialog from "./notifications-dialog";
 import BLEControl from "./ble-control";
 import AutoMove from "./auto-move";
@@ -870,6 +871,9 @@ export default function GaiasensesMap({
       </div>
       <div>
         <InfoButton />
+      </div>
+      <div>
+        <GaiaballConfigButton />
       </div>
       <MotionTuningPanel
         settings={motionTuning}
