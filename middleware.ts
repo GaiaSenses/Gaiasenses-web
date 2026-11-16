@@ -2,9 +2,6 @@ import createMiddleware from "next-intl/middleware";
 import { NextRequest } from "next/server";
 
 export default async function middleware(request: NextRequest){
-  // Step 1: Use the incoming request (example)
-  const defaultLocale = request.headers.get('x-your-custom-locale') || 'en';
- 
   const handleI18nRouting = createMiddleware({
     locales: ["pt", "en"],
     defaultLocale:"pt"
@@ -50,7 +47,6 @@ export default async function middleware(request: NextRequest){
       }
     );
   }
-  response.headers.set("x-your-custom-locale", defaultLocale);
   
   return response
 }
@@ -66,7 +62,6 @@ export const config = {
      */
     "/",
     "/(pt|en)/:path*",
-    //"/((?!api|_next/static|_next/image|favicon.ico).*)",
 
     // Enable redirects that add missing locales
     // (e.g. `/pathnames` -> `/en/pathnames`)

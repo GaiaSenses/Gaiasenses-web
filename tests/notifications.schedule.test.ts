@@ -8,32 +8,25 @@
  * why, as much as a guard against it returning.
  *
  * The delivery model they encode: the Vercel cron runs once a day at 12:00 UTC,
- * which is 09:00 in Brasília, and `sendNotification` picks up everyone whose
+ * which is 09:00 in Brasília, and `deliverDue` picks up everyone whose
  * `next_push` has passed. So `scheduleNextPush` does not choose when a
  * notification is delivered — it chooses which day's run picks it up. Every
  * assertion about a stored timestamp is really an assertion about that.
  *
- * `lib/notifications.js` does work when it loads: `setVapidDetails` validates
- * the VAPID pair and `lib/usersdb` throws without Supabase credentials. So the
- * module is imported dynamically, after the environment is prepared. Real
- * generated VAPID keys are used because fake ones are rejected.
+ * Both functions now live in pure modules (`lib/push/schedule.ts`,
+ * `lib/push/validation.ts`) with no network, database or "use server" — so
+ * they import directly, with no VAPID keys or Supabase credentials to fake.
+ * They used to sit in a "use server" file that configured web-push and the
+ * service-role client on import, which is also what exposed the bulk send as
+ * a public Server Action (F-SEC-01).
  *
  * Run with: npm test
  */
-import { test, describe, before } from "node:test";
+import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { createRequire } from "node:module";
 
-/**
- * `web-push` ships no type declarations, so `import webpush from "web-push"`
- * fails `tsc --noEmit` with TS7016 — which is exactly how this suite broke the
- * main branch once. Loading it through `createRequire` keeps the type checker
- * out of a module it cannot describe, and avoids adding `@types/web-push` just
- * to satisfy one line in one test. The rest of the test tooling here is
- * dependency-free on purpose; this stays that way.
- */
-const require = createRequire(import.meta.url);
-const webpush = require("web-push");
+import { scheduleNextPush } from "@/lib/push/schedule";
+import { isValidEmail } from "@/lib/push/validation";
 
 const FUSO = "America/Sao_Paulo";
 
@@ -58,22 +51,6 @@ function diaNoBrasil(data: Date): string {
     dateStyle: "short",
   }).format(data);
 }
-
-let scheduleNextPush: (
-  frequency: string,
-  from?: Date,
-) => Promise<Date | null>;
-let isValidEmail: (email: unknown) => Promise<boolean>;
-
-before(async () => {
-  const { publicKey, privateKey } = webpush.generateVAPIDKeys();
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY = publicKey;
-  process.env.VAPID_PRIVATE_KEY = privateKey;
-  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://exemplo.supabase.co";
-  process.env.SUPABASE_SERVICE_ROLE_KEY = "chave-de-teste";
-
-  ({ scheduleNextPush, isValidEmail } = await import("../lib/notifications.js"));
-});
 
 describe("scheduleNextPush", () => {
   test("um envio diário cai no dia seguinte, no fuso do Brasil", async () => {

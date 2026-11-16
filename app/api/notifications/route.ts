@@ -1,37 +1,44 @@
-export const dynamic = "force-dynamic";
-
 import { NextResponse } from "next/server";
-import { sendNotification } from "@/lib/notifications.js";
+import { deliverDue } from "@/lib/push/deliver";
+import { createSupabaseStore, sendReminder } from "@/lib/push/server";
+import { isCronAuthorized } from "@/lib/push/cron-auth";
+
+export const dynamic = "force-dynamic";
+// Até 60 s no Hobby. O envio é em lotes paralelos, mas não deixamos o limite
+// padrão cortar um lote no meio.
+export const maxDuration = 60;
 
 /**
- * Daily push job, triggered by the Vercel cron declared in vercel.json.
+ * Job diário de push, disparado pelo cron declarado em vercel.json.
  *
- * Vercel automatically sends `Authorization: Bearer <CRON_SECRET>` on cron
- * invocations whenever the CRON_SECRET environment variable is set on the
- * project. Any request without that header is rejected.
+ * A Vercel envia `Authorization: Bearer <CRON_SECRET>` nas chamadas do cron
+ * sempre que a variável existe no projeto. Sem ela, nada é enviado (fail
+ * closed). O cron só roda em deployments de produção.
  *
- * This endpoint fans out real push notifications to real subscribers, so it
- * fails closed: if CRON_SECRET is not configured, nothing is sent. Setting the
- * variable in the Vercel dashboard (Production *and* Preview) is required for
- * the daily job to run.
+ * Esta é a ÚNICA porta para o envio em massa. Ele já foi exportado de um módulo
+ * "use server" e, por isso, alcançável sem segredo como Server Action (F-SEC-01).
  */
 export async function GET(request: Request) {
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (!cronSecret) {
-    console.error(
-      "[notifications] CRON_SECRET is not set — refusing to send notifications.",
-    );
-    return NextResponse.json(
-      { error: "Notification job is not configured." },
-      { status: 503 },
-    );
+  const auth = isCronAuthorized(request);
+  if (auth === "not-configured") {
+    console.error("[notifications] CRON_SECRET is not set — refusing to send notifications.");
+    return NextResponse.json({ error: "Notification job is not configured." }, { status: 503 });
   }
-
-  if (request.headers.get("authorization") !== `Bearer ${cronSecret}`) {
+  if (auth === "unauthorized") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const result = await sendNotification();
-  return NextResponse.json(result);
+  try {
+    const summary = await deliverDue({
+      store: createSupabaseStore(),
+      send: sendReminder,
+      log: (msg) => console.log(msg),
+    });
+    // Uma linha só por execução, fácil de achar nos logs da Vercel.
+    console.log("[notifications] resumo", JSON.stringify(summary));
+    return NextResponse.json({ success: true, ...summary });
+  } catch (err) {
+    console.error("[notifications] job falhou:", (err as Error)?.message ?? err);
+    return NextResponse.json({ success: false, error: "Job failed" }, { status: 500 });
+  }
 }

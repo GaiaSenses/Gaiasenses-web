@@ -56,6 +56,10 @@ export async function generateMetadata({
     title,
     description,
     applicationName: "GaiaSenses",
+    // Necessário para o push no iPhone/iPad: o Safari só entrega notificações a
+    // sites adicionados à Tela de Início (ver app/manifest.ts).
+    appleWebApp: { capable: true, title: "GaiaSenses", statusBarStyle: "default" },
+    icons: { apple: "/apple-touch-icon.png" },
     alternates: {
       canonical: `/${locale}/map3`,
       languages: {

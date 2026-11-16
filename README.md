@@ -96,7 +96,7 @@ flowchart LR
 | 🔥 Fire spots | **NASA FIRMS** (VIIRS, global coverage) via AWS Lambda | `components/getData.ts` → `…/prod/fire` | 100 km radius query |
 | ⚡ Lightning | **GOES-19 GLM** (netCDF from S3 `noaa-goes19`) via AWS Lambda | `components/getData.ts` → `…/prod/lightning` | 100 km radius query; Next.js cache `revalidate: 7200` |
 | 📍 Place names | **OpenWeather** reverse geocoding | `components/getData.ts` | The only remaining OpenWeather usage |
-| 🗄️ Session telemetry & push subscriptions | **Supabase** (`GaiaLogs`, `GaiaSubs` tables) | `components/supabase.ts`, `lib/notifications.js` | Anon client (browser) + service-role client (server) |
+| 🗄️ Session telemetry & push subscriptions | **Supabase** (`GaiaLogs`, `GaiaSubs` tables) | `components/supabase.ts`, `lib/push/` | Anon client (browser) + service-role client (server) |
 
 ### Two rain data products (they are not the same)
 
@@ -231,6 +231,7 @@ aws apigateway get-api-key --api-key <id> --include-value --query value --output
 > 🔎 **Fire, lightning and rain now need a key.** The backend used to answer anyone who asked, with no throttle and no spending ceiling. It sits behind an API key, a 10 rps throttle and a 50,000 request monthly quota — see `satellite-fetcher-aws`.
 > 🛡️ **The push sign-up is rate-limited at the edge, not in code.** The subscribe form is a server action hosted on the `map3` page, so it travels as `POST /<locale>/map3`. A Vercel WAF rule (dashboard → Firewall, not in this repo) limits POSTs to 10/min per IP and answers 429 beyond that — nothing IP-related is stored in our database.
 > 🌐 **So is the public API.** A second WAF rule limits `/api/v1/*` to 30 req/min per IP. Both rules live only in the Vercel dashboard — they are inventoried in [`docs/contas-e-servicos.md`](docs/contas-e-servicos.md) so they do not get lost.
+> 🔔 **Push notifications** are explained end to end in [`docs/push.md`](docs/push.md): sign-up flow, the daily cron, how to check it is delivering (`GET /api/health/push` with the `CRON_SECRET`), and the security boundary that keeps the bulk send out of the public Server Actions.
 > 🩺 **Is the satellite backend up?** `GET /api/health` answers per source: `200 {status:"ok"}` or `503 {status:"degraded"}` with `sources.fire` / `sources.lightning` detailed individually.
 > 🧹 `MONGODB_URI` appears in older docs but is **not read by any code** — MongoDB is a leftover dependency. Do not bother setting it.
 
@@ -245,7 +246,9 @@ app/
 │  └─ notifications/       ← push-subscription component
 └─ api/
    ├─ health/              ← per-source status probe (fire + lightning): 200 ok / 503 degraded
-   └─ notifications/       ← triggered by Vercel Cron (daily, 12:00 UTC)
+   │  └─ push/            ← push delivery health (counts only, needs CRON_SECRET)
+   ├─ notifications/       ← triggered by Vercel Cron (daily, 12:00 UTC) — the ONLY way to bulk-send
+   └─ push/resubscribe/    ← called by sw.js when the browser rotates a push endpoint
 
 patches/                    ← ★ Pd sources: main.pd + Libs/ + patch.json, one folder per patch
 compositions/               ← ★ declared animations: sketch + composition.json, one folder per animation
@@ -256,7 +259,8 @@ components/
 ├─ getData.ts              ← ★ ALL external data calls (weather, fire, lightning, geocoding)
 ├─ getOpenMeteo.ts · supabase.ts · supabaseClient.ts · dataSender.tsx
 
-lib/                       ← notifications.js (web-push) · usersdb.js (Supabase service-role)
+lib/push/                  ← push: schedule · validation · messages · deliver (pure) · server · actions ("use server")
+lib/supabase-admin.ts      ← Supabase service-role client (server-only)
 hooks/                     ← types.ts (PatchData) · use-timeout.ts
 scripts/                   ← patch/composition tooling (validate, build, codegen, gc, extract)
 messages/                  ← pt.json · en.json (next-intl)
