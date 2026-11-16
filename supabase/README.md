@@ -14,7 +14,7 @@ Dashboard → **SQL Editor** → **New query** → cole o arquivo → **Run**.
 
 ## Ordem recomendada
 
-Todas as migrações abaixo **já foram aplicadas em 2026-08-04** e verificadas
+As migrações 1 a 4 **já foram aplicadas em 2026-08-04** e verificadas
 contra o banco real. Estão aqui como registro do que foi feito e por quê.
 
 | # | Arquivo | O que faz |
@@ -23,6 +23,7 @@ contra o banco real. Estão aqui como registro do que foi feito e por quê.
 | 2 | `migrations/2026-08-04-gaialogs-origin.sql` | Coluna `origin` no `GaiaLogs` |
 | 3 | `migrations/2026-08-04-gaialogs-restringir-concessoes.sql` | `anon` no `GaiaLogs` fica só com INSERT |
 | 4 | `migrations/2026-08-05-gaiasubs-endpoint-unico.sql` | Índice único no endpoint da subscription (SEC-03) |
+| 5 | `migrations/2026-11-16-gaiasubs-entrega.sql` | **Pendente de aplicação.** Colunas `locale`, `last_sent_at`, `last_status`, `fail_count`, `claimed_until` + função `claim_due_push_subscriptions` (reserva atômica do cron). O app funciona sem ela, em modo antigo, e avisa no log |
 | — | `auditoria-rls.sql` | Diagnóstico de RLS e permissões (somente leitura) |
 
 ## Estado verificado após as migrações
@@ -46,7 +47,7 @@ políticas parecia saudável, mesmo com as políticas liberando tudo para `anon`
 | Tabela | Quem escreve | Com qual chave |
 |---|---|---|
 | `GaiaLogs` | `components/supabase.ts`, via `DataSender` no fim de cada sessão | **anônima**, do navegador |
-| `GaiaSubs` | `lib/notifications.js` | **service role**, no servidor |
+| `GaiaSubs` | `lib/push/server.ts` (chamado pelas actions de `lib/push/actions.ts` e pelo cron) | **service role**, no servidor |
 
 Colunas do `GaiaLogs` (nomes em maiúsculas/minúsculas mistas, então precisam de
 aspas em SQL): `name`, `temperature`, `humidity`, `wind_speed`,

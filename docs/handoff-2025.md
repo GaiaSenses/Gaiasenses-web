@@ -40,9 +40,10 @@ NEXT_PUBLIC_MAPBOX_API_ACCESS_TOKEN=
 
 NEXT_PUBLIC_VAPID_PUBLIC_KEY=
 VAPID_PRIVATE_KEY=
+CRON_SECRET=
 
-MONGODB_URI=
-
+# MONGODB_URI saiu em 2026: o push migrou do MongoDB para o Supabase (GaiaSubs).
+# Lista atual e comentada das variáveis: .env.example.
 
 NEXT_PUBLIC_SUPABASE_URL=
 
