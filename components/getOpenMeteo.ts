@@ -20,6 +20,11 @@ const params = {
     "pressure_msl",
     "is_day",
   ],
+  // Sem isto a Open-Meteo responde o vento em km/h (o padrão dela), e o
+  // projeto inteiro — critério de decisão, painel, obras, canal
+  // gaia.wind.speed, GaiaLogs e a API pública — trabalha em m/s. De 09/06/2025
+  // até a #241 o valor entrou 3,6× maior em todos esses lugares.
+  wind_speed_unit: "ms",
   timezone: "auto",
   forecast_days: 1,
 };

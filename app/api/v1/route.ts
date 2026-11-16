@@ -26,9 +26,9 @@ export async function GET(): Promise<Response> {
             rainSatellite: "GOES-19 RRQPEF rain rate (mm/h)",
             geocoding: "OpenWeather reverse geocoding",
           },
-          // As unidades vêm como a Open-Meteo responde por padrão. Atenção ao
-          // vento: km/h, NÃO o m/s que a convenção OpenWeather faz supor —
-          // sem isto declarado, quem consome erra por 3,6×.
+          // Unidades como a Open-Meteo responde, com uma exceção: o vento é
+          // pedido em m/s (`wind_speed_unit: "ms"` em getOpenMeteo.ts), a
+          // mesma unidade do resto do projeto. Até a #241 a v1 entregava km/h.
           units: {
             "weather.temperature": "°C",
             "weather.apparentTemperature": "°C",
@@ -40,7 +40,7 @@ export async function GET(): Promise<Response> {
             "weather.rain": "mm",
             "weather.showers": "mm",
             "weather.snowfall": "cm",
-            "weather.wind": "km/h",
+            "weather.wind": "m/s",
             "weather.wind.direction": "degrees",
             "rainSatellite.rateMmH": "mm/h",
             "lightning.events.energyPj": "pJ",

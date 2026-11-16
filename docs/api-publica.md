@@ -9,6 +9,8 @@ FIRMS), taxa de chuva por satélite (GOES-19 RRQPEF) e o nome do lugar
 
 `GET /api/v1` devolve uma autodescrição resumida deste contrato.
 
+Para quem não programa, há um passo a passo em [`guia-api-publica.md`](guia-api-publica.md).
+
 > Esta rota substitui a antiga `/api/satellite`, removida em ago/2026 (HIG-03)
 > por ser um proxy aberto na frente de um backend sem medidor. A seção
 > [Por que o desenho é este](#por-que-o-desenho-é-este) explica as proteções —
@@ -55,7 +57,7 @@ curl "https://gaiasenses-web.vercel.app/api/v1/now?lat=-23.55&lon=-46.63"
     "showers": 0,
     "snowfall": 0,
     "weatherCode": 61,
-    "wind": { "speed": 11.2, "direction": 130.4, "gust": 24.6 },
+    "wind": { "speed": 3.1, "direction": 130.4, "gust": 6.8 },
     "isDay": true,
     "observedAt": "2026-10-08T17:45:00.000Z"
   },
@@ -107,8 +109,14 @@ não respondeu ou respondeu erro) ou `"timeout"` (demorou demais; o satélite te
 
 ### Unidades
 
-Atenção ao vento: a Open-Meteo responde em **km/h**, não no m/s que a
-convenção OpenWeather faz supor — sem conversão, o erro é de 3,6×.
+O vento vem em **m/s**. A Open-Meteo responde em km/h por padrão, mas a
+rota pede m/s (`wind_speed_unit: "ms"`), a mesma unidade usada no resto do
+GaiaSenses (vocabulário das obras, canal `gaia.wind.speed`, GaiaLogs). Para
+km/h, multiplique por 3,6.
+
+> **Mudança na v1 (#241):** até esta correção, `weather.wind.speed` e
+> `weather.wind.gust` saíam em **km/h**. A unidade mudou dentro da própria v1,
+> sem `/api/v2` (ver [Versionamento](#versionamento)).
 
 | Campo | Unidade |
 |---|---|
@@ -117,7 +125,7 @@ convenção OpenWeather faz supor — sem conversão, o erro é de 3,6×.
 | `weather.surfacePressure`, `weather.pressureMsl` | hPa |
 | `weather.precipitation`, `weather.rain`, `weather.showers` | mm |
 | `weather.snowfall` | **cm** |
-| `weather.wind.speed`, `weather.wind.gust` | **km/h** |
+| `weather.wind.speed`, `weather.wind.gust` | **m/s** |
 | `weather.wind.direction` | graus (de onde o vento vem) |
 | `rainSatellite.rateMmH` | mm/h |
 | `lightning.events[].energyPj` | pJ |
@@ -147,6 +155,11 @@ parcial é dado); `503` quando clima, raios, fogo e chuva estão todos fora;
 
 O contrato é versionado pelo caminho (`/api/v1`) e pelo campo `version`.
 Mudança incompatível vira `/api/v2`; esta rota não muda embaixo de você.
+
+**Exceção registrada:** a troca do vento de km/h para m/s (#241) foi feita
+dentro da própria v1, sem `/api/v2`. Quando ela foi decidida (16/11/2026),
+a API não tinha nenhum consumidor externo, então não havia contrato em uso
+para quebrar. Daqui em diante, com consumidores, vale a regra acima.
 
 ## Por que o desenho é este
 
