@@ -49,3 +49,7 @@ next-env.d.ts
 # tokens que aparecem em atributos e URLs — nunca devem ser versionadas.
 .playwright-mcp/
 .env*
+
+# Grafo local do graphify (gerado por `graphify update .`). Cada build
+# reescreve o grafo inteiro: fica fora do repositório.
+graphify-out/
