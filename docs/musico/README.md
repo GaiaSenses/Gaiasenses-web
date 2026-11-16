@@ -134,18 +134,82 @@ tudo sozinho.
 
 | Coloque no patch | O que chega | Faixa |
 |---|---|---|
-| `[r gaia.acc.x]` | Aceleração no eixo X | −16 a 16 g |
-| `[r gaia.acc.y]` | Aceleração no eixo Y | −16 a 16 g |
-| `[r gaia.acc.z]` | Aceleração no eixo Z | −16 a 16 g |
+| `[r gaia.acc.x]` | Aceleração no eixo X | −4000 a 4000 mg |
+| `[r gaia.acc.y]` | Aceleração no eixo Y | −4000 a 4000 mg |
+| `[r gaia.acc.z]` | Aceleração no eixo Z | −4000 a 4000 mg |
 | `[r gaia.co2]` | CO₂ medido pelo sensor | 400 a 5000 ppm |
 
 Os canais do sensor só chegam quando o Bolota está conectado. Os de clima mudam
 quando o público move o globo para outro lugar — não são contínuos.
 
-### O seu patch também pode falar de volta
+### Quem move o globo é o Bolota
 
-Mande uma lista de dois valores — latitude e longitude — para `[s gaia.out]` e o
-globo vai para lá. É o patch dirigindo o visual.
+O patch **não** dirige mais o globo: uma lista enviada para `[s gaia.out]` é
+ignorada pelo mapa. A navegação é calculada dentro do próprio Bolota — em modo
+_espelho_ (o globo imita a orientação da bola) ou _joystick_ (inclinar a bola
+faz o globo andar) — e quem escolhe o modo e os ajustes é o config-app do
+gaiaball, que grava a configuração na bola. O site só recebe a posição pronta.
+
+Para o seu patch, a posição do globo chega em `[r gaia.lat]` e `[r gaia.lon]`
+(o centro do mapa), com ou sem Bolota. Com o Bolota conectado chegam também
+`gaia.acc.*` e `gaia.co2`, e um patch que tem `[r gaia.sensors]` recebe ainda a
+lista crua. Publicar `gaia.out` não muda nada disso.
+
+### Microfone (`[adc~]`)
+
+Um patch com `[adc~ 1]` recebe o microfone de quem está visitando o site. Ao
+abrir o patch, o site pede a permissão do microfone ao navegador. Se a pessoa
+aceitar, o `[adc~ 1]` recebe o som do microfone; se recusar, ou se não houver
+microfone, o patch toca normalmente, só que o `[adc~]` fica em silêncio. Só existe
+um canal de entrada (`[adc~ 1]`). O site não liga o cancelamento de eco nem o
+controle automático de ganho, então, numa instalação com caixas de som, cuide da
+microfonia no próprio patch.
+
+### Nota para quem mantém o patch do globo (mapa15, "TesteGlobo2.0")
+
+O patch que toca com o globo é o `mapa15` ("TesteGlobo2.0"), que substituiu o
+antigo paraisoGaia43. Ele usa os nomes antigos de alguns canais: ouve
+`gaia.sensors` em `[r input]` e `gaia.acc.*` em `[r aceX]`, `[r aceY]` e
+`[r aceZ]`, e publica `gaia.out` em `[s output]`.
+
+**De onde vem o som dele.** O som do `mapa15` sai de quatro entradas:
+
+- `[r gaia.lat]` (`/ 180` … `* 950` `+ 130` → `fInAll`) define a altura dos
+  osciladores do `pd keyboard`;
+- a velocidade com que `[r gaia.lon]`, `aceX` e `aceY` mudam dispara os ritmos
+  do `pd bolaTriggers`;
+- o microfone (`[adc~ 1]`) é a matéria das vozes do `[poly29]`
+  (`vozBicho26~`, com transposição), e a altura da voz, medida pelo
+  `[sigmund04~]`, afina essas vozes (`freqVoz`).
+
+A lista `[r input]` não chega ao som: ela só alimenta o integrador antigo, que
+calcula uma posição própria e a manda para `[s output]` e para os números
+`latitude`/`longitude`. O `aceZ` vai para a "gravidade", que só desenha arrays.
+
+**A aceleração já está em mg.** O Bolota manda o pacote de movimento na versão
+2: `aceX aceY aceZ` (na lista `input` e em `[r aceX]`/`[r aceY]`/`[r aceZ]`) vão
+de −4000 a 4000 mg (1000 = 1 g). As 16 constantes do `mapa15` que tratavam a
+aceleração em contagens brutas do sensor (1 g = 8192) foram convertidas
+(contagens × 1000 / 8192, com os 6 dígitos que o próprio Pd salva), de modo que o
+patch reage ao movimento exatamente como antes:
+
+| Antes (contagens) | Agora (mg) | Onde |
+|---|---|---|
+| `[/ 8000]` (9 objetos) | `[/ 976.562]` | entradas de `aceX`, `aceY`, `aceZ`, da lista `input` e da "gravidade" |
+| `[> 6000]` / `[< -6000]` | `[> 732.422]` / `[< -732.422]` | limiares de `aceX` |
+| `[+ 11000]` e o `[/ 22000]` logo depois | `[+ 1342.77]` e `[/ 2685.55]` | "gravidade" |
+| `[/ 7000]` | `[/ 854.492]` | "gravidade" |
+| `[10000(` / `[-10000(` | `[1220.7(` / `[-1220.7(` | limiares da "gravidade", enviados no carregamento |
+
+O `[1 6000(` ligado à "gravidade" não mudou: ali 6000 é tempo (ms). O
+`accEpsilon` pode ficar em 0.05; ele também é a zona morta do CO₂ (em ppm), e o
+painel do site aceita até 1000.
+
+Se o patch for editado de novo, rode `npm run patches:validate`,
+`npm run patches:codegen` e `npm run patches:build mapa15` (ou deixe o CI do PR
+compilar): os canais são lidos do `.pd` (`scripts/patch-manifest.mjs`) e entram no
+registro gerado, e o pacote publicado em `public/patches/` só muda quando o patch
+é compilado de novo.
 
 ### Se a peça toca junto com uma animação
 

@@ -46,6 +46,7 @@ export const GENERATED_MAP3_PD4WEB_PATCHES = [
     label: "TesteGlobo2.0",
     bundleFolder: "patches/mapa15",
     runtime: "90d4db5ea70d",
+    audioInput: true,
     activation: {
       moments: ["map"],
     },
@@ -64,30 +65,6 @@ export const GENERATED_MAP3_PD4WEB_PATCHES = [
       },
     },
     tuning: { pollMs: 100, epsilon: 0.0001, accEpsilon: 0.05 },
-  },
-  {
-    id: "paraisoGaia43",
-    label: "Map sound 43",
-    bundleFolder: "patches/paraisoGaia43",
-    runtime: "f20cb2b1b620",
-    activation: {
-      moments: ["map","player"],
-    },
-    channels: {
-      receivers: {
-        "gaia.acc.x": "gaia.acc.x",
-        "gaia.acc.y": "gaia.acc.y",
-        "gaia.acc.z": "gaia.acc.z",
-        "gaia.co2": "gaia.co2",
-        "gaia.lat": "gaia.lat",
-        "gaia.lon": "gaia.lon",
-        "gaia.sensors": "gaia.sensors",
-      },
-      senders: {
-        "gaia.out": "gaia.out",
-      },
-    },
-    tuning: { pollMs: 64, epsilon: 0.5, accEpsilon: 0.05 },
   },
   {
     id: "rain2",

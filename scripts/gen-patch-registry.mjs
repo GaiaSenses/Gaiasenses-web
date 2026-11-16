@@ -61,6 +61,7 @@ function renderPatch(patch) {
   ];
 
   if (runtime) lines.push(`    runtime: ${literal(runtime)},`);
+  if (patch.introspection.usesAudioInput) lines.push("    audioInput: true,");
 
   lines.push(
     "    activation: {",

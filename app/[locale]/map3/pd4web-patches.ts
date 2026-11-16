@@ -47,8 +47,8 @@ export type Map3Pd4WebMoment = "map" | "player";
 /**
  * Maps a vocabulary channel to the receiver name that actually exists in the
  * patch. The two differ for patches written before the vocabulary existed:
- * `paraisoGaia43` listens on `[r latitude]`, so its entry is
- * `{ "gaia.lat": "latitude" }` and the app sends latitude to `"latitude"`.
+ * the globe patch `mapa15` listens on `[r aceX]`, so its entry is
+ * `{ "gaia.acc.x": "aceX" }` and the app sends that acceleration to `"aceX"`.
  *
  * See `lib/gaia-vocabulary.json` for the channel list and their aliases.
  */
@@ -95,6 +95,13 @@ export type Map3Pd4WebPatch = {
    * been built, in which case the loader falls back to the bundle folder.
    */
   readonly runtime?: string;
+  /**
+   * The patch has an `[adc~]`, so it listens to the microphone. The site asks
+   * the visitor for it before opening the patch and, if refused, opens the
+   * patch without an input channel (see `pd4web-mic.ts`). Derived from the
+   * `.pd` files by `scripts/pd-introspect.mjs`; absent means no microphone.
+   */
+  readonly audioInput?: boolean;
   readonly activation: {
     /** App moments in which this patch should be loaded and played. */
     readonly moments: readonly Map3Pd4WebMoment[];

@@ -644,7 +644,7 @@
 #X obj -966 2430 vline~;
 #X obj -1004 1225 r aceX_\$0;
 #X floatatom -1004 1249 5 0 0 0 - - - 0;
-#X obj -1004 1272 / 8000;
+#X obj -1004 1272 / 976.562;
 #X floatatom -1004 1296 5 0 0 0 - - - 0;
 #X obj -934 1441 * 127;
 #X obj -928 1411 pow 4;
@@ -669,7 +669,7 @@
 #X floatatom -1167 -242 5 0 0 0 - - - 0;
 #X floatatom -1323 -186 5 0 0 0 - - - 0;
 #X floatatom -1323 -112 5 0 0 0 - - - 0;
-#X obj -886 2347 / 7000;
+#X obj -886 2347 / 854.492;
 #X floatatom -1397 1554 5 0 0 0 - - - 0;
 #X floatatom -938 1578 5 0 0 0 - - - 0;
 #X obj -1352 -415 r rotacao_\$0;
@@ -681,8 +681,8 @@
 #X obj -1616 1273 bng 19 250 50 0 empty empty empty 0 -10 0 12 #fcfcfc #000000 #000000;
 #X obj -1487 1302 sel 1;
 #X obj -1487 1326 bng 19 250 50 0 empty empty empty 0 -10 0 12 #fcfcfc #000000 #000000;
-#X obj -1487 1278 < -6000;
-#X obj -1616 1225 > 6000;
+#X obj -1487 1278 < -732.422;
+#X obj -1616 1225 > 732.422;
 #X obj -1616 1297 s t1_\$0;
 #X obj -1487 1350 s t2_\$0;
 #X obj 436 -1042 s voz2Ativa_\$0;
@@ -1721,7 +1721,7 @@
 #X floatatom -59 1138 5 0 0 0 - - - 0;
 #X floatatom -1813 -52 5 0 0 0 - - - 0;
 #X obj 20 1171 t b f;
-#X obj -180 1136 / 8000;
+#X obj -180 1136 / 976.562;
 #X floatatom -181 1170 5 0 0 0 - - - 0;
 #X obj -1044 2412 pow~ 8;
 #X floatatom 76 1231 5 0 0 0 - - - 0;
@@ -1795,8 +1795,8 @@
 #X obj -2497 -555 pow~ 2;
 #X obj -2500 -431 *~ 0.01;
 #X obj -1323 -211 r gravidade_\$0;
-#X obj -1323 -162 + 11000;
-#X obj -1323 -137 / 22000;
+#X obj -1323 -162 + 1342.77;
+#X obj -1323 -137 / 2685.55;
 #X floatatom -1242 -8 5 0 0 0 - - - 0;
 #X obj -1274 -87 - 1;
 #X obj -1274 -62 * 2;
@@ -1962,9 +1962,9 @@
 #X obj -1815 -1408 r aceZ;
 #X obj -1726 -1412 r co2;
 #X floatatom -1633 -1352 5 0 0 0 - - - 36;
-#X obj -1869 -1249 / 8000;
+#X obj -1869 -1249 / 976.562;
 #X floatatom -1869 -1224 5 0 0 0 - - - 0;
-#X obj -1942 -1222 / 8000;
+#X obj -1942 -1222 / 976.562;
 #X floatatom -1942 -1197 5 0 0 0 - - - 0;
 #X obj -1869 -1200 - 1;
 #X floatatom -1869 -1175 5 0 0 0 - - - 0;
@@ -1973,7 +1973,7 @@
 #N canvas 63 268 450 300 (subpatch) 0;
 #X restore -2422 -1230 pd;
 #X obj -1931 -1071 hsl 162 19 -1 1 0 0 empty empty empty -2 -10 0 12 #fcfcfc #000000 #000000 0 1;
-#X obj -2198 -1219 / 8000;
+#X obj -2198 -1219 / 976.562;
 #X floatatom -2205 -1196 5 0 0 0 - - - 0;
 #X floatatom -2145 -1109 29 0 0 0 - - - 0;
 #X floatatom -2144 -1165 5 0 0 0 - - - 0;
@@ -40395,8 +40395,8 @@
 #X obj -3343 -141 bng 19 250 50 0 empty empty empty 0 -10 0 12 #fcfcfc #000000 #000000;
 #X obj -3343 -190 r tHigh_\$1;
 #X obj -3332 -253 bng 19 250 50 0 empty empty empty 0 -10 0 12 #fcfcfc #000000 #000000;
-#X msg -2602 270 -10000;
-#X msg -2765 240 10000;
+#X msg -2602 270 -1220.7;
+#X msg -2765 240 1220.7;
 #X obj -2779 -867 r velo_\$1;
 #X floatatom -2841 -770 5 0 0 0 - - - 0;
 #X obj -2782 -677 * 60;
@@ -40997,11 +40997,11 @@
 #X obj 443 398 tabwrite array4;
 #X floatatom 514 69 5 0 0 0 - - - 0;
 #X obj 514 -52 r gravidade_\$0;
-#X obj 514 -15 / 8000;
+#X obj 514 -15 / 976.562;
 #X obj 334 -62 r aceY_\$0;
 #X obj 174 -52 r aceX_\$0;
-#X obj 334 -9 / 8000;
-#X obj 174 -4 / 8000;
+#X obj 334 -9 / 976.562;
+#X obj 174 -4 / 976.562;
 #X obj 932 69 spigot;
 #X obj 1197 99 spigot;
 #X obj 1132 15 tgl 19 0 empty empty empty 0 -10 0 12 #fcfcfc #000000 #000000 0 1;
@@ -41210,7 +41210,7 @@
 #X floatatom -1375 -78 5 0 0 0 - - - 0;
 #X obj -1375 -103 r d3_\$0;
 #X floatatom -1375 -4 5 0 0 0 - - - 0;
-#X obj -1424 -199 / 8000;
+#X obj -1424 -199 / 976.562;
 #X floatatom -1424 -174 5 0 0 0 - - - 0;
 #X obj -1375 -54 / 2;
 #X obj -1375 -29 + 0.5;
