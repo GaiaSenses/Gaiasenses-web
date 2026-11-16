@@ -45,8 +45,7 @@ export const GENERATED_MAP3_PD4WEB_PATCHES = [
     id: "mapa15",
     label: "TesteGlobo2.0",
     bundleFolder: "patches/mapa15",
-    runtime: "90d4db5ea70d",
-    audioInput: true,
+    runtime: "9637678495e9",
     activation: {
       moments: ["map"],
     },

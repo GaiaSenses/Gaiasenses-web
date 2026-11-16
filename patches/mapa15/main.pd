@@ -42330,7 +42330,7 @@
 #X obj -2724 554 abs;
 #X obj -2840 581 osc~ 200;
 #X obj -889 -239 r gaia.lat;
-#X obj -2128 -332 adc~ 1;
+#X obj -2128 -332 sig~ 0;
 #X connect 0 0 2627 0;
 #X connect 2 0 9 0;
 #X connect 3 0 4 1;
