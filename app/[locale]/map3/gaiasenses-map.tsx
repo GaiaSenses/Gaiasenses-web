@@ -858,6 +858,7 @@ export default function GaiasensesMap({
         <InfoButton />
       </div>
       <div>
+        {/* Renders only while a ball is linked (gaiaball-live). */}
         <GaiaballConfigButton />
       </div>
       <div className="absolute right-4 bottom-4 z-20 pointer-events-auto">
