@@ -2,6 +2,16 @@ import { useRef, useCallback, useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { MapRef } from "react-map-gl/mapbox";
 import type { espCo2Response, GaiaballNav } from "./ble-decode";
+import type { GaiaballCommandWriter } from "./ble-control";
+import {
+  ANCHOR_IDLE,
+  anchorStart,
+  anchorStep,
+  anchorWriteFailed,
+  encodeAnchorCommand,
+  type AnchorGiveUpReason,
+  type AnchorState,
+} from "./nav-anchor";
 import {
   NAV_TRACKER_RESET,
   navTrackerReenter,
@@ -74,6 +84,65 @@ export function useBLESensor({
   const resetNavTracking = useCallback(() => {
     navTrackerRef.current = NAV_TRACKER_RESET;
   }, []);
+
+  // Anchoring the ball to the map on (re)connect (nav-anchor.ts): a new one
+  // starts in handleControllerConnect, and acceptNav feeds it every NavPacket
+  // before anything else sees the packet.
+  const anchorRef = useRef<AnchorState>(ANCHOR_IDLE);
+  const writeCommandRef = useRef<GaiaballCommandWriter | null>(null);
+
+  const warnAnchorGaveUp = useCallback(
+    (reason: AnchorGiveUpReason, err?: unknown) => {
+      const message = `Gaiaball: not anchored to the map (${reason}); the globe syncs to the ball's own pose`;
+      if (err === undefined) console.warn(message);
+      else console.warn(message, err);
+    },
+    [],
+  );
+
+  /**
+   * Sends the map's current view as the ball's reference. `sent` is the
+   * anchoring that asked for it: a failure gives up only that one.
+   */
+  const sendAnchor = useCallback(
+    (sent: AnchorState) => {
+      const fail = (err?: unknown) => {
+        const r = anchorWriteFailed(anchorRef.current, sent);
+        anchorRef.current = r.state;
+        if (r.gaveUp) warnAnchorGaveUp(r.gaveUp, err);
+      };
+      const map = mapRef.current;
+      const writeCommand = writeCommandRef.current;
+      if (!map || !writeCommand) {
+        fail();
+        return;
+      }
+      const center = map.getCenter();
+      writeCommand(
+        encodeAnchorCommand(center.lat, center.lng, map.getBearing()),
+      ).catch(fail);
+    },
+    [mapRef, warnAnchorGaveUp],
+  );
+
+  /**
+   * Every NavPacket goes through here first. False = drop it: until the ball
+   * confirms the anchor its packets still carry the old reference, and must
+   * reach neither the tracker nor the live store nor the info card. The
+   * confirming packet resets the tracker, so it syncs to the pose the map
+   * already has — the popup comes back, the globe does not jump.
+   */
+  const acceptNav = useCallback(
+    (nav: GaiaballNav): boolean => {
+      const step = anchorStep(anchorRef.current, nav, performance.now());
+      anchorRef.current = step.state;
+      if (step.send) sendAnchor(step.state);
+      if (step.gaveUp) warnAnchorGaveUp(step.gaveUp);
+      if (step.anchored) resetNavTracking();
+      return step.accept;
+    },
+    [sendAnchor, warnAnchorGaveUp, resetNavTracking],
+  );
 
   const handleMotionStop = useCallback(() => {
     const mode = searchParams.get("mode") ?? "map";
@@ -165,10 +234,13 @@ export function useBLESensor({
     applyNavEffects,
   ]);
 
+  /** Every connect and every successful reconnect: anchor the ball anew. */
   const handleControllerConnect = useCallback(
-    (mode: string) => {
+    (mode: string, writeCommand: GaiaballCommandWriter | null) => {
       inputModeRef.current = mode;
       resetNavTracking();
+      writeCommandRef.current = writeCommand;
+      anchorRef.current = anchorStart(writeCommand !== null);
     },
     [inputModeRef, resetNavTracking],
   );
@@ -177,6 +249,8 @@ export function useBLESensor({
     (mode: string) => {
       inputModeRef.current = mode;
       resetNavTracking();
+      writeCommandRef.current = null;
+      anchorRef.current = ANCHOR_IDLE;
     },
     [inputModeRef, resetNavTracking],
   );
@@ -238,6 +312,7 @@ export function useBLESensor({
   );
 
   return {
+    acceptNav,
     handleOnNav,
     handleOnCO2Sensor,
     handleControllerConnect,

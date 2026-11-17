@@ -17,7 +17,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-import type { espCo2Response, espResponse, GaiaballNav } from "./ble-control";
+import type {
+  espCo2Response,
+  espResponse,
+  GaiaballCommandWriter,
+  GaiaballNav,
+} from "./ble-control";
 import {
   MAP3_PD4WEB_PATCHES,
   patchReceivesLiveData,
@@ -289,6 +294,7 @@ export default function GaiasensesMap({
   }, [setShowPopup]);
 
   const {
+    acceptNav,
     handleOnNav,
     handleOnCO2Sensor,
     handleControllerConnect,
@@ -325,17 +331,20 @@ export default function GaiasensesMap({
 
   const handleNavSample = useCallback(
     (data: GaiaballNav) => {
+      // Dropped while the ball is being anchored to the map (nav-anchor.ts).
+      if (!acceptNav(data)) return false;
       publishGaiaballNav(data);
       handleOnNav(data);
+      return true;
     },
-    [handleOnNav],
+    [acceptNav, handleOnNav],
   );
 
   const handleBleConnect = useCallback(
-    (inputMode: string) => {
+    (inputMode: string, writeCommand: GaiaballCommandWriter | null) => {
       publishGaiaballConnected(true);
       setIsBallConnected(true);
-      handleControllerConnect(inputMode);
+      handleControllerConnect(inputMode, writeCommand);
     },
     [handleControllerConnect],
   );

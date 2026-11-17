@@ -99,6 +99,9 @@ export type AnchorStep = {
 
 const PASSTHROUGH: AnchorState = Object.freeze({ phase: "passthrough" });
 
+/** No anchoring in progress (before the first connect, after a disconnect). */
+export const ANCHOR_IDLE: AnchorState = PASSTHROUGH;
+
 /**
  * A new anchoring, on every connect and successful reconnect. `canWrite` =
  * the command characteristic is there to send the anchor through.

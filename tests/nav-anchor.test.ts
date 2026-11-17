@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   ANCHOR_CONFIRM_TIMEOUT_MS,
+  ANCHOR_IDLE,
   anchorStart,
   anchorStep,
   anchorWriteFailed,
@@ -256,6 +257,11 @@ test("no command characteristic: give up at once, nothing dropped", () => {
   // and an old firmware without it is just the old firmware: no warning
   step = anchorStep(anchorStart(false), nav(), 0);
   assert.deepEqual(step, { state: step.state, accept: true });
+});
+
+test("idle (no connect yet, or after a disconnect): packets pass, nothing sent", () => {
+  const step = anchorStep(ANCHOR_IDLE, nav({ anchorSeq: 3 }), 0);
+  assert.deepEqual(step, { state: ANCHOR_IDLE, accept: true });
 });
 
 test("the step never mutates the state it was given", () => {
