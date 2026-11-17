@@ -69,6 +69,12 @@ export type GaiaballNav = {
   speedDegS: number;
   seq: number;
   tUs: number;
+  /**
+   * Byte 22, present from the anchor firmware on (23-byte packet): counts the
+   * anchors (command 0x17) the ball applied, wrapping 255 → 0. Undefined for a
+   * 22-byte packet — an older firmware that cannot be anchored (nav-anchor.ts).
+   */
+  anchorSeq?: number;
 };
 
 const PROTOCOL_VERSION = 1;
@@ -108,6 +114,8 @@ const IMU_PACKET_MIN_SIZE = 27;
 const CO2_PACKET_MIN_SIZE = 12;
 /** Same rule as the IMU: a longer NavPacket from a newer firmware still decodes. */
 const NAV_PACKET_MIN_SIZE = 22;
+/** From the anchor firmware on, byte 22 is `anchorSeq`. */
+const NAV_ANCHOR_SEQ_OFFSET = 22;
 
 const Q14 = 16384;
 const RAD_TO_DEG = 180 / Math.PI;
@@ -260,7 +268,8 @@ export function decodeCo2Notification(
 /**
  * NavPacket, 22 bytes: u8 version · u8 type · u16 seq · u32 timestampUs ·
  * u8 mode · u8 flags · i32 latE7 · i32 lonE7 · i16 bearingX100 ·
- * u16 speedDegSX10 (offsets 0, 1, 2, 4, 8, 9, 10, 14, 18, 20).
+ * u16 speedDegSX10 (offsets 0, 1, 2, 4, 8, 9, 10, 14, 18, 20), followed from
+ * the anchor firmware on by u8 anchorSeq (offset 22, 23 bytes in all).
  *
  * The keepalive (valid = 0) is decoded too, not dropped: the caller decides
  * what an invalid pose means, and the live store needs to know it arrived.
@@ -285,7 +294,7 @@ export function decodeNavNotification(buf: ArrayBuffer): GaiaballNav | null {
     if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
 
     const flags = dv.getUint8(9);
-    return {
+    const nav: GaiaballNav = {
       mode: dv.getUint8(8),
       valid: (flags & NAV_FLAG_VALID) !== 0,
       settled: (flags & NAV_FLAG_SETTLED) !== 0,
@@ -297,6 +306,10 @@ export function decodeNavNotification(buf: ArrayBuffer): GaiaballNav | null {
       seq: dv.getUint16(2, true),
       tUs: dv.getUint32(4, true),
     };
+    if (buf.byteLength > NAV_ANCHOR_SEQ_OFFSET) {
+      nav.anchorSeq = dv.getUint8(NAV_ANCHOR_SEQ_OFFSET);
+    }
+    return nav;
   } catch {
     return null;
   }
