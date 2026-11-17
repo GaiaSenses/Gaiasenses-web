@@ -93,8 +93,15 @@ type BLEControlProps = {
    * the map): it then stays off the info card too.
    */
   onNav: (data: GaiaballNav) => boolean;
-  /** `writeCommand` is null when the ball has no command characteristic. */
-  onConnect: (mode: string, writeCommand: GaiaballCommandWriter | null) => void;
+  /**
+   * `writeCommand` is null when the ball has no command characteristic;
+   * `reconnect` is true for an automatic reconnect after a link drop.
+   */
+  onConnect: (
+    mode: string,
+    writeCommand: GaiaballCommandWriter | null,
+    reconnect: boolean,
+  ) => void;
   onDisconnect: (mode: string) => void;
   /** The link dropped on its own (not a click); reconnection is attempted. */
   onConnectionLost?: () => void;
@@ -224,7 +231,7 @@ export default function BLEControl({
   }, []);
 
   const setupGATT = useCallback(
-    async (device: BluetoothDevice) => {
+    async (device: BluetoothDevice, reconnect = false) => {
       if (!device.gatt) throw new Error("GATT server not found on device");
 
       const server = await device.gatt.connect();
@@ -308,7 +315,7 @@ export default function BLEControl({
       setIsConnected(true);
       setError(null);
       reconnectAttemptsRef.current = 0;
-      onConnect("controller", writeCommand);
+      onConnect("controller", writeCommand, reconnect);
 
       return { server, characteristic, co2Characteristic, navCharacteristic };
     },
@@ -340,7 +347,7 @@ export default function BLEControl({
       await new Promise((r) => setTimeout(r, RECONNECT_DELAY_MS));
 
       try {
-        await setupGATT(device);
+        await setupGATT(device, true);
         setError(null);
       } catch {
         attemptReconnect(device);

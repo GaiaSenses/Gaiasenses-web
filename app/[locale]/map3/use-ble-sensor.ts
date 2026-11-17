@@ -4,7 +4,9 @@ import type { MapRef } from "react-map-gl/mapbox";
 import type { espCo2Response, GaiaballNav } from "./ble-decode";
 import type { GaiaballCommandWriter } from "./ble-control";
 import {
+  ANCHOR_CONFIRM_TIMEOUT_MS,
   ANCHOR_IDLE,
+  anchorConfirmedSeq,
   anchorStart,
   anchorStep,
   anchorWriteFailed,
@@ -93,7 +95,10 @@ export function useBLESensor({
 
   const warnAnchorGaveUp = useCallback(
     (reason: AnchorGiveUpReason, err?: unknown) => {
-      const message = `Gaiaball: not anchored to the map (${reason}); the globe syncs to the ball's own pose`;
+      const message =
+        reason === "timeout"
+          ? `Gaiaball: the anchor to the map was not confirmed within ${ANCHOR_CONFIRM_TIMEOUT_MS / 1000} s; the ball may still apply it when its navigation runs`
+          : `Gaiaball: not anchored to the map (${reason}); the globe syncs to the ball's own pose`;
       if (err === undefined) console.warn(message);
       else console.warn(message, err);
     },
@@ -234,13 +239,24 @@ export function useBLESensor({
     applyNavEffects,
   ]);
 
-  /** Every connect and every successful reconnect: anchor the ball anew. */
+  /**
+   * Every connect and every successful reconnect: anchor the ball anew —
+   * except an automatic reconnect (`reconnect`) to a ball that still holds
+   * this page's confirmed anchor (nav-anchor.ts, b').
+   */
   const handleControllerConnect = useCallback(
-    (mode: string, writeCommand: GaiaballCommandWriter | null) => {
+    (
+      mode: string,
+      writeCommand: GaiaballCommandWriter | null,
+      reconnect: boolean,
+    ) => {
       inputModeRef.current = mode;
       resetNavTracking();
       writeCommandRef.current = writeCommand;
-      anchorRef.current = anchorStart(writeCommand !== null);
+      anchorRef.current = anchorStart(writeCommand !== null, {
+        reconnect,
+        lastConfirmedSeq: anchorConfirmedSeq(anchorRef.current),
+      });
     },
     [inputModeRef, resetNavTracking],
   );

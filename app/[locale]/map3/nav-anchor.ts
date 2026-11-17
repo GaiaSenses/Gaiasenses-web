@@ -13,6 +13,11 @@
  *  a. wait for the first NavPacket;
  *  b. without `anchorSeq` (22-byte packet, older firmware): let every packet
  *     through — the old behaviour, sync jump included;
+ *  b'. on an AUTOMATIC reconnect (link drop), if `anchorSeq` equals the one
+ *     that confirmed this page's last anchor, the ball did not reboot and
+ *     still holds that anchor: let every packet through without sending
+ *     (0x17 also re-zeroes the ball, usually while a visitor holds it). A
+ *     manual connect always anchors;
  *  c. otherwise remember seq0 = anchorSeq, ask for the command to be sent
  *     with the map's current view, and drop packets (no map movement) until
  *     one arrives with anchorSeq !== seq0: anchored, everything passes from
@@ -69,16 +74,27 @@ export function encodeAnchorCommand(
 }
 
 export type AnchorState =
-  /** Connected, no NavPacket yet. */
-  | { readonly phase: "awaitFirst"; readonly canWrite: boolean }
+  /**
+   * Connected, no NavPacket yet. `keepSeq` (automatic reconnect only): the
+   * anchorSeq of this page's last confirmed anchor, kept if the ball reports it.
+   */
+  | {
+      readonly phase: "awaitFirst";
+      readonly canWrite: boolean;
+      readonly keepSeq?: number;
+    }
   /** Command sent; NavPackets are dropped until anchorSeq leaves seq0. */
   | {
       readonly phase: "confirming";
       readonly seq0: number;
       readonly deadlineMs: number;
     }
-  /** Anchored, older firmware, or given up: every packet passes. */
-  | { readonly phase: "passthrough" };
+  /**
+   * Anchored, older firmware, or given up: every packet passes.
+   * `confirmedSeq`: the anchorSeq that confirmed this page's anchor (or that
+   * a reconnect found still in place); absent when nothing was confirmed.
+   */
+  | { readonly phase: "passthrough"; readonly confirmedSeq?: number };
 
 export type AnchorGiveUpReason =
   | "timeout"
@@ -102,12 +118,43 @@ const PASSTHROUGH: AnchorState = Object.freeze({ phase: "passthrough" });
 /** No anchoring in progress (before the first connect, after a disconnect). */
 export const ANCHOR_IDLE: AnchorState = PASSTHROUGH;
 
+/** How a connection started, for anchorStart. */
+export type AnchorStartOptions = {
+  /** True for an automatic reconnect after a link drop; false = the user connected. */
+  readonly reconnect?: boolean;
+  /** anchorConfirmedSeq() of the state before the link dropped. */
+  readonly lastConfirmedSeq?: number;
+};
+
 /**
  * A new anchoring, on every connect and successful reconnect. `canWrite` =
- * the command characteristic is there to send the anchor through.
+ * the command characteristic is there to send the anchor through. Only an
+ * automatic reconnect may skip the anchor (see b' above).
  */
-export function anchorStart(canWrite: boolean): AnchorState {
+export function anchorStart(
+  canWrite: boolean,
+  options: AnchorStartOptions = {},
+): AnchorState {
+  if (options.reconnect && options.lastConfirmedSeq !== undefined) {
+    return { phase: "awaitFirst", canWrite, keepSeq: options.lastConfirmedSeq };
+  }
   return { phase: "awaitFirst", canWrite };
+}
+
+/**
+ * The anchorSeq the ball reports while it still holds this page's last
+ * confirmed anchor; undefined when nothing was confirmed, or a newer anchor
+ * was asked for since.
+ */
+export function anchorConfirmedSeq(state: AnchorState): number | undefined {
+  switch (state.phase) {
+    case "passthrough":
+      return state.confirmedSeq;
+    case "awaitFirst":
+      return state.keepSeq;
+    case "confirming":
+      return undefined;
+  }
 }
 
 /** One NavPacket, at `nowMs` (any monotonic clock). */
@@ -123,6 +170,13 @@ export function anchorStep(
     case "awaitFirst":
       if (nav.anchorSeq === undefined) {
         return { state: PASSTHROUGH, accept: true };
+      }
+      if (state.keepSeq !== undefined && nav.anchorSeq === state.keepSeq) {
+        // Same ball, same anchor: the tracker catches up to its pose as before.
+        return {
+          state: { phase: "passthrough", confirmedSeq: state.keepSeq },
+          accept: true,
+        };
       }
       if (!state.canWrite) {
         return {
@@ -143,7 +197,11 @@ export function anchorStep(
 
     case "confirming":
       if (nav.anchorSeq !== undefined && nav.anchorSeq !== state.seq0) {
-        return { state: PASSTHROUGH, accept: true, anchored: true };
+        return {
+          state: { phase: "passthrough", confirmedSeq: nav.anchorSeq },
+          accept: true,
+          anchored: true,
+        };
       }
       if (nowMs >= state.deadlineMs) {
         return { state: PASSTHROUGH, accept: true, gaveUp: "timeout" };

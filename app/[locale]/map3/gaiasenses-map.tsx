@@ -341,10 +341,14 @@ export default function GaiasensesMap({
   );
 
   const handleBleConnect = useCallback(
-    (inputMode: string, writeCommand: GaiaballCommandWriter | null) => {
+    (
+      inputMode: string,
+      writeCommand: GaiaballCommandWriter | null,
+      reconnect: boolean,
+    ) => {
       publishGaiaballConnected(true);
       setIsBallConnected(true);
-      handleControllerConnect(inputMode, writeCommand);
+      handleControllerConnect(inputMode, writeCommand, reconnect);
     },
     [handleControllerConnect],
   );

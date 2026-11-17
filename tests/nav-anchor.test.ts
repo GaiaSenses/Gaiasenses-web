@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   ANCHOR_CONFIRM_TIMEOUT_MS,
   ANCHOR_IDLE,
+  anchorConfirmedSeq,
   anchorStart,
   anchorStep,
   anchorWriteFailed,
@@ -272,6 +273,98 @@ test("the step never mutates the state it was given", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Automatic reconnect: no new anchor while the ball still holds this page's
+// ---------------------------------------------------------------------------
+
+/** A connection anchored by this page: the ball confirmed with `seq`. */
+function confirmed(seq: number): AnchorState {
+  const sent = anchorStep(anchorStart(true), nav({ anchorSeq: seq - 1 }), 0);
+  const done = anchorStep(sent.state, nav({ anchorSeq: seq }), 20);
+  assert.equal(done.anchored, true);
+  return done.state;
+}
+
+test("the confirmed anchorSeq is remembered in the state", () => {
+  assert.equal(anchorConfirmedSeq(confirmed(5)), 5);
+  // nothing confirmed: idle, waiting, confirming, given up, old firmware
+  assert.equal(anchorConfirmedSeq(ANCHOR_IDLE), undefined);
+  assert.equal(anchorConfirmedSeq(anchorStart(true)), undefined);
+  const sent = anchorStep(anchorStart(true), nav({ anchorSeq: 4 }), 0);
+  assert.equal(anchorConfirmedSeq(sent.state), undefined);
+  const late = anchorStep(sent.state, nav({ anchorSeq: 4 }), 5000);
+  assert.equal(late.gaveUp, "timeout");
+  assert.equal(anchorConfirmedSeq(late.state), undefined);
+  assert.equal(
+    anchorConfirmedSeq(anchorWriteFailed(sent.state, sent.state).state),
+    undefined,
+  );
+  const noChar = anchorStep(anchorStart(false), nav({ anchorSeq: 4 }), 0);
+  assert.equal(anchorConfirmedSeq(noChar.state), undefined);
+  const old = anchorStep(anchorStart(true), nav(), 0);
+  assert.equal(anchorConfirmedSeq(old.state), undefined);
+});
+
+test("auto-reconnect, same anchorSeq: the ball kept our anchor, packets pass, nothing sent", () => {
+  const lastConfirmedSeq = anchorConfirmedSeq(confirmed(5));
+  let step = anchorStep(
+    anchorStart(true, { reconnect: true, lastConfirmedSeq }),
+    nav({ anchorSeq: 5 }),
+    0,
+  );
+  assert.deepEqual(step, { state: step.state, accept: true });
+  for (let t = 20; t <= 100; t += 20) {
+    step = anchorStep(step.state, nav({ anchorSeq: 5 }), t);
+    assert.deepEqual(step, { state: step.state, accept: true });
+  }
+  // still ours: a further drop and reconnect keeps skipping
+  assert.equal(anchorConfirmedSeq(step.state), 5);
+});
+
+test("auto-reconnect, different anchorSeq (reboot, or another client anchored): anchors again", () => {
+  for (const seq of [0, 6]) {
+    const step = anchorStep(
+      anchorStart(true, { reconnect: true, lastConfirmedSeq: 5 }),
+      nav({ anchorSeq: seq }),
+      0,
+    );
+    assert.equal(step.accept, false);
+    assert.equal(step.send, true);
+    // the earlier confirmation no longer describes the ball
+    assert.equal(anchorConfirmedSeq(step.state), undefined);
+  }
+});
+
+test("manual connect, same anchorSeq: always anchors", () => {
+  const step = anchorStep(
+    anchorStart(true, { reconnect: false, lastConfirmedSeq: 5 }),
+    nav({ anchorSeq: 5 }),
+    0,
+  );
+  assert.equal(step.accept, false);
+  assert.equal(step.send, true);
+});
+
+test("auto-reconnect with nothing confirmed yet: anchors", () => {
+  const step = anchorStep(
+    anchorStart(true, { reconnect: true, lastConfirmedSeq: undefined }),
+    nav({ anchorSeq: 5 }),
+    0,
+  );
+  assert.equal(step.accept, false);
+  assert.equal(step.send, true);
+});
+
+test("auto-reconnect to an older firmware (no anchorSeq): packets pass as before", () => {
+  const step = anchorStep(
+    anchorStart(true, { reconnect: true, lastConfirmedSeq: 5 }),
+    nav(),
+    0,
+  );
+  assert.deepEqual(step, { state: step.state, accept: true });
+  assert.equal(anchorConfirmedSeq(step.state), undefined);
+});
+
+// ---------------------------------------------------------------------------
 // Anchor + tracker, wired like use-ble-sensor.ts: connect resets both, each
 // NavPacket goes through the anchor step first, a dropped packet never reaches
 // the tracker, and the confirmation resets the tracker before it passes.
@@ -298,8 +391,11 @@ class Link {
     };
     this.view = { ...at, bearing };
   }
-  connect(canWrite = true): void {
-    this.anchor = anchorStart(canWrite);
+  connect(canWrite = true, reconnect = false): void {
+    this.anchor = anchorStart(canWrite, {
+      reconnect,
+      lastConfirmedSeq: anchorConfirmedSeq(this.anchor),
+    });
     this.tracker = NAV_TRACKER_RESET;
   }
   packet(n: GaiaballNav, nowMs = 0): Effect[] | "dropped" {
@@ -389,12 +485,12 @@ test("anchor firmware, timeout: the old sync jump happens after all", () => {
   assert.deepEqual(link.jumps[0].center, [CAMPINAS.lon, CAMPINAS.lat]);
 });
 
-test("a reconnect anchors again, to where the map is now", () => {
+test("connecting again by hand anchors again, to where the map is now", () => {
   const link = new Link(PARIS);
   link.connect();
   link.packet(nav({ anchorSeq: 1 }), 0);
   link.packet(poseOfCommand(link.sent[0], 2), 20);
-  // the ball moved the globe to Campinas, then the link dropped and came back
+  // the ball moved the globe to Campinas, then the visitor connected again
   link.view = { ...CAMPINAS, bearing: 15 };
   link.ctx.urlLat = CAMPINAS.lat;
   link.ctx.urlLng = CAMPINAS.lon;
@@ -411,6 +507,34 @@ test("a reconnect anchors again, to where the map is now", () => {
     bearingX100: 1500,
   });
   assert.deepEqual(link.packet(poseOfCommand(link.sent[1], 3), 5040), [
+    "jumpTo",
+    "reopenPopup",
+  ]);
+});
+
+test("an automatic reconnect to a ball that kept our anchor sends nothing and follows it", () => {
+  const link = new Link(PARIS);
+  link.connect();
+  link.packet(nav({ anchorSeq: 1 }), 0);
+  link.packet(poseOfCommand(link.sent[0], 2), 20);
+  // the visitor kept turning the ball through the link drop
+  link.connect(true, true);
+  const moved = nav({ settled: false, lat: 50, lon: 3, anchorSeq: 2 });
+  assert.deepEqual(link.packet(moved, 5000), ["jumpTo"]);
+  assert.equal(link.sent.length, 1);
+  assert.deepEqual(link.jumps.at(-1)?.center, [3, 50]);
+});
+
+test("an automatic reconnect after the ball rebooted anchors again", () => {
+  const link = new Link(PARIS);
+  link.connect();
+  link.packet(nav({ anchorSeq: 1 }), 0);
+  link.packet(poseOfCommand(link.sent[0], 2), 20);
+  link.connect(true, true);
+  // rebooted: anchorSeq back to 0, pose relative to Campinas again
+  assert.equal(link.packet(nav({ anchorSeq: 0 }), 5000), "dropped");
+  assert.equal(link.sent.length, 2);
+  assert.deepEqual(link.packet(poseOfCommand(link.sent[1], 1), 5040), [
     "jumpTo",
     "reopenPopup",
   ]);
