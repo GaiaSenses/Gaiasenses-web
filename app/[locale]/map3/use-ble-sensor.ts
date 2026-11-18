@@ -4,6 +4,13 @@ import type { MapRef } from "react-map-gl/mapbox";
 import type { espCo2Response, GaiaballNav } from "./ble-decode";
 import type { GaiaballCommandWriter } from "./ble-control";
 import {
+  CO2_HOLD_IDLE,
+  co2HoldOnClose,
+  co2HoldOnPacket,
+  sendEndCo2Pulse,
+  type Co2HoldState,
+} from "./co2-pulse-end";
+import {
   ANCHOR_CONFIRM_TIMEOUT_MS,
   ANCHOR_IDLE,
   anchorConfirmedSeq,
@@ -64,8 +71,43 @@ export function useBLESensor({
   // lock before the URL settles and allow a re-open race.
   const isCompositionPlayingRef = useRef(false);
 
+  // Command writer of the connected ball (null: none, or no command
+  // characteristic). Used for the anchor and for ending the CO2 pulse.
+  const writeCommandRef = useRef<GaiaballCommandWriter | null>(null);
+
+  // The CO2 trigger held after a person closes the composition it opened
+  // (co2-pulse-end.ts), the URL mode the last close check saw, and whether
+  // the close in flight is the site's own (the trigger fell).
+  const co2HoldRef = useRef<Co2HoldState>(CO2_HOLD_IDLE);
+  const settledModeRef = useRef<string | null>(null);
+  const closingByTriggerRef = useRef(false);
+
   useEffect(() => {
-    isCompositionPlayingRef.current = searchParams.get("mode") === "player";
+    const mode = searchParams.get("mode");
+    isCompositionPlayingRef.current = mode === "player";
+    const wasPlaying = settledModeRef.current === "player";
+    settledModeRef.current = mode;
+    if (mode === "player") closingByTriggerRef.current = false;
+    if (!wasPlaying || mode === "player") return;
+    // The composition just closed: a click on the screen, Back, ESC, or the
+    // ball's own trigger falling. With the trigger still on (a breath's
+    // virtual pulse), the next CO2 packet would reopen it: hold the trigger
+    // here and ask the ball to end the pulse. Same effect that releases the
+    // lock above, so no packet can slip in between.
+    const r = co2HoldOnClose(co2HoldRef.current, {
+      byTrigger: closingByTriggerRef.current,
+    });
+    closingByTriggerRef.current = false;
+    co2HoldRef.current = r.state;
+    const writeCommand = writeCommandRef.current;
+    if (r.endPulse && writeCommand) {
+      void sendEndCo2Pulse(writeCommand).then((ok) => {
+        if (!ok)
+          console.warn(
+            "Gaiaball: the ball did not take the end of the CO2 pulse (0x18); the composition stays closed until the pulse runs out",
+          );
+      });
+    }
   }, [searchParams]);
 
   // Stop detection is the ball's (`settled`); what is tracked here is the
@@ -91,7 +133,6 @@ export function useBLESensor({
   // starts in handleControllerConnect, and acceptNav feeds it every NavPacket
   // before anything else sees the packet.
   const anchorRef = useRef<AnchorState>(ANCHOR_IDLE);
-  const writeCommandRef = useRef<GaiaballCommandWriter | null>(null);
 
   const warnAnchorGaveUp = useCallback(
     (reason: AnchorGiveUpReason, err?: unknown) => {
@@ -276,12 +317,15 @@ export function useBLESensor({
    * bit3): it owns the threshold and its hysteresis and forces the trigger off
    * when the reading is stale. The site follows the LEVEL, packet by packet:
    * trigger = 1 with no composition playing opens one; trigger = 0 while a
-   * composition plays closes it.
+   * composition plays closes it. Except right after a person closed the
+   * composition: the trigger is then held until it falls (co2-pulse-end.ts).
    */
   const handleOnCO2Sensor = useCallback(
     (data: espCo2Response) => {
+      const hold = co2HoldOnPacket(co2HoldRef.current, data.trigger);
+      co2HoldRef.current = hold.state;
       if (!isCompositionPlayingRef.current) {
-        if (data.trigger) {
+        if (hold.mayOpen) {
           const targetComposition =
             searchParams.get("composition") ??
             currentComposition ??
@@ -310,6 +354,8 @@ export function useBLESensor({
           newSearchParams.delete("composition");
           newSearchParams.delete("play");
           router.replace(`${pathname}?${newSearchParams.toString()}`);
+          // The ball's own close: a breath before the URL settles is new.
+          closingByTriggerRef.current = true;
           // Do NOT set isCompositionPlayingRef.current = false here.
           // The lock is released by the useEffect above once searchParams
           // actually reflects mode=map after navigation completes.

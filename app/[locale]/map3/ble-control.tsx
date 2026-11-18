@@ -50,7 +50,8 @@ export type { espResponse, espCo2Response, GaiaballNav };
 
 /**
  * Writes one command to the ball (characteristic …0002). The site sends only
- * the anchor (0x17, nav-anchor.ts); it never needs the PIN.
+ * the anchor (0x17, nav-anchor.ts) and the end of the virtual CO2 pulse
+ * (0x18, co2-pulse-end.ts); neither needs the PIN.
  */
 export type GaiaballCommandWriter = (bytes: Uint8Array) => Promise<void>;
 
