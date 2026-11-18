@@ -6,7 +6,6 @@ import {
   decodeCo2Notification,
   decodeNavNotification,
   decodeSensorNotification,
-  isLegacyImuNotification,
   resetCo2StaleWarning,
   type espCo2Response,
   type espResponse,
@@ -65,9 +64,8 @@ function toArrayBuffer(view: DataView): ArrayBuffer {
 const bleService = "19b10000-e8f2-537e-4f6c-d104768a1214";
 const sensorCharacteristic = "19b10001-e8f2-537e-4f6c-d104768a1214";
 const co2CharacteristicIUD = "19b10003-e8f2-537e-4f6c-d104768a1214";
-/** Optional: firmware older than the on-ball navigation does not have it. */
 const navCharacteristicUUID = "19b10006-e8f2-537e-4f6c-d104768a1214";
-/** Commands (write). Optional: without it the ball is just not anchored. */
+/** Commands (write): the anchor 0x17 and the end of the CO2 pulse 0x18. */
 const commandCharacteristicUUID = "19b10002-e8f2-537e-4f6c-d104768a1214";
 
 /**
@@ -95,12 +93,11 @@ type BLEControlProps = {
    */
   onNav: (data: GaiaballNav) => boolean;
   /**
-   * `writeCommand` is null when the ball has no command characteristic;
    * `reconnect` is true for an automatic reconnect after a link drop.
    */
   onConnect: (
     mode: string,
-    writeCommand: GaiaballCommandWriter | null,
+    writeCommand: GaiaballCommandWriter,
     reconnect: boolean,
   ) => void;
   onDisconnect: (mode: string) => void;
@@ -130,11 +127,6 @@ export default function BLEControl({
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // null = not known yet (not connected); false = the firmware lacks it.
-  const [hasNav, setHasNav] = useState<boolean | null>(null);
-  // true once a legacy (v1) IMU packet arrived: the ball has old firmware.
-  const [legacyImu, setLegacyImu] = useState(false);
-  const legacyImuRef = useRef(false);
   const [info, setInfo] = useState<InfoCardData>(EMPTY_INFO);
 
   // Kept in a ref so the gattserverdisconnected closure can always access the latest device
@@ -195,15 +187,8 @@ export default function BLEControl({
     const value = characteristic.value;
     if (!value) return;
     // null = not a valid IMU packet → skip (the decoder never throws)
-    const buffer = toArrayBuffer(value);
-    const parsedData = decodeSensorNotification(buffer);
-    if (!parsedData) {
-      if (!legacyImuRef.current && isLegacyImuNotification(buffer)) {
-        legacyImuRef.current = true;
-        setLegacyImu(true);
-      }
-      return;
-    }
+    const parsedData = decodeSensorNotification(toArrayBuffer(value));
+    if (!parsedData) return;
     onSensorRef.current(parsedData);
     latestInfoRef.current.imu = parsedData;
     infoDirtyRef.current = true;
@@ -243,31 +228,12 @@ export default function BLEControl({
         await service.getCharacteristic(sensorCharacteristic);
       const co2Characteristic =
         await service.getCharacteristic(co2CharacteristicIUD);
-
-      // The navigation characteristic is optional: a ball with older firmware
-      // still connects (IMU and CO2 work), it just cannot steer the globe.
-      let navCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
-      try {
-        navCharacteristic = await service.getCharacteristic(
-          navCharacteristicUUID,
-        );
-      } catch {
-        navCharacteristic = null;
-      }
-
-      // Also optional (nothing before the anchor ever wrote to the ball): a
-      // missing command characteristic only means the globe is not anchored.
-      let writeCommand: GaiaballCommandWriter | null = null;
-      try {
-        const commandCharacteristic = await service.getCharacteristic(
-          commandCharacteristicUUID,
-        );
-        if (commandCharacteristic.properties.write) {
-          writeCommand = commandWriter(commandCharacteristic);
-        }
-      } catch {
-        writeCommand = null;
-      }
+      const navCharacteristic = await service.getCharacteristic(
+        navCharacteristicUUID,
+      );
+      const writeCommand = commandWriter(
+        await service.getCharacteristic(commandCharacteristicUUID),
+      );
 
       if (characteristic.properties.notify) {
         await characteristic.startNotifications();
@@ -285,27 +251,15 @@ export default function BLEControl({
         );
       }
 
-      if (navCharacteristic?.properties.notify) {
-        try {
-          await navCharacteristic.startNotifications();
-          navCharacteristic.addEventListener(
-            "characteristicvaluechanged",
-            handleNavCharacteristicValueChanged,
-          );
-        } catch (err) {
-          console.warn("Gaiaball: navigation notifications failed", err);
-          navCharacteristic = null;
-        }
-      } else {
-        navCharacteristic = null;
-      }
+      await navCharacteristic.startNotifications();
+      navCharacteristic.addEventListener(
+        "characteristicvaluechanged",
+        handleNavCharacteristicValueChanged,
+      );
 
       latestInfoRef.current = { ...EMPTY_INFO };
       infoDirtyRef.current = false;
       setInfo(EMPTY_INFO);
-      setHasNav(navCharacteristic !== null);
-      legacyImuRef.current = false;
-      setLegacyImu(false);
       setBleDevice({
         device,
         server,
@@ -429,9 +383,6 @@ export default function BLEControl({
     latestInfoRef.current = { ...EMPTY_INFO };
     infoDirtyRef.current = false;
     setInfo(EMPTY_INFO);
-    setHasNav(null);
-    legacyImuRef.current = false;
-    setLegacyImu(false);
     setError(null);
     onDisconnect("mouse");
   };
@@ -522,23 +473,13 @@ export default function BLEControl({
             <p>pitch: {info.imu?.euler.pitch.toFixed(3)}</p>
             <p>yaw: {info.imu?.euler.yaw.toFixed(3)}</p>
             <p>CO₂: {info.co2?.co2.ppm.toFixed(0)} ppm</p>
-            {hasNav === false || legacyImu ? (
-              <p className="text-xs font-medium text-amber-700">
-                {hasNav === false
-                  ? "Firmware da bola sem navegação — atualize o firmware"
-                  : "Firmware da bola desatualizado — atualize o firmware da bola"}
+            <p>navegação: {navLabel}</p>
+            {nav?.valid ? (
+              <p className="text-xs text-gray-600">
+                {nav.lat.toFixed(3)}, {nav.lon.toFixed(3)} · rumo{" "}
+                {nav.bearing.toFixed(0)}°
               </p>
-            ) : (
-              <>
-                <p>navegação: {navLabel}</p>
-                {nav?.valid ? (
-                  <p className="text-xs text-gray-600">
-                    {nav.lat.toFixed(3)}, {nav.lon.toFixed(3)} · rumo{" "}
-                    {nav.bearing.toFixed(0)}°
-                  </p>
-                ) : null}
-              </>
-            )}
+            ) : null}
           </div>,
           document.body,
         )}

@@ -22,6 +22,7 @@ const NAV: Nav = {
   speedDegS: 12.3,
   seq: 258,
   tUs: 12345678,
+  anchorSeq: 0,
 };
 
 const IMU: Imu = {

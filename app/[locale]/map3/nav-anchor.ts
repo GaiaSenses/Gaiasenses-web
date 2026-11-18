@@ -3,17 +3,15 @@
  *
  * The ball reports an ABSOLUTE pose relative to its navigation reference
  * (Campinas by default), so the first NavPacket after a connect used to drag
- * the globe from wherever the visitor was looking to the ball's pose. From
- * the anchor firmware on, the site instead tells the ball where the map is:
+ * the globe from wherever the visitor was looking to the ball's pose. The
+ * site instead tells the ball where the map is:
  * command 0x17 carries the map's centre and bearing, the ball zeroes its
  * orientation at that instant and adopts that pose as its reference for the
  * session, and the next NavPacket reports exactly it.
  *
  * Per connection (and per successful reconnect), in order:
  *  a. wait for the first NavPacket;
- *  b. without `anchorSeq` (22-byte packet, older firmware): let every packet
- *     through — the old behaviour, sync jump included;
- *  b'. on an AUTOMATIC reconnect (link drop), if `anchorSeq` equals the one
+ *  b. on an AUTOMATIC reconnect (link drop), if `anchorSeq` equals the one
  *     that confirmed this page's last anchor, the ball did not reboot and
  *     still holds that anchor: let every packet through without sending
  *     (0x17 also re-zeroes the ball, usually while a visitor holds it). A
@@ -23,9 +21,9 @@
  *     one arrives with anchorSeq !== seq0: anchored, everything passes from
  *     then on (the caller resets the tracker first, so the confirming packet
  *     syncs to the pose the map already has: popup back, no jump);
- *  d. no confirmation ANCHOR_CONFIRM_TIMEOUT_MS after the send, a failed
- *     write or no command characteristic: give up and let packets through
- *     (the old jump), reporting it once so the caller can warn.
+ *  d. no confirmation ANCHOR_CONFIRM_TIMEOUT_MS after the send, or a failed
+ *     write: give up and let packets through (the globe jumps to the ball's
+ *     pose), reporting it once so the caller can warn.
  *
  * The timeout is seen on the next packet: with nothing arriving there is
  * nothing to let through either. A confirmation that arrives after the
@@ -80,7 +78,6 @@ export type AnchorState =
    */
   | {
       readonly phase: "awaitFirst";
-      readonly canWrite: boolean;
       readonly keepSeq?: number;
     }
   /** Command sent; NavPackets are dropped until anchorSeq leaves seq0. */
@@ -90,16 +87,13 @@ export type AnchorState =
       readonly deadlineMs: number;
     }
   /**
-   * Anchored, older firmware, or given up: every packet passes.
+   * Anchored or given up: every packet passes.
    * `confirmedSeq`: the anchorSeq that confirmed this page's anchor (or that
    * a reconnect found still in place); absent when nothing was confirmed.
    */
   | { readonly phase: "passthrough"; readonly confirmedSeq?: number };
 
-export type AnchorGiveUpReason =
-  | "timeout"
-  | "write-failed"
-  | "no-command-characteristic";
+export type AnchorGiveUpReason = "timeout" | "write-failed";
 
 export type AnchorStep = {
   state: AnchorState;
@@ -127,18 +121,14 @@ export type AnchorStartOptions = {
 };
 
 /**
- * A new anchoring, on every connect and successful reconnect. `canWrite` =
- * the command characteristic is there to send the anchor through. Only an
- * automatic reconnect may skip the anchor (see b' above).
+ * A new anchoring, on every connect and successful reconnect. Only an
+ * automatic reconnect may skip the anchor (see b above).
  */
-export function anchorStart(
-  canWrite: boolean,
-  options: AnchorStartOptions = {},
-): AnchorState {
+export function anchorStart(options: AnchorStartOptions = {}): AnchorState {
   if (options.reconnect && options.lastConfirmedSeq !== undefined) {
-    return { phase: "awaitFirst", canWrite, keepSeq: options.lastConfirmedSeq };
+    return { phase: "awaitFirst", keepSeq: options.lastConfirmedSeq };
   }
-  return { phase: "awaitFirst", canWrite };
+  return { phase: "awaitFirst" };
 }
 
 /**
@@ -168,21 +158,11 @@ export function anchorStep(
       return { state, accept: true };
 
     case "awaitFirst":
-      if (nav.anchorSeq === undefined) {
-        return { state: PASSTHROUGH, accept: true };
-      }
       if (state.keepSeq !== undefined && nav.anchorSeq === state.keepSeq) {
         // Same ball, same anchor: the tracker catches up to its pose as before.
         return {
           state: { phase: "passthrough", confirmedSeq: state.keepSeq },
           accept: true,
-        };
-      }
-      if (!state.canWrite) {
-        return {
-          state: PASSTHROUGH,
-          accept: true,
-          gaveUp: "no-command-characteristic",
         };
       }
       return {
@@ -196,7 +176,7 @@ export function anchorStep(
       };
 
     case "confirming":
-      if (nav.anchorSeq !== undefined && nav.anchorSeq !== state.seq0) {
+      if (nav.anchorSeq !== state.seq0) {
         return {
           state: { phase: "passthrough", confirmedSeq: nav.anchorSeq },
           accept: true,

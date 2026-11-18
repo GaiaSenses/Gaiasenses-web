@@ -9,12 +9,12 @@
  *
  * On such a close, while the trigger is on:
  *  - command 0x18 asks the ball to end the pulse now: the ppm it reports goes
- *    back to the real reading and the trigger falls (firmware without 0x18
- *    ignores it and the pulse runs its course);
+ *    back to the real reading and the trigger falls;
  *  - the trigger is HELD here: it cannot open a composition again until a
  *    packet reports it off. That covers the packets already in flight before
- *    the ball handles 0x18, firmware without 0x18, and a real reading still
- *    above the threshold. The next breath after the fall opens normally.
+ *    the ball handles 0x18, a 0x18 write that failed, and a real reading
+ *    still above the threshold. The next breath after the fall opens
+ *    normally.
  *
  * The ball's own close (trigger fell) is not a person's: nothing to end,
  * nothing to hold — even if a new breath raised the trigger again before the

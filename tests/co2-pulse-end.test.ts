@@ -36,7 +36,7 @@ test("a person closes while the trigger is on: end the pulse and hold the trigge
   const closed = co2HoldOnClose(before);
   assert.equal(closed.endPulse, true);
   // The rest of the pulse (still trigger = 1 until the ball handles 0x18, or
-  // for the whole virtualHoldMs on firmware without it) cannot reopen it.
+  // for the whole virtualHoldMs if the 0x18 write fails) cannot reopen it.
   const after = feed(closed.state, [true, true, true]);
   assert.deepEqual(after.mayOpen, [false, false, false]);
 });

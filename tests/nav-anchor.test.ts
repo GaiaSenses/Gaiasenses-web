@@ -34,6 +34,7 @@ function nav(overrides: Partial<GaiaballNav> = {}): GaiaballNav {
     speedDegS: 0,
     seq: 1,
     tUs: 1,
+    anchorSeq: 0,
     ...overrides,
   };
 }
@@ -118,17 +119,8 @@ test("latitude is clamped to [−90, 90]", () => {
 // The anchoring state machine
 // ---------------------------------------------------------------------------
 
-test("old firmware (no anchorSeq): every packet passes, nothing is sent", () => {
-  let s = anchorStart(true);
-  for (let i = 0; i < 4; i++) {
-    const step = anchorStep(s, nav({ seq: i }), i * 20);
-    assert.deepEqual(step, { state: step.state, accept: true });
-    s = step.state;
-  }
-});
-
-test("anchor firmware: the first packet asks for the anchor and is dropped", () => {
-  const step = anchorStep(anchorStart(true), nav({ anchorSeq: 4 }), 1000);
+test("the first packet asks for the anchor and is dropped", () => {
+  const step = anchorStep(anchorStart(), nav({ anchorSeq: 4 }), 1000);
   assert.equal(step.accept, false);
   assert.equal(step.send, true);
   assert.equal(step.anchored, undefined);
@@ -136,7 +128,7 @@ test("anchor firmware: the first packet asks for the anchor and is dropped", () 
 });
 
 test("packets are dropped until anchorSeq changes; then everything passes", () => {
-  let step = anchorStep(anchorStart(true), nav({ anchorSeq: 4 }), 0);
+  let step = anchorStep(anchorStart(), nav({ anchorSeq: 4 }), 0);
   for (let t = 20; t < 400; t += 20) {
     step = anchorStep(step.state, nav({ anchorSeq: 4 }), t);
     assert.deepEqual(step, { state: step.state, accept: false });
@@ -151,7 +143,7 @@ test("packets are dropped until anchorSeq changes; then everything passes", () =
 });
 
 test("only one anchor is asked for per connection", () => {
-  let step = anchorStep(anchorStart(true), nav({ anchorSeq: 0 }), 0);
+  let step = anchorStep(anchorStart(), nav({ anchorSeq: 0 }), 0);
   let sends = step.send ? 1 : 0;
   for (let t = 20; t <= 3000; t += 20) {
     step = anchorStep(step.state, nav({ anchorSeq: t < 200 ? 0 : 1 }), t);
@@ -161,7 +153,7 @@ test("only one anchor is asked for per connection", () => {
 });
 
 test("anchorSeq wraps: seq0 255 → 0 counts as changed", () => {
-  let step = anchorStep(anchorStart(true), nav({ anchorSeq: 255 }), 0);
+  let step = anchorStep(anchorStart(), nav({ anchorSeq: 255 }), 0);
   step = anchorStep(step.state, nav({ anchorSeq: 255 }), 20);
   assert.equal(step.accept, false);
   step = anchorStep(step.state, nav({ anchorSeq: 0 }), 40);
@@ -170,7 +162,7 @@ test("anchorSeq wraps: seq0 255 → 0 counts as changed", () => {
 });
 
 test("no confirmation within the timeout: give up once, packets flow", () => {
-  let step = anchorStep(anchorStart(true), nav({ anchorSeq: 9 }), 1000);
+  let step = anchorStep(anchorStart(), nav({ anchorSeq: 9 }), 1000);
   step = anchorStep(
     step.state,
     nav({ anchorSeq: 9 }),
@@ -199,13 +191,13 @@ test("the timeout is 1500 ms", () => {
 test("a confirmation that arrives late still counts as anchored", () => {
   // The timeout is only seen on a packet: if the confirming packet is the
   // first one after the deadline, the ball did anchor — take it.
-  let step = anchorStep(anchorStart(true), nav({ anchorSeq: 1 }), 0);
+  let step = anchorStep(anchorStart(), nav({ anchorSeq: 1 }), 0);
   step = anchorStep(step.state, nav({ anchorSeq: 2 }), 5000);
   assert.deepEqual(step, { state: step.state, accept: true, anchored: true });
 });
 
 test("write failure: give up once, the next packets flow", () => {
-  const sent = anchorStep(anchorStart(true), nav({ anchorSeq: 3 }), 0);
+  const sent = anchorStep(anchorStart(), nav({ anchorSeq: 3 }), 0);
   assert.equal(sent.send, true);
   const failed = anchorWriteFailed(sent.state, sent.state);
   assert.equal(failed.gaveUp, "write-failed");
@@ -218,7 +210,7 @@ test("write failure: give up once, the next packets flow", () => {
 test("write failure reported after a few dropped packets still gives up", () => {
   // The write is async: packets keep arriving (and being dropped) before it
   // rejects, and the failure must still be recognised as this anchoring's.
-  const sent = anchorStep(anchorStart(true), nav({ anchorSeq: 3 }), 0);
+  const sent = anchorStep(anchorStart(), nav({ anchorSeq: 3 }), 0);
   let now = sent.state;
   for (let t = 20; t <= 100; t += 20) {
     now = anchorStep(now, nav({ anchorSeq: 3 }), t).state;
@@ -230,9 +222,9 @@ test("write failure reported after a few dropped packets still gives up", () => 
 });
 
 test("a stale write failure (an earlier connection) is ignored", () => {
-  const old = anchorStep(anchorStart(true), nav({ anchorSeq: 3 }), 0);
+  const old = anchorStep(anchorStart(), nav({ anchorSeq: 3 }), 0);
   // reconnect: a new anchoring that has already sent its own command
-  const current = anchorStep(anchorStart(true), nav({ anchorSeq: 3 }), 2000);
+  const current = anchorStep(anchorStart(), nav({ anchorSeq: 3 }), 2000);
   const r = anchorWriteFailed(current.state, old.state);
   assert.equal(r.gaveUp, undefined);
   assert.equal(r.state, current.state);
@@ -240,24 +232,10 @@ test("a stale write failure (an earlier connection) is ignored", () => {
 });
 
 test("a write failure after the confirmation changes nothing", () => {
-  const sent = anchorStep(anchorStart(true), nav({ anchorSeq: 3 }), 0);
+  const sent = anchorStep(anchorStart(), nav({ anchorSeq: 3 }), 0);
   const anchored = anchorStep(sent.state, nav({ anchorSeq: 4 }), 100);
   const r = anchorWriteFailed(anchored.state, sent.state);
   assert.deepEqual(r, { state: anchored.state });
-});
-
-test("no command characteristic: give up at once, nothing dropped", () => {
-  let step = anchorStep(anchorStart(false), nav({ anchorSeq: 3 }), 0);
-  assert.deepEqual(step, {
-    state: step.state,
-    accept: true,
-    gaveUp: "no-command-characteristic",
-  });
-  step = anchorStep(step.state, nav({ anchorSeq: 3 }), 20);
-  assert.deepEqual(step, { state: step.state, accept: true });
-  // and an old firmware without it is just the old firmware: no warning
-  step = anchorStep(anchorStart(false), nav(), 0);
-  assert.deepEqual(step, { state: step.state, accept: true });
 });
 
 test("idle (no connect yet, or after a disconnect): packets pass, nothing sent", () => {
@@ -266,10 +244,10 @@ test("idle (no connect yet, or after a disconnect): packets pass, nothing sent",
 });
 
 test("the step never mutates the state it was given", () => {
-  const s: AnchorState = Object.freeze(anchorStart(true));
+  const s: AnchorState = Object.freeze(anchorStart());
   const step = anchorStep(s, nav({ anchorSeq: 1 }), 0);
   assert.notEqual(step.state, s);
-  assert.deepEqual(s, anchorStart(true));
+  assert.deepEqual(s, anchorStart());
 });
 
 // ---------------------------------------------------------------------------
@@ -278,7 +256,7 @@ test("the step never mutates the state it was given", () => {
 
 /** A connection anchored by this page: the ball confirmed with `seq`. */
 function confirmed(seq: number): AnchorState {
-  const sent = anchorStep(anchorStart(true), nav({ anchorSeq: seq - 1 }), 0);
+  const sent = anchorStep(anchorStart(), nav({ anchorSeq: seq - 1 }), 0);
   const done = anchorStep(sent.state, nav({ anchorSeq: seq }), 20);
   assert.equal(done.anchored, true);
   return done.state;
@@ -286,10 +264,10 @@ function confirmed(seq: number): AnchorState {
 
 test("the confirmed anchorSeq is remembered in the state", () => {
   assert.equal(anchorConfirmedSeq(confirmed(5)), 5);
-  // nothing confirmed: idle, waiting, confirming, given up, old firmware
+  // nothing confirmed: idle, waiting, confirming, given up
   assert.equal(anchorConfirmedSeq(ANCHOR_IDLE), undefined);
-  assert.equal(anchorConfirmedSeq(anchorStart(true)), undefined);
-  const sent = anchorStep(anchorStart(true), nav({ anchorSeq: 4 }), 0);
+  assert.equal(anchorConfirmedSeq(anchorStart()), undefined);
+  const sent = anchorStep(anchorStart(), nav({ anchorSeq: 4 }), 0);
   assert.equal(anchorConfirmedSeq(sent.state), undefined);
   const late = anchorStep(sent.state, nav({ anchorSeq: 4 }), 5000);
   assert.equal(late.gaveUp, "timeout");
@@ -298,16 +276,12 @@ test("the confirmed anchorSeq is remembered in the state", () => {
     anchorConfirmedSeq(anchorWriteFailed(sent.state, sent.state).state),
     undefined,
   );
-  const noChar = anchorStep(anchorStart(false), nav({ anchorSeq: 4 }), 0);
-  assert.equal(anchorConfirmedSeq(noChar.state), undefined);
-  const old = anchorStep(anchorStart(true), nav(), 0);
-  assert.equal(anchorConfirmedSeq(old.state), undefined);
 });
 
 test("auto-reconnect, same anchorSeq: the ball kept our anchor, packets pass, nothing sent", () => {
   const lastConfirmedSeq = anchorConfirmedSeq(confirmed(5));
   let step = anchorStep(
-    anchorStart(true, { reconnect: true, lastConfirmedSeq }),
+    anchorStart({ reconnect: true, lastConfirmedSeq }),
     nav({ anchorSeq: 5 }),
     0,
   );
@@ -323,7 +297,7 @@ test("auto-reconnect, same anchorSeq: the ball kept our anchor, packets pass, no
 test("auto-reconnect, different anchorSeq (reboot, or another client anchored): anchors again", () => {
   for (const seq of [0, 6]) {
     const step = anchorStep(
-      anchorStart(true, { reconnect: true, lastConfirmedSeq: 5 }),
+      anchorStart({ reconnect: true, lastConfirmedSeq: 5 }),
       nav({ anchorSeq: seq }),
       0,
     );
@@ -336,7 +310,7 @@ test("auto-reconnect, different anchorSeq (reboot, or another client anchored): 
 
 test("manual connect, same anchorSeq: always anchors", () => {
   const step = anchorStep(
-    anchorStart(true, { reconnect: false, lastConfirmedSeq: 5 }),
+    anchorStart({ reconnect: false, lastConfirmedSeq: 5 }),
     nav({ anchorSeq: 5 }),
     0,
   );
@@ -346,7 +320,7 @@ test("manual connect, same anchorSeq: always anchors", () => {
 
 test("auto-reconnect with nothing confirmed yet: anchors", () => {
   const step = anchorStep(
-    anchorStart(true, { reconnect: true, lastConfirmedSeq: undefined }),
+    anchorStart({ reconnect: true, lastConfirmedSeq: undefined }),
     nav({ anchorSeq: 5 }),
     0,
   );
@@ -354,15 +328,6 @@ test("auto-reconnect with nothing confirmed yet: anchors", () => {
   assert.equal(step.send, true);
 });
 
-test("auto-reconnect to an older firmware (no anchorSeq): packets pass as before", () => {
-  const step = anchorStep(
-    anchorStart(true, { reconnect: true, lastConfirmedSeq: 5 }),
-    nav(),
-    0,
-  );
-  assert.deepEqual(step, { state: step.state, accept: true });
-  assert.equal(anchorConfirmedSeq(step.state), undefined);
-});
 
 // ---------------------------------------------------------------------------
 // Anchor + tracker, wired like use-ble-sensor.ts: connect resets both, each
@@ -373,7 +338,7 @@ test("auto-reconnect to an older firmware (no anchorSeq): packets pass as before
 type Effect = "jumpTo" | "motionStop" | "reopenPopup";
 
 class Link {
-  anchor: AnchorState = anchorStart(true);
+  anchor: AnchorState = anchorStart();
   tracker: NavTrackerState = NAV_TRACKER_RESET;
   ctx: NavTrackerContext;
   /** The map's current view (centre and bearing). */
@@ -391,8 +356,8 @@ class Link {
     };
     this.view = { ...at, bearing };
   }
-  connect(canWrite = true, reconnect = false): void {
-    this.anchor = anchorStart(canWrite, {
+  connect(reconnect = false): void {
+    this.anchor = anchorStart({
       reconnect,
       lastConfirmedSeq: anchorConfirmedSeq(this.anchor),
     });
@@ -433,18 +398,8 @@ function poseOfCommand(bytes: Uint8Array, anchorSeq: number): GaiaballNav {
   });
 }
 
-test("old firmware, URL at Paris: connect still jumps to the ball's Campinas", () => {
-  const link = new Link(PARIS);
-  link.connect();
-  assert.deepEqual(link.packet(nav()), ["jumpTo", "motionStop"]);
-  assert.deepEqual(link.jumps[0], {
-    center: [CAMPINAS.lon, CAMPINAS.lat],
-    bearing: 30,
-  });
-  assert.equal(link.sent.length, 0);
-});
 
-test("anchor firmware, map at Paris: the ball is anchored there, no jump", () => {
+test("map at Paris: the ball is anchored there, no jump", () => {
   const link = new Link(PARIS, -90);
   link.connect();
   // The ball still reports its old reference (Campinas) until it anchors.
@@ -473,7 +428,7 @@ test("anchor firmware, map at Paris: the ball is anchored there, no jump", () =>
   assert.equal(link.sent.length, 1);
 });
 
-test("anchor firmware, timeout: the old sync jump happens after all", () => {
+test("timeout: the sync jump happens after all", () => {
   const link = new Link(PARIS);
   link.connect();
   assert.equal(link.packet(nav({ anchorSeq: 7 }), 0), "dropped");
@@ -518,7 +473,7 @@ test("an automatic reconnect to a ball that kept our anchor sends nothing and fo
   link.packet(nav({ anchorSeq: 1 }), 0);
   link.packet(poseOfCommand(link.sent[0], 2), 20);
   // the visitor kept turning the ball through the link drop
-  link.connect(true, true);
+  link.connect(true);
   const moved = nav({ settled: false, lat: 50, lon: 3, anchorSeq: 2 });
   assert.deepEqual(link.packet(moved, 5000), ["jumpTo"]);
   assert.equal(link.sent.length, 1);
@@ -530,7 +485,7 @@ test("an automatic reconnect after the ball rebooted anchors again", () => {
   link.connect();
   link.packet(nav({ anchorSeq: 1 }), 0);
   link.packet(poseOfCommand(link.sent[0], 2), 20);
-  link.connect(true, true);
+  link.connect(true);
   // rebooted: anchorSeq back to 0, pose relative to Campinas again
   assert.equal(link.packet(nav({ anchorSeq: 0 }), 5000), "dropped");
   assert.equal(link.sent.length, 2);

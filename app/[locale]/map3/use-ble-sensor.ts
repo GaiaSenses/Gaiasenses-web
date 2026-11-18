@@ -71,8 +71,8 @@ export function useBLESensor({
   // lock before the URL settles and allow a re-open race.
   const isCompositionPlayingRef = useRef(false);
 
-  // Command writer of the connected ball (null: none, or no command
-  // characteristic). Used for the anchor and for ending the CO2 pulse.
+  // Command writer of the connected ball (null while disconnected). Used for
+  // the anchor and for ending the CO2 pulse.
   const writeCommandRef = useRef<GaiaballCommandWriter | null>(null);
 
   // The CO2 trigger held after a person closes the composition it opened
@@ -283,18 +283,14 @@ export function useBLESensor({
   /**
    * Every connect and every successful reconnect: anchor the ball anew —
    * except an automatic reconnect (`reconnect`) to a ball that still holds
-   * this page's confirmed anchor (nav-anchor.ts, b').
+   * this page's confirmed anchor (nav-anchor.ts, b).
    */
   const handleControllerConnect = useCallback(
-    (
-      mode: string,
-      writeCommand: GaiaballCommandWriter | null,
-      reconnect: boolean,
-    ) => {
+    (mode: string, writeCommand: GaiaballCommandWriter, reconnect: boolean) => {
       inputModeRef.current = mode;
       resetNavTracking();
       writeCommandRef.current = writeCommand;
-      anchorRef.current = anchorStart(writeCommand !== null, {
+      anchorRef.current = anchorStart({
         reconnect,
         lastConfirmedSeq: anchorConfirmedSeq(anchorRef.current),
       });

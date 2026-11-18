@@ -20,6 +20,7 @@ function nav(overrides: Partial<GaiaballNav> = {}): GaiaballNav {
     speedDegS: 0,
     seq: 1,
     tUs: 1,
+    anchorSeq: 0,
     ...overrides,
   };
 }
