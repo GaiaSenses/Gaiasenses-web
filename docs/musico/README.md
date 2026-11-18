@@ -155,6 +155,13 @@ Para o seu patch, a posição do globo chega em `[r gaia.lat]` e `[r gaia.lon]`
 `gaia.acc.*` e `gaia.co2`, e um patch que tem `[r gaia.sensors]` recebe ainda a
 lista crua. Publicar `gaia.out` não muda nada disso.
 
+Ao conectar, o site **ancora** o Bolota no ponto que o mapa está mostrando, para
+o globo não pular. A âncora também **zera** a bola naquele instante: a orientação
+(o quatérnio) e os ângulos (roll, pitch e yaw) que os patches de Pd e os sketches
+p5 recebem passam a contar a partir da posição em que a bola estava na hora da
+conexão. Se o sinal cair e o site reconectar sozinho, ele não ancora (nem zera)
+de novo enquanto a bola ainda guardar a âncora dele.
+
 ### Microfone (`[adc~]`)
 
 Um patch com `[adc~ 1]` recebe o microfone de quem está visitando o site. Ao

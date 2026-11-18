@@ -48,6 +48,12 @@ const EMPTY_INFO: InfoCardData = { imu: null, co2: null, nav: null };
 
 export type { espResponse, espCo2Response, GaiaballNav };
 
+/**
+ * Writes one command to the ball (characteristic …0002). The site sends only
+ * the anchor (0x17, nav-anchor.ts); it never needs the PIN.
+ */
+export type GaiaballCommandWriter = (bytes: Uint8Array) => Promise<void>;
+
 // Copy exactly the notification bytes (the DataView may sit on a larger buffer)
 function toArrayBuffer(view: DataView): ArrayBuffer {
   const bytes = new Uint8Array(view.byteLength);
@@ -60,12 +66,42 @@ const sensorCharacteristic = "19b10001-e8f2-537e-4f6c-d104768a1214";
 const co2CharacteristicIUD = "19b10003-e8f2-537e-4f6c-d104768a1214";
 /** Optional: firmware older than the on-ball navigation does not have it. */
 const navCharacteristicUUID = "19b10006-e8f2-537e-4f6c-d104768a1214";
+/** Commands (write). Optional: without it the ball is just not anchored. */
+const commandCharacteristicUUID = "19b10002-e8f2-537e-4f6c-d104768a1214";
+
+/**
+ * With response, so a failed write rejects; `writeValue` only where the
+ * browser lacks it. Async, so even a synchronous throw becomes a rejection.
+ */
+function commandWriter(
+  characteristic: BluetoothRemoteGATTCharacteristic,
+): GaiaballCommandWriter {
+  return async (bytes) => {
+    if (typeof characteristic.writeValueWithResponse === "function") {
+      await characteristic.writeValueWithResponse(bytes);
+    } else {
+      await characteristic.writeValue(bytes);
+    }
+  };
+}
 
 type BLEControlProps = {
   onSensor: (data: espResponse) => void;
   onCo2Sensor: (data: espCo2Response) => void;
-  onNav: (data: GaiaballNav) => void;
-  onConnect: (mode: string) => void;
+  /**
+   * Returns false when the packet was dropped (the ball is being anchored to
+   * the map): it then stays off the info card too.
+   */
+  onNav: (data: GaiaballNav) => boolean;
+  /**
+   * `writeCommand` is null when the ball has no command characteristic;
+   * `reconnect` is true for an automatic reconnect after a link drop.
+   */
+  onConnect: (
+    mode: string,
+    writeCommand: GaiaballCommandWriter | null,
+    reconnect: boolean,
+  ) => void;
   onDisconnect: (mode: string) => void;
   /** The link dropped on its own (not a click); reconnection is attempted. */
   onConnectionLost?: () => void;
@@ -189,13 +225,13 @@ export default function BLEControl({
     if (!value) return;
     const parsedData = decodeNavNotification(toArrayBuffer(value));
     if (!parsedData) return;
-    onNavRef.current(parsedData);
+    if (!onNavRef.current(parsedData)) return;
     latestInfoRef.current.nav = parsedData;
     infoDirtyRef.current = true;
   }, []);
 
   const setupGATT = useCallback(
-    async (device: BluetoothDevice) => {
+    async (device: BluetoothDevice, reconnect = false) => {
       if (!device.gatt) throw new Error("GATT server not found on device");
 
       const server = await device.gatt.connect();
@@ -216,6 +252,20 @@ export default function BLEControl({
         );
       } catch {
         navCharacteristic = null;
+      }
+
+      // Also optional (nothing before the anchor ever wrote to the ball): a
+      // missing command characteristic only means the globe is not anchored.
+      let writeCommand: GaiaballCommandWriter | null = null;
+      try {
+        const commandCharacteristic = await service.getCharacteristic(
+          commandCharacteristicUUID,
+        );
+        if (commandCharacteristic.properties.write) {
+          writeCommand = commandWriter(commandCharacteristic);
+        }
+      } catch {
+        writeCommand = null;
       }
 
       if (characteristic.properties.notify) {
@@ -265,7 +315,7 @@ export default function BLEControl({
       setIsConnected(true);
       setError(null);
       reconnectAttemptsRef.current = 0;
-      onConnect("controller");
+      onConnect("controller", writeCommand, reconnect);
 
       return { server, characteristic, co2Characteristic, navCharacteristic };
     },
@@ -297,7 +347,7 @@ export default function BLEControl({
       await new Promise((r) => setTimeout(r, RECONNECT_DELAY_MS));
 
       try {
-        await setupGATT(device);
+        await setupGATT(device, true);
         setError(null);
       } catch {
         attemptReconnect(device);

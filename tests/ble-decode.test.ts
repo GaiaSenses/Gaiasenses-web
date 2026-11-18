@@ -295,14 +295,38 @@ test("nav packets of 22 bytes or more are accepted, shorter → null", () => {
   assert.equal(decodeNavNotification(a.slice(0, 21).buffer), null);
   assert.equal(decodeNavNotification(a.slice(0, 0).buffer), null);
 
-  // a future firmware appending fields must not silence the globe
+  // a future firmware appending fields must not silence the globe: the 22
+  // known bytes decode the same, plus the anchorSeq of byte 22
   const maior = new Uint8Array(40);
   maior.set(a);
   maior.fill(0xee, 22);
-  assert.deepEqual(
-    decodeNavNotification(maior.buffer),
-    decodeNavNotification(a.buffer),
-  );
+  assert.deepEqual(decodeNavNotification(maior.buffer), {
+    ...decodeNavNotification(a.buffer),
+    anchorSeq: 0xee,
+  });
+});
+
+test("nav byte 22 is anchorSeq; a 22-byte packet (old firmware) has none", () => {
+  const a = new Uint8Array(hex(GOLDEN_NAV_A));
+  const comAncora = (seq: number) => {
+    const b = new Uint8Array(23);
+    b.set(a);
+    b[22] = seq;
+    return decodeNavNotification(b.buffer);
+  };
+  assert.equal(comAncora(0)?.anchorSeq, 0);
+  assert.equal(comAncora(7)?.anchorSeq, 7);
+  assert.equal(comAncora(255)?.anchorSeq, 255);
+  // the rest of the packet is untouched by the extra byte
+  assert.deepEqual(comAncora(7), {
+    ...decodeNavNotification(a.buffer),
+    anchorSeq: 7,
+  });
+
+  const velho = decodeNavNotification(a.buffer);
+  assert.ok(velho);
+  assert.equal(velho.anchorSeq, undefined);
+  assert.equal("anchorSeq" in velho, false);
 });
 
 test("nav with wrong version or type → null", () => {
