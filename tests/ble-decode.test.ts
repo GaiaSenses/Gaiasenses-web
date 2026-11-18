@@ -4,7 +4,6 @@ import {
   decodeSensorNotification,
   decodeCo2Notification,
   decodeNavNotification,
-  isLegacyImuNotification,
   resetCo2StaleWarning,
 } from "../app/[locale]/map3/ble-decode";
 
@@ -23,13 +22,13 @@ const GOLDEN_CO2 = "01 02 02 01 0D 0C 0B 0A E8 03 05 07";
 // NavPacket golden vectors, verbatim from the protocol contract shared by the
 // firmware, the config-app and this site.
 // A: seq 258, tUs 12345678, mode 1, flags 0x03, latE7 -229055560,
-//    lonE7 -470608330, bearingX100 4500, speedDegSX10 123.
+//    lonE7 -470608330, bearingX100 4500, speedDegSX10 123, anchorSeq 7.
 const GOLDEN_NAV_A =
-  "01 07 02 01 4E 61 BC 00 01 03 B8 E3 58 F2 36 16 F3 E3 94 11 7B 00";
+  "01 07 02 01 4E 61 BC 00 01 03 B8 E3 58 F2 36 16 F3 E3 94 11 7B 00 07";
 // B: seq 65535, tUs 4294967295, mode 2, flags 0x06, latE7 900000000,
-//    lonE7 -1800000000, bearingX100 -18000, speedDegSX10 65535.
+//    lonE7 -1800000000, bearingX100 -18000, speedDegSX10 65535, anchorSeq 255.
 const GOLDEN_NAV_B =
-  "01 07 FF FF FF FF FF FF 02 06 00 E9 A4 35 00 2E B6 94 B0 B9 FF FF";
+  "01 07 FF FF FF FF FF FF 02 06 00 E9 A4 35 00 2E B6 94 B0 B9 FF FF FF";
 
 function hex(s: string): ArrayBuffer {
   const bytes = s
@@ -272,6 +271,7 @@ test("golden nav vector A decodes field by field", () => {
     speedDegS: 12.3,
     seq: 258,
     tUs: 12345678,
+    anchorSeq: 7,
   });
 });
 
@@ -287,46 +287,35 @@ test("golden nav vector B decodes the extremes", () => {
     speedDegS: 6553.5,
     seq: 65535,
     tUs: 4294967295,
+    anchorSeq: 255,
   });
 });
 
-test("nav packets of 22 bytes or more are accepted, shorter → null", () => {
+test("nav packets of 23 bytes or more are accepted, shorter → null", () => {
   const a = new Uint8Array(hex(GOLDEN_NAV_A));
-  assert.equal(decodeNavNotification(a.slice(0, 21).buffer), null);
+  assert.equal(decodeNavNotification(a.slice(0, 22).buffer), null);
   assert.equal(decodeNavNotification(a.slice(0, 0).buffer), null);
 
-  // a future firmware appending fields must not silence the globe: the 22
-  // known bytes decode the same, plus the anchorSeq of byte 22
+  // a future firmware appending fields must not silence the globe: the 23
+  // known bytes decode the same
   const maior = new Uint8Array(40);
   maior.set(a);
-  maior.fill(0xee, 22);
-  assert.deepEqual(decodeNavNotification(maior.buffer), {
-    ...decodeNavNotification(a.buffer),
-    anchorSeq: 0xee,
-  });
+  maior.fill(0xee, 23);
+  assert.deepEqual(
+    decodeNavNotification(maior.buffer),
+    decodeNavNotification(a.buffer),
+  );
 });
 
-test("nav byte 22 is anchorSeq; a 22-byte packet (old firmware) has none", () => {
-  const a = new Uint8Array(hex(GOLDEN_NAV_A));
+test("nav byte 22 is anchorSeq, the whole u8 range", () => {
   const comAncora = (seq: number) => {
-    const b = new Uint8Array(23);
-    b.set(a);
+    const b = new Uint8Array(hex(GOLDEN_NAV_A));
     b[22] = seq;
     return decodeNavNotification(b.buffer);
   };
   assert.equal(comAncora(0)?.anchorSeq, 0);
   assert.equal(comAncora(7)?.anchorSeq, 7);
   assert.equal(comAncora(255)?.anchorSeq, 255);
-  // the rest of the packet is untouched by the extra byte
-  assert.deepEqual(comAncora(7), {
-    ...decodeNavNotification(a.buffer),
-    anchorSeq: 7,
-  });
-
-  const velho = decodeNavNotification(a.buffer);
-  assert.ok(velho);
-  assert.equal(velho.anchorSeq, undefined);
-  assert.equal("anchorSeq" in velho, false);
 });
 
 test("nav with wrong version or type → null", () => {
@@ -464,17 +453,3 @@ test("fuzz: 500 random buffers never throw", () => {
   }
 });
 
-test("legacy IMU v1 packets are recognised (and v2, other types and runts are not)", () => {
-  const v1 = new Uint8Array(new Uint8Array(hex(GOLDEN_IMU)));
-  v1[0] = 1;
-  assert.equal(isLegacyImuNotification(v1.buffer), true);
-  // a v1 packet of the old 31-byte size is still legacy
-  const v1long = new Uint8Array(31);
-  v1long[0] = 1;
-  v1long[1] = 0x01;
-  assert.equal(isLegacyImuNotification(v1long.buffer), true);
-  assert.equal(isLegacyImuNotification(hex(GOLDEN_IMU)), false); // v2
-  assert.equal(isLegacyImuNotification(hex(GOLDEN_CO2)), false); // version 1 but type 0x02
-  assert.equal(isLegacyImuNotification(new Uint8Array([1]).buffer), false);
-  assert.equal(isLegacyImuNotification(new ArrayBuffer(0)), false);
-});

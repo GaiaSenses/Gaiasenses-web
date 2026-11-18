@@ -1,6 +1,6 @@
 "use client";
 import { AnimatePresence, motion } from "framer-motion"
-import { ReactNode } from "react"
+import { ReactNode, useEffect, useRef } from "react"
 
 type CompositionContainerProps = {
     isOpen:boolean,
@@ -10,6 +10,36 @@ type CompositionContainerProps = {
 }
 
 export default  function CompositionModal({isOpen, closeButton, children, MuteButton}:CompositionContainerProps){
+    const closeRef = useRef<HTMLDivElement>(null);
+
+    // ESC closes the composition exactly as the Back button does: it clicks
+    // that same link, so both take one path. In fullscreen the browser uses
+    // the ESC itself to leave fullscreen and the page never gets the key, so
+    // leaving fullscreen while the composition is open counts as the same ESC.
+    useEffect(() => {
+        if (!isOpen) return;
+        // Once: a browser that hands ESC to the page AND leaves fullscreen
+        // would otherwise click Back twice.
+        let closed = false;
+        const close = () => {
+            if (closed) return;
+            closed = true;
+            closeRef.current?.querySelector<HTMLElement>("a, button")?.click();
+        };
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key !== "Escape" || e.repeat || e.defaultPrevented) return;
+            close();
+        };
+        const onFullscreen = () => {
+            if (!document.fullscreenElement) close();
+        };
+        window.addEventListener("keydown", onKey);
+        document.addEventListener("fullscreenchange", onFullscreen);
+        return () => {
+            window.removeEventListener("keydown", onKey);
+            document.removeEventListener("fullscreenchange", onFullscreen);
+        };
+    }, [isOpen]);
 
     return (
         <div>
@@ -29,7 +59,7 @@ export default  function CompositionModal({isOpen, closeButton, children, MuteBu
                             full-screen toggle overlay. */}
                         <div className="absolute bottom-4 left-4 flex items-center gap-2">
                             {MuteButton}
-                            {closeButton}
+                            <div ref={closeRef} className="contents">{closeButton}</div>
                         </div>
                     </motion.div>
                 )}

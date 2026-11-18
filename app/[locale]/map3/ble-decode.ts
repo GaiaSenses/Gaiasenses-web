@@ -70,11 +70,10 @@ export type GaiaballNav = {
   seq: number;
   tUs: number;
   /**
-   * Byte 22, present from the anchor firmware on (23-byte packet): counts the
-   * anchors (command 0x17) the ball applied, wrapping 255 → 0. Undefined for a
-   * 22-byte packet — an older firmware that cannot be anchored (nav-anchor.ts).
+   * Byte 22: counts the anchors (command 0x17) the ball applied since boot,
+   * wrapping 255 → 0 (nav-anchor.ts).
    */
-  anchorSeq?: number;
+  anchorSeq: number;
 };
 
 const PROTOCOL_VERSION = 1;
@@ -113,8 +112,7 @@ const TYPE_NAV = 0x07;
 const IMU_PACKET_MIN_SIZE = 27;
 const CO2_PACKET_MIN_SIZE = 12;
 /** Same rule as the IMU: a longer NavPacket from a newer firmware still decodes. */
-const NAV_PACKET_MIN_SIZE = 22;
-/** From the anchor firmware on, byte 22 is `anchorSeq`. */
+const NAV_PACKET_MIN_SIZE = 23;
 const NAV_ANCHOR_SEQ_OFFSET = 22;
 
 const Q14 = 16384;
@@ -171,17 +169,6 @@ export function quatToEulerLegacy(
 }
 
 const halfDb = (v: number) => v / 2 - 120;
-
-/**
- * True for an IMU packet of the legacy v1 format (version 1, type 0x01): a ball
- * with old firmware. `decodeSensorNotification` rejects it, so without this the
- * IMU would just go silent.
- */
-export function isLegacyImuNotification(buf: ArrayBuffer): boolean {
-  if (!(buf instanceof ArrayBuffer) || buf.byteLength < 2) return false;
-  const dv = new DataView(buf);
-  return dv.getUint8(0) === PROTOCOL_VERSION && dv.getUint8(1) === TYPE_IMU;
-}
 
 export function decodeSensorNotification(
   buf: ArrayBuffer,
@@ -266,10 +253,10 @@ export function decodeCo2Notification(
 }
 
 /**
- * NavPacket, 22 bytes: u8 version · u8 type · u16 seq · u32 timestampUs ·
+ * NavPacket, 23 bytes: u8 version · u8 type · u16 seq · u32 timestampUs ·
  * u8 mode · u8 flags · i32 latE7 · i32 lonE7 · i16 bearingX100 ·
- * u16 speedDegSX10 (offsets 0, 1, 2, 4, 8, 9, 10, 14, 18, 20), followed from
- * the anchor firmware on by u8 anchorSeq (offset 22, 23 bytes in all).
+ * u16 speedDegSX10 · u8 anchorSeq (offsets 0, 1, 2, 4, 8, 9, 10, 14, 18, 20,
+ * 22).
  *
  * The keepalive (valid = 0) is decoded too, not dropped: the caller decides
  * what an invalid pose means, and the live store needs to know it arrived.
@@ -305,10 +292,8 @@ export function decodeNavNotification(buf: ArrayBuffer): GaiaballNav | null {
       speedDegS: dv.getUint16(20, true) / 10,
       seq: dv.getUint16(2, true),
       tUs: dv.getUint32(4, true),
+      anchorSeq: dv.getUint8(NAV_ANCHOR_SEQ_OFFSET),
     };
-    if (buf.byteLength > NAV_ANCHOR_SEQ_OFFSET) {
-      nav.anchorSeq = dv.getUint8(NAV_ANCHOR_SEQ_OFFSET);
-    }
     return nav;
   } catch {
     return null;
