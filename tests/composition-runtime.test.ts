@@ -141,3 +141,19 @@ describe("resolveAudio", () => {
     assert.equal(resolveAudio(incompleta, { rain: 0 }), "");
   });
 });
+
+describe("resolveAudio do módulo puro", () => {
+  test("aplica a regra do bonfire declarada no manifesto", async () => {
+    const { resolveAudio: puro } = await import(
+      "@/components/compositions/composition-audio"
+    );
+    const { DECLARED_COMPOSITION_MANIFESTS } = await import(
+      "@/components/compositions/compositions-manifests.generated"
+    );
+    const audio = DECLARED_COMPOSITION_MANIFESTS.bonfire.audio as CompositionAudio;
+
+    assert.equal(puro(audio, { fireCount: 12, closeFires: 3 }), "/audios/FOGO-AA.mp3");
+    assert.equal(puro(audio, { fireCount: 12, closeFires: 0 }), "/audios/FOGO-AB.mp3");
+    assert.equal(puro(audio, { fireCount: 0, closeFires: 0 }), "/audios/FOGO-BB.mp3");
+  });
+});

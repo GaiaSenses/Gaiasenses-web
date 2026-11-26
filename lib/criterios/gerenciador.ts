@@ -1,6 +1,11 @@
 /**
  * Gerenciador de critérios: registro, escolha do padrão e comparação.
  */
+import { CriterioA } from "./criterio-a";
+import { CriterioAtual } from "./criterio-atual";
+import { CriterioB } from "./criterio-b";
+import { CriterioC } from "./criterio-c";
+import { CriterioD } from "./criterio-d";
 import type { CriterioDeDecisao } from "./criterio-de-decisao";
 import type {
   ContextoDeDecisao,
@@ -61,3 +66,12 @@ export class GerenciadorDeCriterios {
     });
   }
 }
+
+/** Critério usado pelo público sem cookie: o comportamento de hoje. */
+export const CRITERIO_PADRAO_ID: IdCriterio = "atual";
+
+/** Instância compartilhada, com os cinco critérios na ordem de exibição. */
+export const gerenciador = new GerenciadorDeCriterios(
+  [new CriterioAtual(), new CriterioA(), new CriterioB(), new CriterioC(), new CriterioD()],
+  CRITERIO_PADRAO_ID,
+);
