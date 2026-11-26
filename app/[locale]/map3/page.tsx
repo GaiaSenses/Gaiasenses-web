@@ -243,7 +243,9 @@ export default async function Page({ params, searchParams }: PageProps) {
             o público vê: fica fora do corpus (GaiaLogs), e o aviso diz isso. */}
         {escolha.deTeste ? (
           <AvisoCriterioDeTeste
-            texto={t("criterioDeTeste", { nome: escolha.criterio.nome })}
+            texto={t("criterioDeTeste", {
+              nome: `${escolha.criterio.id} · ${escolha.criterio.nome}`,
+            })}
           />
         ) : (
           <DataSender
