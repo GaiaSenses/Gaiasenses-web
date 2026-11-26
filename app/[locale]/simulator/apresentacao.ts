@@ -1,0 +1,250 @@
+/**
+ * Apresentação do simulador: textos, números em pt-BR, cores dos LEDs e o caminho do pulso.
+ * Lógica pura (sem React), para os testes cobrirem o que a interface mostra.
+ */
+import type { Circuito, IdCriterio, ResultadoDaComparacao, ResultadoDeDecisao } from "@/lib/criterios/tipos";
+import { COOKIE_CRITERIO } from "@/lib/criterios/cookies";
+import { PRESETS, type Cenario } from "./cenario";
+import type { Selecao } from "./selecao";
+
+/** O "0" do critério atual, como no estudo; os outros já são uma letra. */
+export function idCurto(id: IdCriterio): string {
+  return id === "atual" ? "0" : id;
+}
+
+/** O nome sem o prefixo repetido ("0 · Atual" vira "Atual"). */
+export function nomeCurto(c: { id: IdCriterio; nome: string }): string {
+  const prefixo = `${idCurto(c.id)} · `;
+  return c.nome.startsWith(prefixo) ? c.nome.slice(prefixo.length) : c.nome;
+}
+
+export function rotuloDoCriterio(c: { id: IdCriterio; nome: string }): string {
+  return `${idCurto(c.id)} · ${nomeCurto(c)}`;
+}
+
+export function formatarMs(ms: number): string {
+  return `${ms.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ms`;
+}
+
+export function formatarProbabilidade(p: number): string {
+  if (p > 0 && p < 0.005) return "<1%";
+  return p.toLocaleString("pt-BR", { style: "percent", maximumFractionDigits: 0 });
+}
+
+export type ComoFoiEscolhida =
+  | { tipo: "rodizio" }
+  | { tipo: "sorteio"; probabilidade: number }
+  | { tipo: "manual" }
+  | { tipo: "nenhuma" };
+
+export function comoFoiEscolhida(r: ResultadoDeDecisao, s: Selecao | undefined): ComoFoiEscolhida {
+  if (!s?.obra) return { tipo: "nenhuma" };
+  if (s.origem === "manual") return { tipo: "manual" };
+  if (r.sorteio === "deterministico") return { tipo: "rodizio" };
+  const c = r.candidatas.find((x) => x.obra === s.obra);
+  return { tipo: "sorteio", probabilidade: c?.probabilidade ?? 0 };
+}
+
+/** O selo curto da coluna "obra": "rodízio", "34%" ou "à mão". */
+export function seloDaEscolha(como: ComoFoiEscolhida): string {
+  switch (como.tipo) {
+    case "rodizio":
+      return "rodízio";
+    case "sorteio":
+      return formatarProbabilidade(como.probabilidade);
+    case "manual":
+      return "à mão";
+    case "nenhuma":
+      return "";
+  }
+}
+
+/** O texto do `aria-live`: muda só quando muda o foco, o vencedor ou a obra (não a cada valor). */
+export function resumoDoFoco(
+  rc: ResultadoDaComparacao | undefined,
+  s: Selecao | undefined,
+  rotuloDaObra: (id: string) => string,
+): string {
+  if (!rc) return "";
+  const inicio = `Critério em foco: ${rotuloDoCriterio(rc.criterio)}.`;
+  if (!rc.ok) return `${inicio} O critério falhou: ${rc.erro}`;
+  const r = rc.resultado;
+  const vencedor = ` Vencedor: ${r.vencedor.rotulo}.`;
+  const como = comoFoiEscolhida(r, s);
+  if (como.tipo === "nenhuma" || !s?.obra) return `${inicio}${vencedor} Nenhuma obra candidata.`;
+  const obra = rotuloDaObra(s.obra);
+  const modo =
+    como.tipo === "manual"
+      ? "escolhida à mão"
+      : como.tipo === "rodizio"
+        ? "por rodízio"
+        : `por sorteio, ${formatarProbabilidade(como.probabilidade)}`;
+  return `${inicio}${vencedor} Obra: ${obra}, ${modo}.`;
+}
+
+/** Casas decimais de um passo de slider (0,5 → 1; 0,01 → 2; 5 → 0). */
+export function casasDecimais(passo: number): number {
+  const texto = String(passo);
+  const ponto = texto.indexOf(".");
+  return ponto < 0 ? 0 : texto.length - ponto - 1;
+}
+
+/** Valor de entrada em pt-BR, sem separador de milhar, com no máximo as casas do passo. */
+export function formatarValor(v: number, passo: number): string {
+  return v.toLocaleString("pt-BR", { maximumFractionDigits: casasDecimais(passo), useGrouping: false });
+}
+
+/** Lê um número digitado em pt-BR ("-23,5") ou com ponto; null se não for um número. */
+export function lerNumero(texto: string): number | null {
+  const limpo = texto.trim().replace(",", ".");
+  if (limpo === "" || limpo === "-" || limpo === ".") return null;
+  const n = Number(limpo);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Tira o ruído de ponto flutuante do slider (0,30000000000000004 → 0,3). */
+export function arredondarAoPasso(v: number, passo: number): number {
+  const casas = casasDecimais(passo);
+  return Number((Math.round(v / passo) * passo).toFixed(casas));
+}
+
+/** Cor do LED pelo grupo do fenômeno (D4); null para quem não tem grupo na tabela. */
+const CORES_DOS_LEDS: Readonly<Record<string, string>> = {
+  atmosphere: "#7CD6EA",
+  vento: "#7CD6EA",
+  nuvens: "#7CD6EA",
+  fulmen: "#B9A2FF",
+  raios: "#B9A2FF",
+  pyro: "#FF6B3D",
+  fogo: "#FF6B3D",
+  calor: "#FF6B3D",
+  hydros: "#4AA3FF",
+  chuva: "#4AA3FF",
+  umido: "#4AA3FF",
+  seco: "#F2C14E",
+  frio: "#F2C14E",
+  entropy: "#F1E6C8",
+  calmaria: "#F1E6C8",
+};
+
+export function corDoGrupo(grupo: string | null | undefined): string | null {
+  return (grupo && CORES_DOS_LEDS[grupo]) || null;
+}
+
+/** A legenda dos LEDs, na ordem da tabela da D4. */
+export const LEGENDA_DOS_LEDS: readonly { cor: string; texto: string }[] = [
+  { cor: "#7CD6EA", texto: "atmosfera, vento, nuvens" },
+  { cor: "#B9A2FF", texto: "raios" },
+  { cor: "#FF6B3D", texto: "fogo, calor" },
+  { cor: "#4AA3FF", texto: "chuva, úmido" },
+  { cor: "#F2C14E", texto: "seco, frio" },
+  { cor: "#F1E6C8", texto: "lugar, calmaria" },
+];
+
+/**
+ * O circuito com o destaque na obra selecionada (que pode ser a da URL, a mantida pelo sorteio ou a
+ * escolhida à mão), e não na `escolha` crua da última avaliação: a placa mostra o que vai tocar.
+ */
+export function comDestaque(c: Circuito, obra: string | null): Circuito {
+  const alvo = obra ? `obra:${obra}` : null;
+  return {
+    ...c,
+    nos: c.nos.map((n) => {
+      if (n.estagio !== "obra") return n;
+      const { destaque: _antigo, ...resto } = n;
+      return n.id === alvo ? { ...resto, destaque: true } : resto;
+    }),
+  };
+}
+
+const ETAPAS = ["entrada", "transformacao", "agregacao", "decisao", "obra"] as const;
+
+/**
+ * O caminho por onde passa o pulso quando a escolha muda: as trilhas energizadas que levam até a
+ * obra em destaque, de trás para a frente, mais a da obra até o J1. `etapa` é a coluna de onde a
+ * trilha sai (0 = entradas), para o pulso andar da esquerda para a direita.
+ */
+export function caminhoDaEscolha(
+  trilhas: readonly { id: string; de: string; para: string; ativa: boolean; direta?: boolean }[],
+  nos: readonly { id: string; estagio: (typeof ETAPAS)[number] }[],
+  obraNoId: string | null,
+): { id: string; etapa: number }[] {
+  if (!obraNoId) return [];
+  const etapaDe = new Map(nos.map((n) => [n.id, ETAPAS.indexOf(n.estagio)]));
+  const alcancados = new Set([obraNoId]);
+  const noCaminho = new Set<string>();
+  let mudou = true;
+  while (mudou) {
+    mudou = false;
+    for (const t of trilhas) {
+      if (!t.ativa || t.direta || noCaminho.has(t.id) || !alcancados.has(t.para)) continue;
+      noCaminho.add(t.id);
+      alcancados.add(t.de);
+      mudou = true;
+    }
+  }
+  for (const t of trilhas) if (t.de === obraNoId && t.para === "j1") noCaminho.add(t.id);
+  return trilhas
+    .filter((t) => noCaminho.has(t.id))
+    .map((t) => ({ id: t.id, etapa: etapaDe.get(t.de) ?? 0 }));
+}
+
+/** O preset de que o cenário não se afastou (o foco não conta), ou null. */
+export function presetDoCenario(c: Cenario): string | null {
+  const igual = (p: Cenario) =>
+    p.climaIndisponivel === c.climaIndisponivel &&
+    p.sateliteIndisponivel === c.sateliteIndisponivel &&
+    p.normalRef.cidade === c.normalRef.cidade &&
+    p.normalRef.mes === c.normalRef.mes &&
+    p.normalRef.periodo === c.normalRef.periodo &&
+    (Object.keys(p.valores) as (keyof Cenario["valores"])[]).every((k) => p.valores[k] === c.valores[k]);
+  return PRESETS.find((p) => igual(p.cenario))?.id ?? null;
+}
+
+/** O valor de um cookie numa string `document.cookie`, ou null. */
+export function lerCookie(todos: string, nome: string): string | null {
+  for (const parte of todos.split(";")) {
+    const igual = parte.indexOf("=");
+    if (igual < 0) continue;
+    if (parte.slice(0, igual).trim() !== nome) continue;
+    try {
+      return decodeURIComponent(parte.slice(igual + 1).trim());
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/** A atribuição a `document.cookie` que grava (id) ou apaga (null) o critério deste navegador. */
+export function cookieDoCriterio(id: IdCriterio | null): string {
+  return id
+    ? `${COOKIE_CRITERIO}=${id}; path=/; max-age=31536000; samesite=lax`
+    : `${COOKIE_CRITERIO}=; path=/; max-age=0; samesite=lax`;
+}
+
+/** Quebra um rótulo em linhas de até `max` caracteres, pelas palavras (uma palavra longa fica inteira). */
+export function quebrarEmLinhas(texto: string, max: number): string[] {
+  const linhas: string[] = [];
+  let atual = "";
+  for (const palavra of texto.split(/\s+/).filter(Boolean)) {
+    if (atual && atual.length + 1 + palavra.length > max) {
+      linhas.push(atual);
+      atual = palavra;
+    } else {
+      atual = atual ? `${atual} ${palavra}` : palavra;
+    }
+  }
+  if (atual) linhas.push(atual);
+  return linhas;
+}
+
+/**
+ * Separa o número do valor de um nó para o display de 7 segmentos: "42,5" → número; "25,0 (piso)"
+ * → número e resto "piso"; "> 0 → +90" ou "sem dado" → só texto.
+ */
+export function partirValor(valor: string): { numero: string | null; resto: string | null } {
+  const m = /^(-?\d+(?:[.,]\d+)?)(?:\s+\((.+)\))?$/.exec(valor.trim());
+  if (!m) return { numero: null, resto: valor };
+  return { numero: m[1], resto: m[2] ?? null };
+}
