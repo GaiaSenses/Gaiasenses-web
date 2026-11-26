@@ -9,11 +9,13 @@
  * 4. Nos 10 presets, o vencedor e as candidatas de cada critério na tela batem com o
  *    `gerenciador.avaliarTodos` rodado aqui no Node. Com o clima e o satélite indisponíveis, B, C
  *    e D dão calmaria, e o 0 dá o mesmo que dá com tudo em zero.
- * 5. Belém com o lluvia à mão: o patch soa (RMS > 0) e o canvas desenha (pixels não pretos > 0).
- *    Queimada com o bonfire à mão: no máximo 1 contexto tocando e o mp3 FOGO-AA andando; com
- *    `closeFires` = 0, passa a FOGO-AB.
- * 9. "Parar" deixa em silêncio (nenhum contexto tocando, mp3 pausado), e sair para o /pt/map3 com
- *    som tocando não deixa nenhum contexto do simulador tocando.
+ * 5. Belém com o lluvia à mão: o patch soa (RMS > 0) e o canvas desenha (pixels não pretos > 0,
+ *    mais de uma cor e pixels mudando entre dois quadros a ~500 ms). Queimada com o bonfire à mão:
+ *    nenhum contexto de áudio tocando (o mp3 não passa pelo Web Audio) e exatamente um mp3
+ *    tocando, o FOGO-AA, andando; com `closeFires` = 0, exatamente um, o FOGO-AB.
+ * 9. Com o som confirmado antes (a obra certa no módulo; Pd e Tone com contexto tocando e RMS > 0,
+ *    mp3 com exatamente um tocando), "Parar" deixa em silêncio (nenhum contexto tocando, mp3
+ *    pausado), e sair para o /pt/map3 não deixa nenhum contexto do simulador tocando.
  *
  * Como mede o som, sem caixa de som e sem microfone: um init script envolve
  * `AudioNode.prototype.connect`, e toda ligação a um `AudioDestinationNode` também vai a um
@@ -158,26 +160,45 @@ function instrumentar() {
     taps: window.__taps.map((t) => ({ estado: t.ctx.state, relogio: t.ctx.currentTime, rms: rms(t.an), fonte: t.fonte })),
     ctxs: window.__ctxs.map((c) => c.state),
     running: window.__ctxs.filter((c) => c.state === "running").length,
-    midias: window.__midias.map((m) => ({ src: m.src.slice(m.src.lastIndexOf("/") + 1), paused: m.paused, t: m.currentTime })),
+    midias: window.__midias.map((m, i) => ({ i, src: m.src.slice(m.src.lastIndexOf("/") + 1), paused: m.paused, t: m.currentTime })),
     gum: window.__gum,
   });
-  /** Pixels não pretos de cada canvas do monitor do módulo, contados um a um. */
+  /**
+   * Cada canvas do monitor do módulo, contado pixel a pixel: os não pretos, as cores RGB
+   * distintas e quantos pixels mudaram desde a leitura anterior do mesmo canvas. "Não preto"
+   * sozinho satura (um canvas limpo com uma cor só passa); cor única e quadro parado não passam.
+   */
+  const anteriores = new WeakMap();
   window.__pixels = () =>
     Array.from(document.querySelectorAll("[data-monitor] canvas")).map((c) => {
+      let d = null;
       const ctx2d = c.getContext("2d", { willReadFrequently: true });
-      let n = 0;
       if (ctx2d) {
-        const d = ctx2d.getImageData(0, 0, c.width, c.height).data;
-        for (let i = 0; i < d.length; i += 4) if (d[i] || d[i + 1] || d[i + 2]) n++;
+        d = ctx2d.getImageData(0, 0, c.width, c.height).data;
       } else {
         const gl = c.getContext("webgl2") || c.getContext("webgl");
         if (gl) {
-          const px = new Uint8Array(c.width * c.height * 4);
-          gl.readPixels(0, 0, c.width, c.height, gl.RGBA, gl.UNSIGNED_BYTE, px);
-          for (let i = 0; i < px.length; i += 4) if (px[i] || px[i + 1] || px[i + 2]) n++;
+          d = new Uint8Array(c.width * c.height * 4);
+          gl.readPixels(0, 0, c.width, c.height, gl.RGBA, gl.UNSIGNED_BYTE, d);
         }
       }
-      return { naoPretos: n, total: c.width * c.height };
+      if (!d) return { naoPretos: 0, total: c.width * c.height, cores: 0, mudaram: null };
+      let naoPretos = 0;
+      const cores = new Set();
+      for (let i = 0; i < d.length; i += 4) {
+        if (d[i] || d[i + 1] || d[i + 2]) naoPretos++;
+        cores.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]);
+      }
+      const antes = anteriores.get(c);
+      let mudaram = null;
+      if (antes && antes.length === d.length) {
+        mudaram = 0;
+        for (let i = 0; i < d.length; i += 4) {
+          if (d[i] !== antes[i] || d[i + 1] !== antes[i + 1] || d[i + 2] !== antes[i + 2]) mudaram++;
+        }
+      }
+      anteriores.set(c, d.slice());
+      return { naoPretos, total: c.width * c.height, cores: cores.size, mudaram };
     });
 }
 
@@ -390,40 +411,43 @@ async function passo5() {
   await tocar(page);
   await page.waitForTimeout(4000);
   const som = await rmsMaximo(page, 50);
+  // Dois quadros a ~500 ms: o desenho tem de ter mais de uma cor e de mudar entre eles.
+  await page.evaluate(() => window.__pixels());
+  await page.waitForTimeout(500);
   const px = await page.evaluate(() => window.__pixels());
   const legenda = await page.locator("[data-audio]").textContent();
   conferir(5, som.max > 0, `Belém, lluvia à mão (${legenda}): RMS máx ${f4(som.max)} em 10 s, relógio ${f3(som.rel0)} → ${f3(som.rel1)} s`);
-  conferir(5, px.length === 1 && px[0].naoPretos > 0, `Belém, lluvia: ${px.length} canvas, ${px[0]?.naoPretos} pixels não pretos de ${px[0]?.total}`);
+  conferir(
+    5,
+    px.length === 1 && px[0].naoPretos > 0 && px[0].cores >= 2 && px[0].mudaram > 0,
+    `Belém, lluvia: ${px.length} canvas, ${px[0]?.naoPretos} pixels não pretos de ${px[0]?.total}, ${px[0]?.cores} cores distintas, ${px[0]?.mudaram} pixels mudaram em ~500 ms`,
+  );
   await parar(page);
   await page.waitForTimeout(2000);
 
   await preparar(page, "queimada", "atual", "bonfire");
   await tocar(page);
   await page.waitForTimeout(3000);
-  const a = await medir(page);
-  await page.waitForTimeout(1000);
-  const b = await medir(page);
-  const mp3a = a.midias.at(-1);
-  const mp3b = b.midias.at(-1);
-  conferir(5, b.running <= 1, `Queimada, bonfire à mão: ${b.running} contexto(s) tocando (o mp3 não passa pelo Web Audio)`);
-  conferir(
-    5,
-    mp3b?.src === "FOGO-AA.mp3" && !mp3b.paused && mp3b.t > mp3a.t,
-    `mp3 ${mp3b?.src}, paused=${mp3b?.paused}, currentTime ${f3(mp3a?.t)} → ${f3(mp3b?.t)} s`,
-  );
+  // Exatamente um mp3 tocando, o esperado, e andando entre duas leituras com 1 s de intervalo.
+  const umMp3 = async (arquivo) => {
+    const a = await medir(page);
+    await page.waitForTimeout(1000);
+    const b = await medir(page);
+    const tocando = b.midias.filter((m) => !m.paused);
+    const so = tocando.length === 1 ? tocando[0] : null;
+    const antes = so ? a.midias.find((m) => m.i === so.i) : null;
+    const ok = so !== null && so.src === arquivo && antes !== undefined && antes !== null && !antes.paused && so.t > antes.t;
+    const lista = b.midias.map((m) => `${m.src}${m.paused ? " (pausado)" : ` tocando, ${f3(a.midias.find((x) => x.i === m.i)?.t)} → ${f3(m.t)} s`}`).join("; ");
+    return { ok, running: b.running, texto: `${tocando.length} mp3 tocando: ${lista || "nenhum"}` };
+  };
+  const aa = await umMp3("FOGO-AA.mp3");
+  conferir(5, aa.running === 0, `Queimada, bonfire à mão: ${aa.running} contexto(s) de áudio tocando (o mp3 não passa pelo Web Audio)`);
+  conferir(5, aa.ok, `só o FOGO-AA.mp3: ${aa.texto}`);
   await page.fill('[data-entrada="closeFires"] input[type=text]', "0");
   await page.press('[data-entrada="closeFires"] input[type=text]', "Enter");
   await page.waitForTimeout(2500);
-  const c = await medir(page);
-  await page.waitForTimeout(1000);
-  const d = await medir(page);
-  const mp3c = c.midias.at(-1);
-  const mp3d = d.midias.at(-1);
-  conferir(
-    5,
-    mp3d?.src === "FOGO-AB.mp3" && !mp3d.paused && mp3d.t > mp3c.t,
-    `closeFires = 0: mp3 ${mp3d?.src}, paused=${mp3d?.paused}, currentTime ${f3(mp3c?.t)} → ${f3(mp3d?.t)} s`,
-  );
+  const ab = await umMp3("FOGO-AB.mp3");
+  conferir(5, ab.ok && ab.running === 0, `closeFires = 0, só o FOGO-AB.mp3: ${ab.texto}; ${ab.running} contexto(s) tocando`);
   await parar(page);
   await page.waitForTimeout(1500);
   conferir(5, erros.outros.length === 0, `erros no console: ${erros.outros.length} (fora "sound toggle id": ${erros.r14})${erros.outros.length ? " — " + erros.outros.join(" | ") : ""}`);
@@ -433,22 +457,43 @@ async function passo5() {
 
 async function passo9() {
   const casos = [
-    ["belem", "atual", "lluvia"],
-    ["queimada", "atual", "bonfire"],
-    ["limpo", "B", null], // airports, o primeiro do rodízio da calmaria
+    { preset: "belem", foco: "atual", led: "lluvia", obra: "lluvia", som: "Pd" },
+    { preset: "queimada", foco: "atual", led: "bonfire", obra: "bonfire", som: "mp3" },
+    // O primeiro do rodízio da calmaria no B. O airports só chega à saída pelo delay de 6 s dele.
+    { preset: "limpo", foco: "B", led: null, obra: "airports", som: "Tone" },
   ];
+
+  /**
+   * A pré-condição de "com som tocando", conferida antes de Parar ou de sair: a obra certa no
+   * módulo e o som dela saindo. Pd e Tone: um contexto tocando e RMS > 0 numa janela de 8 s,
+   * que começa 4 s depois do Tocar (o airports soa por volta dos 6 s). mp3: exatamente um tocando.
+   */
+  async function tocarEConfirmar(page, caso) {
+    await preparar(page, caso.preset, caso.foco, caso.led);
+    const nome = await page.getAttribute("[data-modulo-obra]", "data-obra");
+    await tocar(page);
+    await page.waitForTimeout(4000);
+    let ok;
+    let texto;
+    if (caso.som === "mp3") {
+      const tocando = (await medir(page)).midias.filter((m) => !m.paused);
+      ok = tocando.length === 1;
+      texto = `${tocando.length} mp3 tocando (${tocando.map((m) => m.src).join(", ") || "nenhum"})`;
+    } else {
+      const r = await rmsMaximo(page, 40);
+      const running = (await medir(page)).running;
+      ok = running >= 1 && r.max > 0;
+      texto = `${running} contexto(s) tocando, RMS máx ${f4(r.max)} em 8 s`;
+    }
+    conferir(9, nome === caso.obra && ok, `antes, no ${nome} (esperado ${caso.obra}, ${caso.som}): ${texto}`);
+  }
 
   // "Parar"
   {
     const { contexto, page, erros } = await novaPagina();
     await abrirSimulador(page);
-    for (const [preset, foco, obra] of casos) {
-      await preparar(page, preset, foco, obra);
-      const nome = await page.getAttribute("[data-modulo-obra]", "data-obra");
-      await tocar(page);
-      await page.waitForTimeout(4000);
-      const tocando = await rmsMaximo(page, 20);
-      const mp3Tocando = (await medir(page)).midias.find((m) => !m.paused);
+    for (const caso of casos) {
+      await tocarEConfirmar(page, caso);
       await parar(page);
       await page.waitForTimeout(2500);
       const depois = await rmsMaximo(page, 5);
@@ -457,7 +502,7 @@ async function passo9() {
       conferir(
         9,
         m.running === 0 && depois.max === 0 && pausados,
-        `Parar no ${nome}: antes RMS ${f4(tocando.max)}${mp3Tocando ? ` + ${mp3Tocando.src}` : ""}; depois ${m.running} contexto(s) tocando, RMS ${f4(depois.max)}, mp3 ${m.midias.length ? m.midias.map((x) => `paused=${x.paused}`).join(",") : "nenhum"}`,
+        `Parar no ${caso.obra}: ${m.running} contexto(s) tocando, RMS ${f4(depois.max)}, mp3 ${m.midias.length ? m.midias.map((x) => `paused=${x.paused}`).join(",") : "nenhum"}`,
       );
     }
     conferir(9, erros.outros.length === 0, `erros no console: ${erros.outros.length} (fora "sound toggle id": ${erros.r14})${erros.outros.length ? " — " + erros.outros.join(" | ") : ""}`);
@@ -466,15 +511,11 @@ async function passo9() {
 
   // Sair para o /pt/map3 pela navegação do próprio Next, com o som tocando: o documento continua
   // o mesmo, então os contextos do simulador continuam medíveis depois da troca de página.
-  for (const [preset, foco, obra] of casos) {
+  for (const caso of casos) {
     const { contexto, page, erros } = await novaPagina();
     await abrirSimulador(page);
-    await preparar(page, preset, foco, obra);
-    const nome = await page.getAttribute("[data-modulo-obra]", "data-obra");
-    await tocar(page);
-    await page.waitForTimeout(4000);
-    const antes = await medir(page);
-    const doSimulador = antes.ctxs.length;
+    await tocarEConfirmar(page, caso);
+    const doSimulador = (await medir(page)).ctxs.length;
     await page.evaluate(() => window.next.router.push("/pt/map3"));
     await page.waitForURL(/\/pt\/map3/, { timeout: 90000 });
     await page.waitForTimeout(6000);
@@ -490,7 +531,7 @@ async function passo9() {
     conferir(
       9,
       depois.running === 0 && depois.midias.every(Boolean) && !depois.simulador,
-      `/pt/map3 saindo do ${nome} (${antes.running} contexto(s) e ${antes.midias.filter((m) => !m.paused).length} mp3 tocando): contextos do simulador ${JSON.stringify(depois.estados)}, mp3 paused ${JSON.stringify(depois.midias)}`,
+      `/pt/map3 saindo do ${caso.obra}: contextos do simulador ${JSON.stringify(depois.estados)}, mp3 paused ${JSON.stringify(depois.midias)}`,
     );
     if (erros.outros.length) console.log(`     erros no console: ${erros.outros.join(" | ")}`);
     await contexto.close();
