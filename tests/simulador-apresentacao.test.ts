@@ -6,7 +6,9 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  ajustarAoPasso,
   arredondarAoPasso,
+  cenarioInicial,
   caminhoDaEscolha,
   casasDecimais,
   comDestaque,
@@ -179,5 +181,49 @@ describe("texto dos nós", () => {
     assert.deepEqual(partirValor("-23.55"), { numero: "-23.55", resto: null });
     assert.deepEqual(partirValor("> 0 → +90"), { numero: null, resto: "> 0 → +90" });
     assert.deepEqual(partirValor("piso 0,25"), { numero: null, resto: "piso 0,25" });
+  });
+});
+
+describe("entrada no passo (o que a tela mostra é o que o critério recebe)", () => {
+  test("o número digitado vai para o passo e para a faixa", () => {
+    assert.equal(ajustarAoPasso(0.4, 0, 1000, 1), 0, "0,4 raio é 0 raio");
+    assert.equal(ajustarAoPasso(2.5, 0, 1000, 1), 3);
+    assert.equal(ajustarAoPasso(25.26, -50, 60, 0.5), 25.5);
+    assert.equal(ajustarAoPasso(-23.556, -90, 90, 0.01), -23.56);
+    assert.equal(ajustarAoPasso(0.30000000000000004, 0, 100, 0.1), 0.3);
+    assert.equal(ajustarAoPasso(120, 0, 100, 1), 100);
+    assert.equal(ajustarAoPasso(8, 0, 3, 1), 3, "closeFires não passa do fireCount");
+  });
+
+  test("as faixas do vocabulário começam e terminam no passo (ajustar nunca sai da faixa)", () => {
+    for (const e of ENTRADAS) {
+      for (const borda of e.faixa) assert.equal(arredondarAoPasso(borda, e.passo), borda, `${e.nome}: ${borda}`);
+    }
+  });
+});
+
+describe("cenário inicial (D3.2: a URL manda só se o cenário veio dela)", () => {
+  test("só o lat/lng/mode do middleware: Dia limpo inteiro, e os três saem da URL", () => {
+    const { cenario, params } = cenarioInicial(new URLSearchParams("lat=-22.9&lng=-43.2&mode=map"));
+    assert.deepEqual(cenario, PRESETS[0].cenario);
+    assert.equal(presetDoCenario(cenario), "limpo");
+    assert.equal(params.toString(), "");
+  });
+
+  test("parâmetros que não são do cenário ficam (a obra da URL ainda vale)", () => {
+    const { params } = cenarioInicial(new URLSearchParams("lat=1&lng=2&mode=map&obra=lluvia"));
+    assert.equal(params.toString(), "obra=lluvia");
+  });
+
+  test("veio da URL: vale o cenário dela, sem o mode, e cada valor no passo", () => {
+    const { cenario, params } = cenarioInicial(
+      new URLSearchParams("foco=B&lat=10&lng=20&mode=map&lightningCount=0.4&temperature=25.26"),
+    );
+    assert.equal(cenario.foco, "B");
+    assert.equal(cenario.valores.lat, 10);
+    assert.equal(cenario.valores.lon, 20);
+    assert.equal(cenario.valores.lightningCount, 0);
+    assert.equal(cenario.valores.temperature, 25.5);
+    assert.equal(params.has("mode"), false);
   });
 });

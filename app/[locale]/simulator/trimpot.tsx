@@ -2,12 +2,13 @@
 
 /**
  * Trimpot (D4): slider serrilhado com campo numérico, para uma entrada do cenário.
- * O campo aceita vírgula ou ponto; enquanto se digita, só um número dentro da faixa vale, e ao
- * sair do campo o valor é levado para a faixa.
+ * O campo aceita vírgula ou ponto. O número digitado só vale no Enter ou ao sair do campo (Esc
+ * desiste), e os dois caminhos levam o valor para a faixa e para o passo da entrada: o que a tela
+ * mostra é o que o critério recebe.
  */
 import { useId, useState, type CSSProperties } from "react";
 import type { NomeEntrada } from "@/lib/criterios/tipos";
-import { arredondarAoPasso, formatarValor, lerNumero } from "./apresentacao";
+import { ajustarAoPasso, formatarValor, lerNumero } from "./apresentacao";
 import s from "./simulador.module.css";
 
 type Props = {
@@ -31,11 +32,11 @@ export function Trimpot({ nome, rotulo, unidade, faixa, passo, valor, maximo, de
   const min = faixa[0];
   const max = Math.max(min, Math.min(faixa[1], maximo ?? faixa[1]));
   const pct = max > min ? ((valor - min) / (max - min)) * 100 : 0;
-  const limitar = (n: number) => Math.min(max, Math.max(min, n));
+  const ajustar = (n: number) => ajustarAoPasso(n, min, max, passo);
 
   const confirmar = (texto: string) => {
     const n = lerNumero(texto);
-    if (n !== null) aoMudar(limitar(n));
+    if (n !== null) aoMudar(ajustar(n));
     setRascunho(null);
   };
 
@@ -56,7 +57,7 @@ export function Trimpot({ nome, rotulo, unidade, faixa, passo, valor, maximo, de
           value={valor}
           disabled={desabilitado || max === min}
           style={{ "--pct": `${pct}%` } as CSSProperties}
-          onChange={(e) => aoMudar(arredondarAoPasso(Number(e.target.value), passo))}
+          onChange={(e) => aoMudar(ajustar(Number(e.target.value)))}
         />
         <span className={s.trimpotLeitura}>
           <input
@@ -66,11 +67,7 @@ export function Trimpot({ nome, rotulo, unidade, faixa, passo, valor, maximo, de
             aria-label={unidade ? `${rotulo}, em ${unidade}` : rotulo}
             value={rascunho ?? formatarValor(valor, passo)}
             disabled={desabilitado}
-            onChange={(e) => {
-              setRascunho(e.target.value);
-              const n = lerNumero(e.target.value);
-              if (n !== null && n >= min && n <= max) aoMudar(n);
-            }}
+            onChange={(e) => setRascunho(e.target.value)}
             onBlur={() => {
               if (rascunho !== null) confirmar(rascunho);
             }}

@@ -21,9 +21,9 @@ import type {
   ObraDoCatalogo,
   ResultadoDaComparacao,
 } from "@/lib/criterios/tipos";
-import { PRESETS, entradaEfetiva, escreverCenario, lerCenario, type Cenario } from "./cenario";
+import { PRESETS, entradaEfetiva, escreverCenario, type Cenario } from "./cenario";
 import { escolherManual, escreverSelecao, lerSelecao, proximaSelecao, type Selecao } from "./selecao";
-import { cookieDoCriterio, lerCookie, presetDoCenario, resumoDoFoco } from "./apresentacao";
+import { cenarioInicial, cookieDoCriterio, lerCookie, presetDoCenario, resumoDoFoco } from "./apresentacao";
 import { Comparacao } from "./comparacao";
 import { NormalDeReferencia, PainelEntradas } from "./painel-entradas";
 import { ZonaDaPlaca } from "./placa-circuito";
@@ -75,15 +75,17 @@ export default function Simulador({ catalogo, manifestos }: Props) {
     [manifestos],
   );
 
-  // Ao montar: a URL manda no cenário e na seleção do foco; o cookie diz o critério deste navegador.
+  // Ao montar: a URL manda no cenário e na seleção do foco (se veio dela; senão é o "Dia limpo" e
+  // o lat/lng/mode do middleware saem já aqui); o cookie diz o critério deste navegador.
   useEffect(() => {
-    const p = new URLSearchParams(window.location.search);
-    const { cenario } = lerCenario(p);
+    const { cenario, params } = cenarioInicial(new URLSearchParams(window.location.search));
+    const busca = params.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${busca ? `?${busca}` : ""}`);
     const resultados = avaliar(cenario, {}, catalogo);
     const selecoes = selecionar(resultados, {});
     const doFoco = resultados.find((r) => r.criterio.id === cenario.foco);
     if (doFoco?.ok) {
-      const daUrl = lerSelecao(p, doFoco.resultado);
+      const daUrl = lerSelecao(params, doFoco.resultado);
       if (daUrl) selecoes[cenario.foco] = daUrl;
     }
     setEstado({ cenario, memorias: {}, resultados, selecoes });

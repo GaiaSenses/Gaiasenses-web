@@ -4,7 +4,7 @@
  */
 import type { Circuito, IdCriterio, ResultadoDaComparacao, ResultadoDeDecisao } from "@/lib/criterios/tipos";
 import { COOKIE_CRITERIO } from "@/lib/criterios/cookies";
-import { PRESETS, type Cenario } from "./cenario";
+import { ENTRADAS, PRESETS, lerCenario, type Cenario } from "./cenario";
 import type { Selecao } from "./selecao";
 
 /** O "0" do critério atual, como no estudo; os outros já são uma letra. */
@@ -106,6 +106,40 @@ export function lerNumero(texto: string): number | null {
 export function arredondarAoPasso(v: number, passo: number): number {
   const casas = casasDecimais(passo);
   return Number((Math.round(v / passo) * passo).toFixed(casas));
+}
+
+/**
+ * O valor que uma entrada aceita: dentro da faixa e no passo dela. Vale para o slider e para o
+ * número digitado, para a tela (que mostra as casas do passo) e o critério verem o mesmo valor:
+ * "0,4" raio vira 0, e não um 0,4 que acende a regra "raios > 0" com o display mostrando 0.
+ */
+export function ajustarAoPasso(v: number, min: number, max: number, passo: number): number {
+  const limitar = (n: number) => Math.min(max, Math.max(min, n));
+  return limitar(arredondarAoPasso(limitar(v), passo));
+}
+
+/** Parâmetros que o middleware injeta em toda URL (lat/lng do IP e o modo do mapa). */
+const DO_MIDDLEWARE = ["lat", "lng", "mode"] as const;
+
+/**
+ * O cenário com que a página abre e os parâmetros da URL a manter (D3.2: "a URL manda").
+ * - Veio da URL (algum atributo além do lat/lng do middleware): vale o cenário dela, com cada
+ *   valor no passo da entrada.
+ * - Não veio: é o preset "Dia limpo" inteiro, e lat, lng e mode saem da URL. Senão a posição
+ *   do IP de quem pesquisa (dado pessoal) entraria no cenário e no link copiado.
+ * O `mode` do mapa nunca é do simulador, então sai sempre.
+ */
+export function cenarioInicial(p: URLSearchParams): { cenario: Cenario; params: URLSearchParams } {
+  const { cenario: lido, veioDaUrl } = lerCenario(p);
+  const params = new URLSearchParams(p);
+  params.delete("mode");
+  if (!veioDaUrl) {
+    for (const k of DO_MIDDLEWARE) params.delete(k);
+    return { cenario: PRESETS[0].cenario, params };
+  }
+  const valores = { ...lido.valores };
+  for (const e of ENTRADAS) valores[e.nome] = arredondarAoPasso(valores[e.nome], e.passo);
+  return { cenario: { ...lido, valores }, params };
 }
 
 /** Cor do LED pelo grupo do fenômeno (D4); null para quem não tem grupo na tabela. */
