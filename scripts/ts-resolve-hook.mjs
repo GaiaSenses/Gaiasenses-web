@@ -52,11 +52,22 @@ export async function resolve(specifier, context, nextResolve) {
     if (encontrado) return nextResolve(encontrado, context);
   }
 
-  if (specifier.startsWith(".") && !temExtensao && context.parentURL) {
+  if (specifier.startsWith(".") && context.parentURL) {
     const base = dirname(fileURLToPath(context.parentURL));
+    // `./x.generated` casa com "tem extensão" sem ter nenhuma: só pula a adivinhação
+    // quando o arquivo literal existe.
+    if (temExtensao && existsSync(resolvePath(base, specifier))) return nextResolve(specifier, context);
     const encontrado = primeiroQueExiste(base, specifier);
     if (encontrado) return nextResolve(encontrado, context);
   }
 
   return nextResolve(specifier, context);
+}
+
+// O app importa JSON sem atributo (o bundler aceita); o Node exige `type: "json"`.
+export async function load(url, context, nextLoad) {
+  if (url.endsWith(".json")) {
+    return nextLoad(url, { ...context, format: "json", importAttributes: { type: "json" } });
+  }
+  return nextLoad(url, context);
 }
