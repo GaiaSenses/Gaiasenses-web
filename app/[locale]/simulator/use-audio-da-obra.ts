@@ -8,9 +8,9 @@
  *   carga se perde e o patch nasce tocando órfão. Espera a carga acabar e só então para.
  * - **Canais `gaia.*`:** saem do cenário e vão só para os receivers que o patch declara.
  * - **Desmonte:** `stopPatch()`, porque o provider não tem cleanup.
- * - **airports:** o `Discrete` liga o Tone ao montar e nunca o desliga. Ao sair dele, o transporte
- *   para, os eventos agendados somem e o contexto do Tone é suspenso; ao voltar, o `Tone.start()`
- *   do próprio `Discrete` retoma o contexto e agenda a música do zero.
+ * - **airports:** o `Discrete` liga o Tone ao montar e nunca o desliga. Ao sair dele, o contexto do
+ *   Tone é trocado por um novo, suspenso, e o antigo é fechado com tudo o que ele montou; ao voltar,
+ *   o `Tone.start()` do próprio `Discrete` liga o contexto novo e agenda a música do zero.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { DeclaredCompositionName } from "@/components/compositions/compositions-manifests.generated";
@@ -24,15 +24,22 @@ import { decidirAcaoDePatch, patchDaObra } from "./troca-de-patch";
 /** Uma segunda passada pega a música que o `Discrete` ainda estivesse montando quando saímos. */
 const SEGUNDA_PASSADA_DO_TONE_MS = 1500;
 
+/**
+ * Suspender o contexto não basta: o `Discrete` deixa ligados os sintetizadores, um delay de 6 s
+ * realimentado a 0,75 e notas agendadas fora do Transport, e tudo isso voltava a soar por baixo da
+ * música nova quando o contexto era retomado. Um contexto novo no lugar e o antigo fechado levam o
+ * grafo inteiro junto; o próximo `Discrete` monta no novo, suspenso até o `Tone.start()` dele.
+ */
 async function silenciarTone(): Promise<void> {
   try {
     const Tone = await import("tone");
-    const transporte = Tone.getTransport();
-    transporte.stop();
-    transporte.cancel(0);
+    const novo = new Tone.Context();
+    // `true` descarta o antigo: fecha o AudioContext dele e para o relógio do Transport.
+    Tone.setContext(novo, true);
     // No navegador o contexto do Tone é sempre um AudioContext (o OfflineAudioContext é de render).
-    const contexto = Tone.getContext().rawContext as AudioContext;
-    if (contexto.state === "running") await contexto.suspend();
+    // Sempre, e não só se já estiver "running": depois de um clique na página o Chrome cria o
+    // contexto "suspended" e o liga sozinho logo em seguida.
+    await (novo.rawContext as AudioContext).suspend();
   } catch (erro) {
     console.warn("simulador: não deu para silenciar o Tone do airports", erro);
   }
