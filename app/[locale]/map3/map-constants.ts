@@ -1,4 +1,5 @@
 import CompositionsInfo from "@/components/compositions/compositions-info";
+import { OBRAS_HABILITADAS } from "@/components/compositions/obras-habilitadas";
 
 export type MapLocation = {
   name: string;
@@ -44,34 +45,8 @@ export const locations: MapLocation[] = [
   },
 ];
 
-const ENABLED_COMPOSITIONS = new Set([
-  "lluvia",
-  "zigzag",
-  "colorFlower",
-  "stormEye",
-  "curves",
-  "chaosTree",
-  "cloudBubble",
-  "bonfire",
-  "digitalOrganism",
-  "rectangles",
-  "lightningTrees",
-  "weatherTree",
-  "mudflatScatter",
-  "paintBrush",
-  "generativeStrings",
-  "nightRain",
-  "windLines",
-  "lightningBolts",
-  "burningTrees",
-  "airports",
-  "riverLines",
-  "attractor",
-  "pump",
-]);
-
 export const comps = Object.entries(CompositionsInfo).filter(([key]) =>
-  ENABLED_COMPOSITIONS.has(key),
+  OBRAS_HABILITADAS.has(key),
 );
 
 export const enabledCompositionKeys = comps.map(([key]) => key);
