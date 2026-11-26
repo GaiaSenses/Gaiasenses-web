@@ -4,7 +4,8 @@
  * Simulador de critérios (D3): o estado da página. A cada mudança do cenário, os cinco critérios
  * são avaliados de novo; cada um guarda a sua seleção (`selecao.ts`) e a sua memória de rodízio.
  * O cenário e a seleção do critério em foco vão para a URL (`replaceState`, ~150 ms), e o resumo
- * do foco sai num `aria-live`.
+ * do foco sai num `aria-live`. O módulo da obra segue a seleção do foco, com debounce de ~400 ms
+ * enquanto toca, e cada obra que começa a tocar avança o rodízio daquele critério.
  *
  * Tudo começa depois de montar: a URL, o cookie e o sorteio só existem no navegador, e assim o
  * HTML do servidor (só o aviso de carregando) nunca diverge do primeiro render do cliente.
@@ -22,8 +23,19 @@ import type {
   ResultadoDaComparacao,
 } from "@/lib/criterios/tipos";
 import { PRESETS, entradaEfetiva, escreverCenario, type Cenario } from "./cenario";
-import { escolherManual, escreverSelecao, lerSelecao, proximaSelecao, type Selecao } from "./selecao";
-import { cenarioInicial, cookieDoCriterio, lerCookie, presetDoCenario, resumoDoFoco } from "./apresentacao";
+import { escolherManual, escreverSelecao, lerSelecao, manterAoTocar, proximaSelecao, type Selecao } from "./selecao";
+import {
+  cenarioInicial,
+  comoFoiEscolhida,
+  cookieDoCriterio,
+  lerCookie,
+  origemDaEscolha,
+  presetDoCenario,
+  resumoDoFoco,
+} from "./apresentacao";
+import { proximoTick } from "./modulo";
+import { ModuloObra } from "./modulo-obra";
+import { useAssentado } from "./use-assentado";
 import { Comparacao } from "./comparacao";
 import { NormalDeReferencia, PainelEntradas } from "./painel-entradas";
 import { ZonaDaPlaca } from "./placa-circuito";
@@ -32,7 +44,17 @@ import s from "./simulador.module.css";
 type Manifestos = typeof DECLARED_COMPOSITION_MANIFESTS;
 type Memorias = Partial<Record<IdCriterio, MemoriaDeRodizio>>;
 type Selecoes = Partial<Record<IdCriterio, Selecao>>;
-type Estado = { cenario: Cenario; memorias: Memorias; resultados: ResultadoDaComparacao[]; selecoes: Selecoes };
+type Estado = {
+  cenario: Cenario;
+  memorias: Memorias;
+  resultados: ResultadoDaComparacao[];
+  selecoes: Selecoes;
+  /** O módulo está com a obra montada e o som ligado. */
+  tocando: boolean;
+};
+
+/** Quanto a seleção do foco fica parada antes de o módulo trocar de obra (a placa troca na hora). */
+const TROCA_DE_OBRA_MS = 400;
 
 type Props = { catalogo: readonly ObraDoCatalogo[]; manifestos: Manifestos };
 
@@ -47,12 +69,27 @@ function avaliar(cenario: Cenario, memorias: Memorias, catalogo: readonly ObraDo
   }));
 }
 
-function selecionar(resultados: readonly ResultadoDaComparacao[], anteriores: Selecoes): Selecoes {
+/**
+ * A seleção de cada critério depois de uma avaliação. `tocandoNo` é o critério cuja obra está
+ * tocando: ela fica enquanto continuar candidata, mesmo no rodízio (`manterAoTocar`).
+ */
+function selecionar(
+  resultados: readonly ResultadoDaComparacao[],
+  anteriores: Selecoes,
+  tocandoNo: IdCriterio | null,
+): Selecoes {
   const novas: Selecoes = {};
   for (const r of resultados) {
-    if (r.ok) novas[r.criterio.id] = proximaSelecao(anteriores[r.criterio.id] ?? null, r.resultado);
+    if (!r.ok) continue;
+    const anterior = anteriores[r.criterio.id] ?? null;
+    novas[r.criterio.id] =
+      r.criterio.id === tocandoNo ? manterAoTocar(anterior, r.resultado) : proximaSelecao(anterior, r.resultado);
   }
   return novas;
+}
+
+function tocandoNo(e: Estado): IdCriterio | null {
+  return e.tocando ? e.cenario.foco : null;
 }
 
 function lerCriterioDoNavegador(): IdCriterio | null {
@@ -82,13 +119,13 @@ export default function Simulador({ catalogo, manifestos }: Props) {
     const busca = params.toString();
     window.history.replaceState(null, "", `${window.location.pathname}${busca ? `?${busca}` : ""}`);
     const resultados = avaliar(cenario, {}, catalogo);
-    const selecoes = selecionar(resultados, {});
+    const selecoes = selecionar(resultados, {}, null);
     const doFoco = resultados.find((r) => r.criterio.id === cenario.foco);
     if (doFoco?.ok) {
       const daUrl = lerSelecao(params, doFoco.resultado);
       if (daUrl) selecoes[cenario.foco] = daUrl;
     }
-    setEstado({ cenario, memorias: {}, resultados, selecoes });
+    setEstado({ cenario, memorias: {}, resultados, selecoes, tocando: false });
     setDoNavegador(lerCriterioDoNavegador());
   }, [catalogo]);
 
@@ -98,7 +135,7 @@ export default function Simulador({ catalogo, manifestos }: Props) {
         if (!e) return e;
         const cenario = f(e.cenario);
         const resultados = avaliar(cenario, e.memorias, catalogo);
-        return { ...e, cenario, resultados, selecoes: selecionar(resultados, e.selecoes) };
+        return { ...e, cenario, resultados, selecoes: selecionar(resultados, e.selecoes, tocandoNo({ ...e, cenario })) };
       }),
     [catalogo],
   );
@@ -145,7 +182,37 @@ export default function Simulador({ catalogo, manifestos }: Props) {
         if (!e) return e;
         const memorias = { ...e.memorias, [e.cenario.foco]: {} };
         const resultados = avaliar(e.cenario, memorias, catalogo);
-        return { ...e, memorias, resultados, selecoes: selecionar(resultados, e.selecoes) };
+        return { ...e, memorias, resultados, selecoes: selecionar(resultados, e.selecoes, tocandoNo(e)) };
+      }),
+    [catalogo],
+  );
+
+  const tocar = useCallback(() => setEstado((e) => (e && !e.tocando ? { ...e, tocando: true } : e)), []);
+
+  /** Parar encerra a "visita": a seleção volta a seguir o critério, e o rodízio mostra a próxima. */
+  const parar = useCallback(
+    () =>
+      setEstado((e) => (e && e.tocando ? { ...e, tocando: false, selecoes: selecionar(e.resultados, e.selecoes, null) } : e)),
+    [],
+  );
+
+  /**
+   * A obra começou a tocar: no critério em foco com memória, ela entra no rodízio com um tick novo
+   * e o critério é avaliado de novo. A seleção do foco não muda aqui (a memória vale para a
+   * próxima escolha); se mudasse, a obra nova avançaria a memória de novo, sem fim.
+   */
+  const avancarRodizio = useCallback(
+    (obra: DeclaredCompositionName) =>
+      setEstado((e) => {
+        if (!e?.tocando) return e;
+        const foco = e.cenario.foco;
+        const atual = e.resultados.find((r) => r.criterio.id === foco);
+        if (!atual?.criterio.usaMemoria || e.selecoes[foco]?.obra !== obra) return e;
+        const memoria = e.memorias[foco] ?? {};
+        const memorias = { ...e.memorias, [foco]: { ...memoria, [obra]: proximoTick(memoria, Date.now() / 1000) } };
+        const novo = avaliar(e.cenario, memorias, catalogo).find((r) => r.criterio.id === foco);
+        const resultados = novo ? e.resultados.map((r) => (r.criterio.id === foco ? novo : r)) : e.resultados;
+        return { ...e, memorias, resultados };
       }),
     [catalogo],
   );
@@ -180,6 +247,18 @@ export default function Simulador({ catalogo, manifestos }: Props) {
   // Um pulso pelo caminho novo quando muda o foco ou a obra (e um ao abrir a página).
   const foco = estado?.cenario.foco;
   const obraDoFoco = selecaoDoFoco?.obra ?? null;
+  const tocando = estado?.tocando ?? false;
+
+  // O módulo segue a seleção do foco já assentada: a placa reage na hora, a obra não pisca.
+  const resultadoDoFoco = estado?.resultados.find((r) => r.criterio.id === foco);
+  const origemDoFoco =
+    resultadoDoFoco?.ok && obraDoFoco ? origemDaEscolha(comoFoiEscolhida(resultadoDoFoco.resultado, selecaoDoFoco)) : null;
+  const doModulo = useAssentado(
+    { obra: obraDoFoco, origem: origemDoFoco },
+    `${obraDoFoco}|${origemDoFoco}`,
+    TROCA_DE_OBRA_MS,
+    tocando,
+  );
   useEffect(() => {
     if (foco) setPulso((n) => n + 1);
   }, [foco, obraDoFoco]);
@@ -205,7 +284,6 @@ export default function Simulador({ catalogo, manifestos }: Props) {
   const doFoco = resultados.find((r) => r.criterio.id === cenario.foco);
   const presetAtual = presetDoCenario(cenario);
   const resumo = resumoDoFoco(doFoco, selecaoDoFoco, rotuloDaObra);
-  const manifestoDaObra = obraDoFoco ? (manifestos as Record<string, { label: string; author?: string }>)[obraDoFoco] : null;
 
   return (
     <div className={s.raiz}>
@@ -273,23 +351,16 @@ export default function Simulador({ catalogo, manifestos }: Props) {
         aoZerarMemoria={zerarMemoria}
       />
 
-      {/* O módulo da obra (canvas, som, Tocar e Parar) entra na Tarefa 12, neste mesmo lugar. */}
-      <aside className={`${s.zona} ${s.zonaModulo}`} aria-labelledby="titulo-modulo" data-modulo-obra="reservado">
-        <h2 id="titulo-modulo" className={s.zonaTitulo}>
-          Módulo da obra
-        </h2>
-        <div className={s.moduloReservado}>
-          {manifestoDaObra ? (
-            <>
-              <p className={s.moduloObra}>{manifestoDaObra.label}</p>
-              {manifestoDaObra.author ? <p className={s.moduloAutor}>{manifestoDaObra.author}</p> : null}
-            </>
-          ) : (
-            <p className={s.moduloObra}>Nenhuma obra candidata</p>
-          )}
-          <p className={s.moduloNota}>Aqui a obra vai tocar ao vivo, com os valores do cenário.</p>
-        </div>
-      </aside>
+      <ModuloObra
+        obra={doModulo.obra}
+        origem={doModulo.origem}
+        manifestos={manifestos}
+        cenario={cenario}
+        tocando={tocando}
+        aoTocar={tocar}
+        aoParar={parar}
+        aoComecarObra={avancarRodizio}
+      />
     </div>
   );
 }

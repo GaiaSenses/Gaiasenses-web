@@ -59,6 +59,20 @@ export function seloDaEscolha(como: ComoFoiEscolhida): string {
   }
 }
 
+/** De onde veio a obra do módulo: "por sorteio", "por rodízio" ou "à mão" (null sem obra). */
+export function origemDaEscolha(como: ComoFoiEscolhida): string | null {
+  switch (como.tipo) {
+    case "sorteio":
+      return "por sorteio";
+    case "rodizio":
+      return "por rodízio";
+    case "manual":
+      return "à mão";
+    case "nenhuma":
+      return null;
+  }
+}
+
 /** O texto do `aria-live`: muda só quando muda o foco, o vencedor ou a obra (não a cada valor). */
 export function resumoDoFoco(
   rc: ResultadoDaComparacao | undefined,

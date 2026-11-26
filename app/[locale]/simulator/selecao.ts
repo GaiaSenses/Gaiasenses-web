@@ -23,6 +23,16 @@ export function proximaSelecao(anterior: Selecao | null, r: ResultadoDeDecisao):
   return { obra: r.escolha, origem: "criterio" };
 }
 
+/**
+ * A seleção enquanto a obra toca: ela fica enquanto continuar candidata, mesmo no rodízio. A
+ * memória que avançou ao tocar vale para a próxima escolha, e não para a que está tocando; sem
+ * isto, cada avanço trocaria a obra, que avançaria a memória de novo, sem fim.
+ */
+export function manterAoTocar(anterior: Selecao | null, r: ResultadoDeDecisao): Selecao {
+  if (anterior?.obra && ehCandidata(r, anterior.obra)) return anterior;
+  return proximaSelecao(anterior, r);
+}
+
 export function escolherManual(anterior: Selecao, r: ResultadoDeDecisao, obra: DeclaredCompositionName): Selecao {
   if (!r.candidatas.some((c) => c.obra === obra)) return anterior;
   return { obra, origem: "manual" };
