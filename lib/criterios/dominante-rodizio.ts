@@ -138,16 +138,35 @@ const ENTRADAS_DO_TIPO: Readonly<Record<TipoId, readonly NomeEntrada[]>> = {
 
 const pt2 = (v: number): string => fmt(v, 2);
 
+/** Nós `tipo:<id>` (estágio transformação), um por tipo, com a saliência de cada um. */
+export function nosDeTipo(S: MapaDeSaliencia): NoDoCircuito[] {
+  return TYPES.map((t) => {
+    const s = S[t.id];
+    return {
+      id: `tipo:${t.id}`, estagio: "transformacao", rotulo: t.label,
+      valor: s === null ? "sem dado" : pt2(s), grupo: t.id, ativo: s !== null && s >= LIMIARES.piso,
+    };
+  });
+}
+
+/** Ligações entrada → tipo; ativa quando há saliência positiva. */
+export function ligacoesEntradaTipo(S: MapaDeSaliencia): LigacaoDoCircuito[] {
+  const ligacoes: LigacaoDoCircuito[] = [];
+  for (const t of TYPES) {
+    const s = S[t.id];
+    for (const nome of ENTRADAS_DO_TIPO[t.id]) {
+      ligacoes.push({
+        de: `entrada:${nome}`, para: `tipo:${t.id}`, ativa: s !== null && s > 0, intensidade: s ?? 0,
+      });
+    }
+  }
+  return ligacoes;
+}
+
 /** Circuito: entradas → tipos → ranking → decisão (as obras são acrescentadas pela base). */
 function montarCircuito(r: ResultadoDoRodizio): Circuito {
   const piso = LIMIARES.piso;
-  const nos: NoDoCircuito[] = TYPES.map((t) => {
-    const s = r.S[t.id];
-    return {
-      id: `tipo:${t.id}`, estagio: "transformacao", rotulo: t.label,
-      valor: s === null ? "sem dado" : pt2(s), grupo: t.id, ativo: s !== null && s >= piso,
-    };
-  });
+  const nos: NoDoCircuito[] = nosDeTipo(r.S);
   nos.push({
     id: "ranking", estagio: "agregacao", rotulo: "maior saliência ≥ piso",
     valor: `piso ${pt2(piso)}`, ativo: true,
@@ -157,16 +176,8 @@ function montarCircuito(r: ResultadoDoRodizio): Circuito {
     valor: r.vencedorLabel, ativo: true,
   });
 
-  const ligacoes: LigacaoDoCircuito[] = [];
+  const ligacoes: LigacaoDoCircuito[] = ligacoesEntradaTipo(r.S);
   const temObra = (id: TipoId) => r.ranking.some((x) => x.id === id && x.obras > 0);
-  for (const t of TYPES) {
-    const s = r.S[t.id];
-    for (const nome of ENTRADAS_DO_TIPO[t.id]) {
-      ligacoes.push({
-        de: `entrada:${nome}`, para: `tipo:${t.id}`, ativa: s !== null && s > 0, intensidade: s ?? 0,
-      });
-    }
-  }
   for (const t of TYPES) {
     const s = r.S[t.id];
     ligacoes.push({
