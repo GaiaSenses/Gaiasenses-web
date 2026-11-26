@@ -12,6 +12,7 @@ import type { ResultadoDeDecisao } from "../lib/criterios/tipos";
 import {
   audioDaObra,
   chaveDaObra,
+  chaveDeMontagem,
   escalaDoMonitor,
   estadoDoPatch,
   legendaDoAudio,
@@ -96,6 +97,33 @@ describe("chave de remontagem", () => {
     const outroClima = { ...queimada, valores: { ...queimada.valores, temperature: 10, rain: 30 } };
     const depois = paraPropsDaObra(outroClima, m.bonfire.attributes);
     assert.equal(chaveDaObra("bonfire", m.bonfire.attributes, antes), chaveDaObra("bonfire", m.bonfire.attributes, depois));
+  });
+});
+
+describe("chave de montagem", () => {
+  test("o airports não remonta quando lat ou lon mudam (o Discrete dobraria a música)", () => {
+    const a = chaveDeMontagem("airports", m.airports.attributes, { lat: -23.55, lon: -46.66 });
+    assert.equal(chaveDeMontagem("airports", m.airports.attributes, { lat: -10, lon: -46.66 }), a);
+    assert.equal(chaveDeMontagem("airports", m.airports.attributes, { lat: -10, lon: 20 }), a);
+    // Mas a chave dos valores muda: é ela que faz os valores novos assentarem e chegarem às props.
+    assert.notEqual(
+      chaveDaObra("airports", m.airports.attributes, { lat: -10, lon: -46.66 }),
+      chaveDaObra("airports", m.airports.attributes, { lat: -23.55, lon: -46.66 }),
+    );
+  });
+  test("trocar de obra remonta o airports", () => {
+    assert.notEqual(
+      chaveDeMontagem("airports", m.airports.attributes, { lat: 1, lon: 2 }),
+      chaveDeMontagem("chaosTree", m.chaosTree.attributes, { lat: 1, lon: 2 }),
+    );
+  });
+  test("as outras obras seguem a chave dos valores", () => {
+    const props = { fireCount: 60, closeFires: 14 };
+    assert.equal(chaveDeMontagem("bonfire", m.bonfire.attributes, props), chaveDaObra("bonfire", m.bonfire.attributes, props));
+    assert.notEqual(
+      chaveDeMontagem("chaosTree", m.chaosTree.attributes, { lat: 1, lon: 2 }),
+      chaveDeMontagem("chaosTree", m.chaosTree.attributes, { lat: 3, lon: 2 }),
+    );
   });
 });
 

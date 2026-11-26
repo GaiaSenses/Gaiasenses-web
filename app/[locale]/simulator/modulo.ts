@@ -82,6 +82,25 @@ export function chaveDaObra(
 }
 
 /**
+ * Obras que acompanham os valores só pelas props e nunca remontam por eles. O airports é a primeira:
+ * o `Discrete` não tem cleanup, então cada remontagem deixaria a música anterior tocando e somaria
+ * outra cópia por cima. O `SatSketch` já segue lat e lon pelas props.
+ */
+const OBRAS_SEM_REMONTAGEM: ReadonlySet<string> = new Set(["airports"]);
+
+/**
+ * A `key` com que a obra é montada: a `chaveDaObra`, menos para as obras que não remontam por
+ * valor (para essas, só a troca de obra remonta).
+ */
+export function chaveDeMontagem(
+  obra: string,
+  atributos: readonly string[],
+  props: Readonly<Record<string, number>>,
+): string {
+  return OBRAS_SEM_REMONTAGEM.has(obra) ? obra : chaveDaObra(obra, atributos, props);
+}
+
+/**
  * Quanto o monitor (do tamanho da viewport, como o canvas das obras) encolhe para caber na área do
  * módulo. Nunca amplia; sem altura medida, vale só a largura.
  */

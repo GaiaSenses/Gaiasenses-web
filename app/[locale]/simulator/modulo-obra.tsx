@@ -9,7 +9,8 @@
  *   a obra vive num "monitor" do tamanho da viewport, reduzido por CSS `scale` para caber aqui;
  *   "Tela cheia" põe o monitor na tela inteira, sem redução.
  * - Remonta cerca de 500 ms depois que assenta o valor de um atributo que ELA declara; o mp3 e o
- *   patch ficam fora da `key` e seguem tocando.
+ *   patch ficam fora da `key` e seguem tocando. O airports não remonta por valor (`chaveDeMontagem`):
+ *   recebe lat e lon pelas props, e remontá-lo dobraria a música do `Discrete`.
  * - airports: um escudo `onClickCapture` não deixa o clique chegar ao botão interno do `Discrete`,
  *   que reescreveria a URL para o mapa.
  * - Nunca monta `DataSender` nem `CompositionControls`.
@@ -22,7 +23,7 @@ import { CLIENT_SKETCHES } from "@/components/compositions/compositions-client.g
 import Player from "@/components/compositions/my-player";
 import { tamanhoDaTela } from "@/lib/p5-canvas-fit";
 import { entradaEfetiva, paraPropsDaObra, type Cenario } from "./cenario";
-import { audioDaObra, chaveDaObra, escalaDoMonitor, legendaDoAudio, patchNaoLeOClima } from "./modulo";
+import { audioDaObra, chaveDaObra, chaveDeMontagem, escalaDoMonitor, legendaDoAudio, patchNaoLeOClima } from "./modulo";
 import { useAssentado } from "./use-assentado";
 import { useAudioDaObra } from "./use-audio-da-obra";
 import s from "./simulador.module.css";
@@ -115,7 +116,8 @@ export function ModuloObra({ obra, origem, manifestos, cenario, tocando, aoTocar
   // Os valores que a obra recebe só mudam quando assentam, junto com a remontagem; a troca de
   // obra (que já veio com debounce) leva os valores dela na hora.
   const propsAssentadas = useAssentado(props, chave, REMONTAGEM_MS, tocando, obra ?? "");
-  const chaveAssentada = obra ? chaveDaObra(obra, atributos, propsAssentadas) : "";
+  // A `key` da obra montada (o airports só remonta ao trocar de obra; os valores chegam pelas props).
+  const chaveAssentada = obra ? chaveDeMontagem(obra, atributos, propsAssentadas) : "";
 
   const audio = obra && manifesto ? audioDaObra(obra, manifesto, propsAssentadas) : null;
   const { estadoDoPatch } = useAudioDaObra({ obra, manifesto, tocando, entrada: entradaEfetiva(cenario) });
