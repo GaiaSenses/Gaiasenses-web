@@ -8,20 +8,55 @@
  * Os dois chegam de fora, então a leitura é estrita e lixo vira o padrão (id `null`, memória
  * vazia). Nenhum dos dois guarda dado pessoal.
  *
- * Puro e leve: roda no servidor (`page.tsx`) e no navegador (`avancar-rodizio.tsx`), por isso
- * não importa o gerenciador nem os critérios.
+ * Puro e leve: roda no servidor (`page.tsx`) e no navegador (`avancar-rodizio.tsx` e o
+ * simulador), por isso não importa o gerenciador nem os critérios. A leitura e a escrita no
+ * navegador passam todas por `lerCookie` e `textoDoCookie`, daqui.
  */
 import type { IdCriterio, MemoriaDeRodizio, ObraDoCatalogo } from "./tipos";
 
 export const COOKIE_CRITERIO = "gaia_criterio";
+
+/** A validade dos dois cookies: um ano, em segundos. */
+export const UM_ANO_EM_SEGUNDOS = 31536000;
 
 export function cookieDoRodizio(id: string): string {
   return `gaia_rodizio_${id}`;
 }
 
 /**
- * Os ids registrados no gerenciador, repetidos aqui para não puxar os cinco critérios para o
- * navegador. `tests/criterios-producao.test.ts` prova que as duas listas são a mesma.
+ * O valor (já decodificado) do cookie `nome` numa string no formato de `document.cookie`, ou
+ * null se ele não estiver lá ou não decodificar. Aceita pares separados por ";" com ou sem espaço.
+ */
+export function lerCookie(documentCookie: string, nome: string): string | null {
+  for (const parte of documentCookie.split(";")) {
+    const igual = parte.indexOf("=");
+    if (igual < 0) continue;
+    if (parte.slice(0, igual).trim() !== nome) continue;
+    try {
+      return decodeURIComponent(parte.slice(igual + 1).trim());
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
+ * A atribuição a `document.cookie` que grava `valor` (codificado) em `nome`, com `path=/` e
+ * `SameSite=Lax`. `maxAge` 0 apaga.
+ */
+export function textoDoCookie(nome: string, valor: string, maxAge: number): string {
+  return `${nome}=${encodeURIComponent(valor)}; path=/; max-age=${maxAge}; samesite=lax`;
+}
+
+/** A atribuição a `document.cookie` que grava (id) ou apaga (null) o critério deste navegador. */
+export function cookieDoCriterio(id: IdCriterio | null): string {
+  return id ? textoDoCookie(COOKIE_CRITERIO, id, UM_ANO_EM_SEGUNDOS) : textoDoCookie(COOKIE_CRITERIO, "", 0);
+}
+
+/**
+ * Os ids registrados no gerenciador, repetidos aqui (e só aqui) para não puxar os cinco critérios
+ * para o navegador. `tests/criterios-producao.test.ts` prova que as duas listas são a mesma.
  */
 export const IDS_REGISTRADOS: readonly IdCriterio[] = ["atual", "A", "B", "C", "D"];
 

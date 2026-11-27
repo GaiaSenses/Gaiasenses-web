@@ -1,21 +1,14 @@
 "use client";
 import { useEffect } from "react";
 import { catalogoHabilitado } from "@/lib/criterios/catalogo";
-import { cookieDoRodizio, escreverMemoria, lerMemoria } from "@/lib/criterios/cookies";
-
-const UM_ANO_EM_SEGUNDOS = 31536000;
-
-/** O valor (já decodificado) de um cookie do navegador, ou `undefined`. */
-function lerCookieDoNavegador(nome: string): string | undefined {
-  const prefixo = `${nome}=`;
-  const par = document.cookie.split("; ").find((p) => p.startsWith(prefixo));
-  if (!par) return undefined;
-  try {
-    return decodeURIComponent(par.slice(prefixo.length));
-  } catch {
-    return undefined;
-  }
-}
+import {
+  UM_ANO_EM_SEGUNDOS,
+  cookieDoRodizio,
+  escreverMemoria,
+  lerCookie,
+  lerMemoria,
+  textoDoCookie,
+} from "@/lib/criterios/cookies";
 
 /**
  * Avança o rodízio de um critério com memória: ao montar no player, grava no cookie
@@ -37,10 +30,9 @@ export default function AvancarRodizio({
     if (!catalogo.some((o) => o.id === obra)) return;
 
     const nome = cookieDoRodizio(criterioId);
-    const memoria = lerMemoria(lerCookieDoNavegador(nome), catalogo);
+    const memoria = lerMemoria(lerCookie(document.cookie, nome), catalogo);
     const valor = escreverMemoria(memoria, obra, Math.floor(Date.now() / 1000));
-    document.cookie =
-      `${nome}=${encodeURIComponent(valor)}; path=/; max-age=${UM_ANO_EM_SEGUNDOS}; samesite=lax`;
+    document.cookie = textoDoCookie(nome, valor, UM_ANO_EM_SEGUNDOS);
   }, [criterioId, obra]);
 
   return null;

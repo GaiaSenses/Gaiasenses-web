@@ -14,7 +14,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import type { DeclaredCompositionName } from "@/components/compositions/compositions-declared.generated";
 import type { DECLARED_COMPOSITION_MANIFESTS } from "@/components/compositions/compositions-manifests.generated";
 import { gerenciador } from "@/lib/criterios/gerenciador";
-import { COOKIE_CRITERIO, lerIdDoCriterio } from "@/lib/criterios/cookies";
+import { COOKIE_CRITERIO, cookieDoCriterio, lerCookie, lerIdDoCriterio } from "@/lib/criterios/cookies";
 import { normalDe } from "@/lib/criterios/normais-do-estudo";
 import type {
   IdCriterio,
@@ -27,8 +27,6 @@ import { escolherManual, escreverSelecao, lerSelecao, manterAoTocar, proximaSele
 import {
   cenarioInicial,
   comoFoiEscolhida,
-  cookieDoCriterio,
-  lerCookie,
   origemDaEscolha,
   presetDoCenario,
   resumoDoFoco,

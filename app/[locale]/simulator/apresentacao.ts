@@ -3,7 +3,6 @@
  * Lógica pura (sem React), para os testes cobrirem o que a interface mostra.
  */
 import type { Circuito, IdCriterio, ResultadoDaComparacao, ResultadoDeDecisao } from "@/lib/criterios/tipos";
-import { COOKIE_CRITERIO } from "@/lib/criterios/cookies";
 import { ENTRADAS, PRESETS, entradasSemFonte, lerCenario, type Cenario } from "./cenario";
 import type { Selecao } from "./selecao";
 
@@ -254,28 +253,6 @@ export function presetDoCenario(c: Cenario): string | null {
       (k) => semFonte.includes(k) || p.valores[k] === c.valores[k],
     );
   return PRESETS.find((p) => igual(p.cenario))?.id ?? null;
-}
-
-/** O valor de um cookie numa string `document.cookie`, ou null. */
-export function lerCookie(todos: string, nome: string): string | null {
-  for (const parte of todos.split(";")) {
-    const igual = parte.indexOf("=");
-    if (igual < 0) continue;
-    if (parte.slice(0, igual).trim() !== nome) continue;
-    try {
-      return decodeURIComponent(parte.slice(igual + 1).trim());
-    } catch {
-      return null;
-    }
-  }
-  return null;
-}
-
-/** A atribuição a `document.cookie` que grava (id) ou apaga (null) o critério deste navegador. */
-export function cookieDoCriterio(id: IdCriterio | null): string {
-  return id
-    ? `${COOKIE_CRITERIO}=${id}; path=/; max-age=31536000; samesite=lax`
-    : `${COOKIE_CRITERIO}=; path=/; max-age=0; samesite=lax`;
 }
 
 /** Quebra um rótulo em linhas de até `max` caracteres, pelas palavras (uma palavra longa fica inteira). */

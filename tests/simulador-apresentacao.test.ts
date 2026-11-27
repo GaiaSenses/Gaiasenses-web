@@ -1,5 +1,5 @@
 /**
- * Apresentação do simulador: textos, números em pt-BR, cores dos LEDs, cookie e caminho do pulso.
+ * Apresentação do simulador: textos, números em pt-BR, cores dos LEDs e caminho do pulso.
  * Run with: npm test
  */
 import { test, describe } from "node:test";
@@ -13,12 +13,10 @@ import {
   casasDecimais,
   comDestaque,
   comoFoiEscolhida,
-  cookieDoCriterio,
   corDoGrupo,
   formatarMs,
   formatarProbabilidade,
   formatarValor,
-  lerCookie,
   lerNumero,
   nomeCurto,
   partirValor,
@@ -32,7 +30,6 @@ import { ENTRADAS, PRESETS, entradaEfetiva } from "../app/[locale]/simulator/cen
 import { montarPlaca } from "../app/[locale]/simulator/layout-placa";
 import { gerenciador } from "../lib/criterios/gerenciador";
 import { catalogoHabilitado } from "../lib/criterios/catalogo";
-import { lerIdDoCriterio } from "../lib/criterios/cookies";
 import type { ResultadoDaComparacao } from "../lib/criterios/tipos";
 
 const catalogo = catalogoHabilitado();
@@ -152,19 +149,11 @@ describe("placa", () => {
   });
 });
 
-describe("cenário e cookie", () => {
+describe("cenário", () => {
   test("cada preset se reconhece, e mexer num valor tira o reconhecimento", () => {
     for (const p of PRESETS) assert.equal(presetDoCenario({ ...p.cenario, foco: "C" }), p.id);
     const mexido = { ...PRESETS[0].cenario, valores: { ...PRESETS[0].cenario.valores, rain: 3 } };
     assert.equal(presetDoCenario(mexido), null);
-  });
-
-  test("gravar e apagar o critério deste navegador", () => {
-    assert.equal(cookieDoCriterio("B"), "gaia_criterio=B; path=/; max-age=31536000; samesite=lax");
-    assert.match(cookieDoCriterio(null), /^gaia_criterio=; path=\/; max-age=0; samesite=lax$/);
-    assert.equal(lerIdDoCriterio(lerCookie("a=1; gaia_criterio=C; b=2", "gaia_criterio")), "C");
-    assert.equal(lerCookie("gaia_criterio_x=1", "gaia_criterio"), null);
-    assert.equal(lerIdDoCriterio(lerCookie("gaia_criterio=%E0%A4%A", "gaia_criterio")), null);
   });
 });
 

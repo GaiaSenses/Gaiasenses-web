@@ -3,6 +3,7 @@
  * Lógica pura (sem React) para os testes cobrirem a ida e volta.
  */
 import { COMPOSITION_ATTRIBUTES } from "@/lib/gaia-composition-attributes.generated";
+import { IDS_REGISTRADOS } from "@/lib/criterios/cookies";
 import type { EntradaClima, IdCriterio, NomeEntrada } from "@/lib/criterios/tipos";
 
 export type Cenario = {
@@ -79,7 +80,6 @@ export const PRESETS: readonly { id: string; nome: string; cenario: Cenario }[] 
 
 const PADRAO: Cenario = PRESETS[0].cenario;
 
-const CRITERIOS: readonly IdCriterio[] = ["atual", "A", "B", "C", "D"];
 const NOMES_DE_ENTRADA = ENTRADAS.map((e) => e.nome);
 // Qualquer um destes na URL (exceto lat/lng/lon, que o middleware injeta) conta como "veio da URL".
 const CHAVES_DE_ATRIBUTO = NOMES_DE_ENTRADA.filter((n) => n !== "lat" && n !== "lon");
@@ -118,7 +118,7 @@ export function lerCenario(p: URLSearchParams): { cenario: Cenario; veioDaUrl: b
   const mesBruto = numeroDe(p.get("mes"));
   const mes = mesBruto === null ? PADRAO.normalRef.mes : limitar(Math.round(mesBruto), [1, 12]);
   const periodo = p.get("periodo") === "noite" ? "noite" : p.get("periodo") === "dia" ? "dia" : PADRAO.normalRef.periodo;
-  const foco = CRITERIOS.find((c) => c === p.get("foco")) ?? PADRAO.foco;
+  const foco = IDS_REGISTRADOS.find((c) => c === p.get("foco")) ?? PADRAO.foco;
 
   const cenario: Cenario = {
     valores,

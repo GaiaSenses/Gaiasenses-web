@@ -10,10 +10,14 @@ import { paraEntradaClima } from "@/lib/criterios/entrada-do-site";
 import {
   COOKIE_CRITERIO,
   IDS_REGISTRADOS,
+  UM_ANO_EM_SEGUNDOS,
+  cookieDoCriterio,
   cookieDoRodizio,
   escreverMemoria,
+  lerCookie,
   lerIdDoCriterio,
   lerMemoria,
+  textoDoCookie,
 } from "@/lib/criterios/cookies";
 import { escolherObraDoSite } from "@/lib/criterios/escolha-do-site";
 import { gerenciador } from "@/lib/criterios/gerenciador";
@@ -142,6 +146,36 @@ describe("cookies do critério de teste", () => {
 
   test("a lista de ids aceitos é a do gerenciador", () => {
     assert.deepEqual(IDS_REGISTRADOS, gerenciador.listar().map((c) => c.id));
+  });
+
+  test("lerCookie acha o par exato, com ou sem espaço, e decodifica", () => {
+    assert.equal(lerCookie("a=1; gaia_criterio=C; b=2", COOKIE_CRITERIO), "C");
+    assert.equal(lerCookie("a=1;gaia_criterio=C;b=2", COOKIE_CRITERIO), "C");
+    assert.equal(lerCookie("gaia_criterio=C", COOKIE_CRITERIO), "C");
+    assert.equal(lerCookie("gaia_rodizio_B=%7B%22lluvia%22%3A1%7D", cookieDoRodizio("B")), '{"lluvia":1}');
+    // Um nome que só começa igual não conta.
+    assert.equal(lerCookie("gaia_criterio_x=1", COOKIE_CRITERIO), null);
+    assert.equal(lerCookie("x_gaia_criterio=1", COOKIE_CRITERIO), null);
+    assert.equal(lerCookie("", COOKIE_CRITERIO), null);
+    assert.equal(lerCookie("sem-igual; outro", COOKIE_CRITERIO), null);
+    // Codificação quebrada vira null, e o id inválido daí vira o padrão.
+    assert.equal(lerCookie("gaia_criterio=%E0%A4%A", COOKIE_CRITERIO), null);
+    assert.equal(lerIdDoCriterio(lerCookie("gaia_criterio=%E0%A4%A", COOKIE_CRITERIO)), null);
+  });
+
+  test("textoDoCookie grava codificado, com path, validade e SameSite=Lax", () => {
+    const valor = escreverMemoria({}, "lluvia", 1795000000);
+    const texto = textoDoCookie(cookieDoRodizio("B"), valor, UM_ANO_EM_SEGUNDOS);
+    assert.equal(texto, `gaia_rodizio_B=${encodeURIComponent(valor)}; path=/; max-age=31536000; samesite=lax`);
+    // Ida e volta: o par que o navegador guardaria lê de volta o mesmo valor.
+    assert.equal(lerCookie(texto.split(";")[0], cookieDoRodizio("B")), valor);
+    assert.equal(textoDoCookie("x", "", 0), "x=; path=/; max-age=0; samesite=lax");
+  });
+
+  test("gravar e apagar o critério deste navegador", () => {
+    assert.equal(cookieDoCriterio("B"), "gaia_criterio=B; path=/; max-age=31536000; samesite=lax");
+    assert.equal(cookieDoCriterio(null), "gaia_criterio=; path=/; max-age=0; samesite=lax");
+    assert.equal(lerIdDoCriterio(lerCookie(cookieDoCriterio("C").split(";")[0], COOKIE_CRITERIO)), "C");
   });
 
   test("lerMemoria: lixo vira memória vazia", () => {
