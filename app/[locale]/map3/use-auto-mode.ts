@@ -8,6 +8,7 @@ import {
 } from "./auto-mode-timers";
 import { usePd4Web } from "./pd4web-context";
 import { decidirPatchAoFechar } from "./patch-ao-fechar";
+import { setTourComposition } from "./disabled-compositions";
 
 const AUTO_MODE_LOCATIONS_STORAGE_KEY = "map3-auto-mode-locations";
 
@@ -126,10 +127,9 @@ export function useAutoMode(mapRef: React.RefObject<MapRef>) {
           params.set("lat", lat.toString());
           params.set("lng", lng.toString());
           params.set("mode", "player");
-          params.set(
-            "composition",
-            autoLocations[autoLocationIndex].composition,
-          );
+          // Obra desabilitada temporariamente não toca no passeio, mesmo que
+          // esteja num roteiro salvo antes: o critério escolhe no lugar dela.
+          setTourComposition(params, autoLocations[autoLocationIndex].composition);
           router.replace(`${pathname}?${params.toString()}`);
         },
         voltarAoMapa: () => {

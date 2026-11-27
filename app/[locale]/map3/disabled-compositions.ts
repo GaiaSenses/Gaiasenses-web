@@ -40,3 +40,19 @@ export function pickEnabledComposition(
   if (enabled.length === 0) return null;
   return enabled[Math.floor(random() * enabled.length)];
 }
+
+/**
+ * Põe a obra de uma parada do modo exposição na URL. Um roteiro salvo no
+ * navegador antes da desabilitação pode apontar para uma obra desabilitada:
+ * nesse caso a obra sai da URL e o critério escolhe a obra daquela cidade.
+ */
+export function setTourComposition(
+  params: URLSearchParams,
+  composition: string,
+): void {
+  if (isCompositionEnabled(composition)) {
+    params.set("composition", composition);
+  } else {
+    params.delete("composition");
+  }
+}
