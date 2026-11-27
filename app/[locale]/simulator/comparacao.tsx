@@ -122,6 +122,10 @@ export function Comparacao({
                     >
                       Voltar ao padrão neste navegador
                     </button>
+                    {/* O /map3 não tem o normal do lugar para dar a quem o usa (o D). */}
+                    {rc.criterio.usaNormal ? (
+                      <p className={s.acoesNota}>No site, sem normal do lugar: age como o B.</p>
+                    ) : null}
                   </div>
                 ) : null}
               </li>

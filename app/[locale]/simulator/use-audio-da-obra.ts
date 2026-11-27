@@ -117,6 +117,11 @@ export function useAudioDaObra({
       segundaPassada.current = window.setTimeout(() => void silenciarTone(), SEGUNDA_PASSADA_DO_TONE_MS);
     };
   }, [airportsTocando]);
+  // Ao desmontar o simulador, a segunda passada não fica pendente: ela trocaria o contexto do Tone
+  // de outra página (o airports do /map3, numa navegação do cliente). Vem depois do efeito acima
+  // de propósito: no desmonte, o React roda as limpezas na ordem dos efeitos, e o timer que aquela
+  // limpeza acabou de armar é desarmado aqui.
+  useEffect(() => () => window.clearTimeout(segundaPassada.current), []);
 
   return {
     estadoDoPatch: estadoDoPatch({ desejado, ativo, carregando, parando: isStopping, falhou }),

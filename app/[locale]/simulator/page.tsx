@@ -32,7 +32,8 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function SimuladorPage() {
   return (
-    <div className={`${serigrafia.variable} ${s.pagina}`}>
+    // O texto da página é só pt-BR, também em /en/simulator.
+    <div lang="pt-BR" className={`${serigrafia.variable} ${s.pagina}`}>
       <Pd4WebProvider>
         <Suspense fallback={<p className={s.carregando}>Montando a placa…</p>}>
           <Simulador catalogo={catalogoHabilitado()} manifestos={DECLARED_COMPOSITION_MANIFESTS} />
