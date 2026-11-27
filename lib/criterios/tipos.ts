@@ -19,7 +19,10 @@ export type ObraDoCatalogo = {
   attributes: readonly string[];
 };
 
-/** Contagem de vezes que cada obra já foi escolhida (rodízio). */
+/**
+ * Memória do rodízio: obra → tick (segundos) da última vez que ela tocou. Quem tocou há mais tempo
+ * vai à frente da fila; uma obra ausente nunca tocou.
+ */
 export type MemoriaDeRodizio = Readonly<Record<string, number>>;
 
 /** Média e desvio padrão históricos do lugar. */
@@ -56,6 +59,14 @@ export type Candidata = { obra: DeclaredCompositionName; probabilidade: number; 
 
 export type Calculo = {
   vencedor: { id: string; rotulo: string };
+  /**
+   * As obras que podem tocar. A ordem faz parte do contrato, porque o sorteio de
+   * `CriterioDeDecisao.avaliar` a usa:
+   * - `uniforme` (0 e A): a ordem da lista da categoria, a mesma da produção, que sorteia pelo
+   *   índice (`Math.floor(r * n)`); mudar a ordem muda a obra de um mesmo `r`.
+   * - `deterministico` (B e D): a ordem do rodízio; a primeira é a escolha.
+   * - `ponderado` (C): a ordem do catálogo; o `r` cai na faixa acumulada de cada uma, nessa ordem.
+   */
   candidatas: Candidata[];
   sorteio: "uniforme" | "ponderado" | "deterministico";
   motivo: string;

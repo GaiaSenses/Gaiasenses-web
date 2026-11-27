@@ -1,7 +1,7 @@
 /**
  * Oráculo: módulo CommonJS do estudo de critérios de decisão (criterioAtual, criterioA..D, rng…).
- * Fonte: /home/nyck/cti/my-docs/gaiasenses-criterio-decisao.html, linhas 422–928
- * (sem a tag <script> da linha 422). Extraído em 2026-11-26.
+ * Fonte: my-docs/gaiasenses-criterio-decisao.html (fora do repositório; artifact
+ * FU4xDjaVgGcwg1Waudhv99), linhas 422–928 (sem a tag <script> da linha 422). Extraído em 2026-11-26.
  * NÃO EDITAR: oráculo. Qualquer ajuste deve vir de uma nova extração da fonte.
  */
 /* Critérios de decisão do GaiaSenses — estudo comparativo.

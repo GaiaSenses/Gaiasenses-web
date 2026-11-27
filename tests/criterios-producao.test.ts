@@ -193,9 +193,10 @@ describe("cookies do critério de teste", () => {
     assert.deepEqual(lerMemoria(grande, catalogo), {});
   });
 
-  test("lerMemoria: descarta id desconhecido e valor que não é número finito", () => {
+  test("lerMemoria: descarta id desconhecido e valor que não é número finito (null, texto, infinito)", () => {
     assert.deepEqual(lerMemoria(JSON.stringify({ lluvia: 10, inventada: 5 }), catalogo), { lluvia: 10 });
-    assert.deepEqual(lerMemoria(JSON.stringify({ lluvia: NaN, zigzag: 5 }), catalogo), { zigzag: 5 });
+    // O JSON não codifica NaN (o `JSON.stringify` o troca por null): o que chega é null.
+    assert.deepEqual(lerMemoria('{"lluvia":null,"zigzag":5}', catalogo), { zigzag: 5 });
     assert.deepEqual(lerMemoria(JSON.stringify({ lluvia: "1", zigzag: 5 }), catalogo), { zigzag: 5 });
     assert.deepEqual(lerMemoria('{"lluvia":1e999,"zigzag":5}', catalogo), { zigzag: 5 });
     assert.deepEqual(lerMemoria('{"__proto__":{"x":1},"zigzag":5}', catalogo), { zigzag: 5 });
@@ -316,7 +317,7 @@ describe("escolherObraDoSite", () => {
   });
 
   test("chuva NaN: hoje contamina hydros e a entropy vence; o caminho novo a trata como 0", () => {
-    // Raio e fogo ativos: hoje a pyro (240) deveria vencer, mas a chuva NaN deixa hydros NaN, e
+    // Raio e fogo ativos: hoje a pyro (140) deveria vencer, mas a chuva NaN deixa hydros NaN, e
     // a comparação `>` com NaN entrega a vitória à última categoria, a entropy.
     const fontes: Fontes = {
       weatherData: tempo({ temp: 40, rain: { "1h": NaN } }),

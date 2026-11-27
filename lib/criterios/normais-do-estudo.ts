@@ -1,7 +1,8 @@
 /**
  * Normais climáticos por cidade, mês e período do dia, usados pelo critério D (relativo ao lugar).
- * Fonte: /home/nyck/cti/my-docs/gaiasenses-criterio-decisao.html, linha 420,
- * `window.GAIA_DATA.normals` (reanálise ERA5, 2020 a 2024, segundo o estudo).
+ * Fonte: my-docs/gaiasenses-criterio-decisao.html (fora do repositório; artifact
+ * FU4xDjaVgGcwg1Waudhv99), linha 420, `window.GAIA_DATA.normals` (reanálise ERA5, 2020 a 2024,
+ * segundo o estudo).
  * Extraído em 2026-11-26. NÃO EDITAR à mão: qualquer ajuste vem de nova extração.
  *
  * Forma: cidade → mês ("1".."12") → hora local ("3" = noite, "15" = dia) → variável → [média, desvio].
