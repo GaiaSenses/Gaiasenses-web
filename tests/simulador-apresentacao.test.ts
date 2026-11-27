@@ -18,7 +18,6 @@ import {
   formatarProbabilidade,
   formatarValor,
   lerNumero,
-  nomeCurto,
   partirValor,
   presetDoCenario,
   quebrarEmLinhas,
@@ -48,10 +47,17 @@ function avaliar(presetId: string): ResultadoDaComparacao[] {
 const rotulo = (id: string) => catalogo.find((o) => o.id === id)?.label ?? id;
 
 describe("nomes dos critérios", () => {
-  test("o atual vira 0 e perde o prefixo repetido", () => {
-    assert.equal(nomeCurto({ id: "atual", nome: "0 · Atual" }), "Atual");
-    assert.equal(rotuloDoCriterio({ id: "atual", nome: "0 · Atual" }), "0 · Atual");
+  test("o rótulo da tela junta o id curto (o atual vira 0) ao nome", () => {
+    assert.equal(rotuloDoCriterio({ id: "atual", nome: "Atual" }), "0 · Atual");
     assert.equal(rotuloDoCriterio({ id: "B", nome: "Dominante + rodízio" }), "B · Dominante + rodízio");
+  });
+
+  test("nenhum critério traz o prefixo no nome: quem o põe é a interface", () => {
+    for (const c of gerenciador.listar()) {
+      assert.ok(!/^\S+ · /.test(c.nome), `${c.id}: "${c.nome}"`);
+      assert.equal(rotuloDoCriterio(c), `${c.id === "atual" ? "0" : c.id} · ${c.nome}`);
+    }
+    assert.equal(rotuloDoCriterio(gerenciador.obter("atual")!), "0 · Atual");
   });
 });
 

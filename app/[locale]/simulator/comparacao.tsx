@@ -8,7 +8,7 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { CRITERIO_PADRAO_ID } from "@/lib/criterios/gerenciador";
 import type { IdCriterio, ResultadoDaComparacao } from "@/lib/criterios/tipos";
-import { comoFoiEscolhida, formatarMs, idCurto, nomeCurto, seloDaEscolha } from "./apresentacao";
+import { comoFoiEscolhida, formatarMs, idCurto, seloDaEscolha } from "./apresentacao";
 import type { Selecao } from "./selecao";
 import s from "./simulador.module.css";
 
@@ -69,7 +69,7 @@ export function Comparacao({
                   <span className={s.pad} aria-hidden="true" />
                   <span className={s.celCriterio}>
                     <span className={s.criterioNome}>
-                      <span className={s.criterioId}>{idCurto(id)}</span> · {nomeCurto(rc.criterio)}
+                      <span className={s.criterioId}>{idCurto(id)}</span> · {rc.criterio.nome}
                       {/* espaço sem quebra: a versão não fica sozinha na segunda linha */}
                       {`\u00a0·\u00a0v${rc.criterio.versao}`}
                     </span>

@@ -11,14 +11,12 @@ export function idCurto(id: IdCriterio): string {
   return id === "atual" ? "0" : id;
 }
 
-/** O nome sem o prefixo repetido ("0 · Atual" vira "Atual"). */
-export function nomeCurto(c: { id: IdCriterio; nome: string }): string {
-  const prefixo = `${idCurto(c.id)} · `;
-  return c.nome.startsWith(prefixo) ? c.nome.slice(prefixo.length) : c.nome;
-}
-
+/**
+ * O rótulo que a interface mostra: o id curto e o nome ("0 · Atual", "B · Dominante + rodízio").
+ * O `nome` do critério é só o nome; o prefixo é coisa da tela.
+ */
 export function rotuloDoCriterio(c: { id: IdCriterio; nome: string }): string {
-  return `${idCurto(c.id)} · ${nomeCurto(c)}`;
+  return `${idCurto(c.id)} · ${c.nome}`;
 }
 
 export function formatarMs(ms: number): string {

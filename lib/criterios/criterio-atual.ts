@@ -58,7 +58,7 @@ export function pontuarAtual(clima: ClimaDaProducao): PontuacaoAtual {
 export class CriterioAtual extends CriterioDeDecisao {
   readonly id = "atual";
   readonly versao = 1;
-  readonly nome = "0 · Atual";
+  readonly nome = "Atual";
   readonly resumo =
     "Soma pontos por regra fixa em cinco categorias, fica com a maior e sorteia uma obra da lista dela.";
   readonly usaMemoria = false;
