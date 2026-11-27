@@ -5,7 +5,16 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
-import { ENTRADAS, PRESETS, entradaEfetiva, escreverCenario, lerCenario, paraPropsDaObra } from "../app/[locale]/simulator/cenario";
+import {
+  ENTRADAS,
+  PRESETS,
+  entradaEfetiva,
+  entradasSemFonte,
+  escreverCenario,
+  lerCenario,
+  paraPropsDaObra,
+} from "../app/[locale]/simulator/cenario";
+import { presetDoCenario } from "../app/[locale]/simulator/apresentacao";
 import { escolherManual, escreverSelecao, lerSelecao, proximaSelecao } from "../app/[locale]/simulator/selecao";
 import { decidirAcaoDePatch, patchDaObra } from "../app/[locale]/simulator/troca-de-patch";
 import { canaisDoCenario } from "../app/[locale]/simulator/canais";
@@ -29,13 +38,63 @@ describe("cenário", () => {
     assert.equal(cenario.valores.lon, 20);
   });
 
-  test("ida e volta preserva tudo", () => {
+  test("ida e volta preserva tudo, menos o que a fonte fora do ar zera", () => {
     for (const p of PRESETS) {
       const url = escreverCenario(new URLSearchParams("obra=x"), p.cenario);
       const { cenario, veioDaUrl } = lerCenario(url);
       assert.equal(veioDaUrl, true);
-      assert.deepEqual(cenario, p.cenario, p.id);
+      const zerados = Object.fromEntries(entradasSemFonte(p.cenario).map((n) => [n, 0]));
+      assert.deepEqual(cenario, { ...p.cenario, valores: { ...p.cenario.valores, ...zerados } }, p.id);
+      // O preset continua reconhecido depois do link, o "API do clima caiu" inclusive.
+      assert.equal(presetDoCenario(cenario), p.id, p.id);
     }
+  });
+
+  test("fonte fora do ar: a URL leva 0 no vocabulário do grupo, e a leitura também dá 0", () => {
+    const temporal = PRESETS.find((p) => p.id === "temporal")!.cenario;
+    const semSatelite = { ...temporal, sateliteIndisponivel: true };
+    const url = escreverCenario(new URLSearchParams(), semSatelite);
+    assert.equal(url.get("satelite"), "0");
+    for (const n of ["lightningCount", "fireCount", "closeFires"]) assert.equal(url.get(n), "0", n);
+    // O clima segue no ar: os valores dele vão crus.
+    assert.equal(url.get("rain"), String(temporal.valores.rain));
+    assert.equal(url.get("temperature"), String(temporal.valores.temperature));
+
+    const semClima = escreverCenario(new URLSearchParams(), { ...temporal, climaIndisponivel: true });
+    assert.equal(semClima.get("clima"), "0");
+    for (const n of ["temperature", "humidity", "clouds", "rain", "windSpeed", "windDeg"]) {
+      assert.equal(semClima.get(n), "0", n);
+    }
+    assert.equal(semClima.get("lightningCount"), String(temporal.valores.lightningCount));
+    // lat e lon não são de fonte nenhuma.
+    assert.equal(semClima.get("lat"), String(temporal.valores.lat));
+
+    // Um link feito à mão com o interruptor ligado e um valor cru também lê 0.
+    const { cenario } = lerCenario(new URLSearchParams("satelite=0&lightningCount=40&rain=18"));
+    assert.equal(cenario.sateliteIndisponivel, true);
+    assert.equal(cenario.valores.lightningCount, 0);
+    assert.equal(cenario.valores.rain, 18);
+  });
+
+  test("Temporal sem satélite: o zigzag recebe lightningCount 0, como no collect() da produção", () => {
+    const temporal = PRESETS.find((p) => p.id === "temporal")!.cenario;
+    const zigzag = DECLARED_COMPOSITION_MANIFESTS.zigzag.attributes;
+    assert.ok(zigzag.includes("lightningCount"));
+    const c = { ...temporal, sateliteIndisponivel: true };
+    const props = paraPropsDaObra(c, zigzag);
+    assert.equal(props.lightningCount, 0);
+    assert.equal(escreverCenario(new URLSearchParams(), c).get("lightningCount"), "0");
+    // Com o satélite no ar, o valor do trimpot chega inteiro.
+    assert.equal(paraPropsDaObra(temporal, zigzag).lightningCount, temporal.valores.lightningCount);
+  });
+
+  test("preset com interruptor: os valores zerados não contam, os outros sim", () => {
+    const caiu = PRESETS.find((p) => p.id === "caiu")!.cenario;
+    const zerado = { ...caiu, valores: { ...caiu.valores, temperature: 0, humidity: 0, windDeg: 0 } };
+    assert.equal(presetDoCenario(zerado), "caiu");
+    assert.equal(presetDoCenario({ ...zerado, valores: { ...zerado.valores, lightningCount: 3 } }), null);
+    // Sem o interruptor, o clima volta a contar.
+    assert.equal(presetDoCenario({ ...zerado, climaIndisponivel: false }), null);
   });
 
   test("clamp e valor não numérico", () => {
@@ -89,9 +148,12 @@ describe("cenário", () => {
     }
   });
 
-  test("paraPropsDaObra entrega só os atributos pedidos e disponíveis", () => {
-    const c = { ...limpo, climaIndisponivel: true };
-    assert.deepEqual(paraPropsDaObra(c, ["temperature", "lightningCount", "inexistente"]), { lightningCount: 0 });
+  test("paraPropsDaObra entrega só os atributos pedidos, com 0 no lugar da fonte fora do ar", () => {
+    const c = { ...limpo, climaIndisponivel: true, valores: { ...limpo.valores, lightningCount: 4 } };
+    assert.deepEqual(paraPropsDaObra(c, ["temperature", "lightningCount", "inexistente"]), {
+      temperature: 0,
+      lightningCount: 4,
+    });
   });
 });
 

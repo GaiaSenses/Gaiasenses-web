@@ -4,7 +4,7 @@
  */
 import type { Circuito, IdCriterio, ResultadoDaComparacao, ResultadoDeDecisao } from "@/lib/criterios/tipos";
 import { COOKIE_CRITERIO } from "@/lib/criterios/cookies";
-import { ENTRADAS, PRESETS, lerCenario, type Cenario } from "./cenario";
+import { ENTRADAS, PRESETS, entradasSemFonte, lerCenario, type Cenario } from "./cenario";
 import type { Selecao } from "./selecao";
 
 /** O "0" do critério atual, como no estudo; os outros já são uma letra. */
@@ -237,15 +237,22 @@ export function caminhoDaEscolha(
     .map((t) => ({ id: t.id, etapa: etapaDe.get(t.de) ?? 0 }));
 }
 
-/** O preset de que o cenário não se afastou (o foco não conta), ou null. */
+/**
+ * O preset de que o cenário não se afastou, ou null. O foco não conta, nem os valores que um
+ * interruptor ligado tira do ar: a URL os leva como 0, e o "API do clima caiu" lido de um link
+ * continua sendo ele.
+ */
 export function presetDoCenario(c: Cenario): string | null {
+  const semFonte = entradasSemFonte(c);
   const igual = (p: Cenario) =>
     p.climaIndisponivel === c.climaIndisponivel &&
     p.sateliteIndisponivel === c.sateliteIndisponivel &&
     p.normalRef.cidade === c.normalRef.cidade &&
     p.normalRef.mes === c.normalRef.mes &&
     p.normalRef.periodo === c.normalRef.periodo &&
-    (Object.keys(p.valores) as (keyof Cenario["valores"])[]).every((k) => p.valores[k] === c.valores[k]);
+    (Object.keys(p.valores) as (keyof Cenario["valores"])[]).every(
+      (k) => semFonte.includes(k) || p.valores[k] === c.valores[k],
+    );
   return PRESETS.find((p) => igual(p.cenario))?.id ?? null;
 }
 

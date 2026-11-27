@@ -85,6 +85,16 @@ const NOMES_DE_ENTRADA = ENTRADAS.map((e) => e.nome);
 const CHAVES_DE_ATRIBUTO = NOMES_DE_ENTRADA.filter((n) => n !== "lat" && n !== "lon");
 const CHAVES_DE_ESTADO = ["clima", "satelite", "ref", "mes", "periodo", "foco"];
 
+const DO_CLIMA: readonly NomeEntrada[] = ["temperature", "humidity", "clouds", "rain", "windSpeed", "windDeg"];
+const DO_SATELITE: readonly NomeEntrada[] = ["lightningCount", "fireCount", "closeFires"];
+
+/** As entradas cuja fonte o cenário dá como indisponível (interruptor ligado). */
+export function entradasSemFonte(
+  c: Pick<Cenario, "climaIndisponivel" | "sateliteIndisponivel">,
+): readonly NomeEntrada[] {
+  return [...(c.climaIndisponivel ? DO_CLIMA : []), ...(c.sateliteIndisponivel ? DO_SATELITE : [])];
+}
+
 function limitar(n: number, [min, max]: [number, number]): number {
   return Math.min(max, Math.max(min, n));
 }
@@ -117,15 +127,24 @@ export function lerCenario(p: URLSearchParams): { cenario: Cenario; veioDaUrl: b
     normalRef: { cidade: p.get("ref") || PADRAO.normalRef.cidade, mes, periodo },
     foco,
   };
+  // Com a fonte fora do ar, o grupo dela vale 0, como a URL que `escreverCenario` grava.
+  for (const n of entradasSemFonte(cenario)) valores[n] = 0;
   const veioDaUrl =
     CHAVES_DE_ATRIBUTO.some((k) => p.has(k)) || CHAVES_DE_ESTADO.some((k) => p.has(k));
   return { cenario, veioDaUrl };
 }
 
+/**
+ * O cenário na URL. Com uma fonte indisponível, os nomes do vocabulário daquele grupo levam 0,
+ * como o `collect()` da produção entrega à obra: as obras leem a URL antes das props, e um valor
+ * cru ali faria a obra desenhar um dado que o site não teria. A posição escondida dos trimpots
+ * desse grupo não vai no link.
+ */
 export function escreverCenario(p: URLSearchParams, c: Cenario): URLSearchParams {
   const saida = new URLSearchParams(p);
   saida.delete("play");
-  for (const e of ENTRADAS) saida.set(e.nome, String(c.valores[e.nome]));
+  const semFonte = entradasSemFonte(c);
+  for (const e of ENTRADAS) saida.set(e.nome, semFonte.includes(e.nome) ? "0" : String(c.valores[e.nome]));
   saida.set("lng", String(c.valores.lon));
   if (c.climaIndisponivel) saida.set("clima", "0");
   else saida.delete("clima");
@@ -138,25 +157,25 @@ export function escreverCenario(p: URLSearchParams, c: Cenario): URLSearchParams
   return saida;
 }
 
-const DO_CLIMA: readonly NomeEntrada[] = ["temperature", "humidity", "clouds", "rain", "windSpeed", "windDeg"];
-const DO_SATELITE: readonly NomeEntrada[] = ["lightningCount", "fireCount", "closeFires"];
-
 /** A entrada que os critérios enxergam: fonte indisponível vira null; closeFires nunca passa de fireCount. */
 export function entradaEfetiva(c: Cenario): EntradaClima {
   const e: EntradaClima = { ...c.valores };
-  if (c.climaIndisponivel) for (const n of DO_CLIMA) e[n] = null;
-  if (c.sateliteIndisponivel) for (const n of DO_SATELITE) e[n] = null;
+  for (const n of entradasSemFonte(c)) e[n] = null;
   if (e.closeFires !== null && e.fireCount !== null) e.closeFires = Math.min(e.closeFires, e.fireCount);
   return e;
 }
 
-/** Os valores que a obra recebe como props: só os atributos que ela declara e que o cenário tem. */
+/**
+ * Os valores que a obra recebe como props: só os atributos que ela declara e que o cenário tem.
+ * Uma fonte indisponível vira 0, como no `collect()` da produção: a obra não tem como desenhar
+ * "não sei".
+ */
 export function paraPropsDaObra(c: Cenario, atributos: readonly string[]): Record<string, number> {
-  const e = entradaEfetiva(c);
+  const e = entradaEfetiva(c) as Record<string, number | null>;
   const props: Record<string, number> = {};
   for (const a of atributos) {
-    const v = (e as Record<string, number | null>)[a];
-    if (typeof v === "number") props[a] = v;
+    if (!Object.prototype.hasOwnProperty.call(e, a)) continue;
+    props[a] = e[a] ?? 0;
   }
   return props;
 }
