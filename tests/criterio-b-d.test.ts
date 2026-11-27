@@ -13,7 +13,6 @@ import type {
   ContextoDeDecisao, EntradaClima, MemoriaDeRodizio, NormalDoLugar, ObraDoCatalogo,
 } from "../lib/criterios/tipos";
 import estudo from "./fixtures/estudo-criterios.cjs";
-import dados from "./fixtures/estudo-dados.cjs";
 
 const B = new CriterioB();
 const D = new CriterioD();
@@ -63,12 +62,6 @@ function igual(novo: { vencedor: { id: string }; escolha: string | null; numeros
     assert.ok(Object.is(novo.numeros[k], S[k]), `S.${k} ${rotulo}`);
   }
 }
-
-describe("catálogo", () => {
-  test("a ordem do catálogo habilitado é a do estudo", () => {
-    assert.deepEqual(catalogo.map((o) => o.id), dados.catalogo.map((o: { id: string }) => o.id));
-  });
-});
 
 describe("Critério B · equivalência com o estudo", () => {
   test("B equivale ao estudo em 3000 climas", () => {

@@ -8,8 +8,10 @@ import assert from "node:assert/strict";
 
 import { DECLARED_COMPOSITION_MANIFESTS } from "@/components/compositions/compositions-manifests.generated";
 import type { CompositionManifest } from "@/components/compositions/composition-audio";
+import { COMPOSITION_PATCH_ID, MAP3_PD4WEB_PATCHES } from "../app/[locale]/map3/pd4web-patches";
 import type { ResultadoDeDecisao } from "../lib/criterios/tipos";
 import {
+  type AudioDaObra,
   audioDaObra,
   chaveDaObra,
   chaveDeMontagem,
@@ -20,6 +22,7 @@ import {
   proximoTick,
 } from "../app/[locale]/simulator/modulo";
 import { leOClima } from "../app/[locale]/simulator/canais";
+import { patchDaObra } from "../app/[locale]/simulator/troca-de-patch";
 import { manterAoTocar } from "../app/[locale]/simulator/selecao";
 import { origemDaEscolha } from "../app/[locale]/simulator/apresentacao";
 import { PRESETS, paraPropsDaObra } from "../app/[locale]/simulator/cenario";
@@ -27,8 +30,12 @@ import { PRESETS, paraPropsDaObra } from "../app/[locale]/simulator/cenario";
 const m = DECLARED_COMPOSITION_MANIFESTS as unknown as Record<string, CompositionManifest>;
 const queimada = PRESETS.find((p) => p.id === "queimada")!.cenario;
 
-function legenda(obra: string, props: Record<string, number>, estado: string | null = null): string {
-  return legendaDoAudio(audioDaObra(obra as never, m[obra], props), estado);
+/**
+ * A legenda sem a parte do patch: o patch de cada obra é dado do registro (que músicos editam) e
+ * tem o teste dele, derivado do próprio registro.
+ */
+function legenda(obra: string, props: Record<string, number>): string {
+  return legendaDoAudio({ ...audioDaObra(obra as never, m[obra], props), patch: null }, null);
 }
 
 describe("legenda do áudio", () => {
@@ -40,11 +47,32 @@ describe("legenda do áudio", () => {
     assert.equal(audioDaObra("bonfire", m.bonfire, props).mp3, "/audios/FOGO-AA.mp3");
   });
 
-  test("patch, mapa15, síntese e silêncio", () => {
-    assert.equal(legenda("lluvia", { rain: 15 }), "Pd · bubble1");
-    assert.equal(legenda("lluvia", { rain: 15 }, "carregando"), "Pd · bubble1 · carregando");
-    assert.equal(legenda("cloudBubble", {}), "Pd · mapa15");
-    assert.equal(legenda("curves", {}), "Pd · mapa15");
+  test("o patch de cada obra vem do registro: mapa15 para quem mantém o do mapa", () => {
+    // As expectativas saem do registro e dos manifestos, não de uma cópia deles: um mapeamento
+    // novo de patch, ou uma obra que passe a manter o patch do mapa, não quebra este teste.
+    const doRegistro = COMPOSITION_PATCH_ID as Readonly<Record<string, string>>;
+    for (const [obra, manifesto] of Object.entries(m)) {
+      const esperado = manifesto.keepMapPatch ? "mapa15" : (doRegistro[obra] ?? null);
+      const a = audioDaObra(obra as never, manifesto, {});
+      assert.equal(a.patch, esperado, obra);
+      if (!esperado) continue;
+      assert.ok(legendaDoAudio(a, null).includes(`Pd · ${esperado}`), obra);
+      assert.ok(legendaDoAudio(a, "carregando").includes(`Pd · ${esperado} · carregando`), obra);
+    }
+    // keepMapPatch vence o registro, qualquer que seja a obra.
+    assert.equal(patchDaObra("lluvia", { ...m.lluvia, keepMapPatch: true }), "mapa15");
+  });
+
+  test("o formato da legenda", () => {
+    const so = (a: Partial<AudioDaObra>): AudioDaObra => ({ mp3: "", patch: null, sintese: null, ...a });
+    assert.equal(legendaDoAudio(so({ patch: "p" }), null), "Pd · p");
+    assert.equal(legendaDoAudio(so({ patch: "p" }), "carregando"), "Pd · p · carregando");
+    assert.equal(legendaDoAudio(so({ mp3: "/audios/x.mp3", patch: "p" }), "tocando"), "mp3 · x.mp3 + Pd · p · tocando");
+    assert.equal(legendaDoAudio(so({ sintese: "Tone.js" }), null), "síntese Tone.js");
+    assert.equal(legendaDoAudio(so({}), null), "sem áudio");
+  });
+
+  test("síntese e silêncio", () => {
     assert.equal(legenda("airports", {}), "síntese Tone.js");
     assert.equal(legenda("generativeStrings", {}), "síntese p5.sound");
     assert.equal(legenda("attractor", {}), "sem áudio");
@@ -58,9 +86,14 @@ describe("legenda do áudio", () => {
 });
 
 describe("aviso de clima", () => {
-  test("nenhum patch alcançável ouve o clima hoje", () => {
-    for (const p of ["bubble1", "rain2", "thunder4", "mapa15"]) assert.equal(patchNaoLeOClima(p), true, p);
+  test("o aviso segue os receivers que o registro declara para o patch", () => {
+    // Derivado do registro: um músico que ponha [r gaia.rain] num patch não quebra este teste.
+    for (const p of MAP3_PD4WEB_PATCHES) {
+      assert.equal(patchNaoLeOClima(p.id), !leOClima(p.channels.receivers), p.id);
+    }
     assert.equal(patchNaoLeOClima(null), false);
+    // Um patch fora do registro não tem receiver nenhum.
+    assert.equal(patchNaoLeOClima("patch-fora-do-registro"), true);
   });
   test("lat e lon não contam como clima", () => {
     assert.equal(leOClima({ "gaia.lat": "lati", "gaia.lon": "rot" }), false);
