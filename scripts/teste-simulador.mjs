@@ -13,9 +13,11 @@
  *    mais de uma cor e pixels mudando entre dois quadros a ~500 ms). Queimada com o bonfire à mão:
  *    nenhum contexto de áudio tocando (o mp3 não passa pelo Web Audio) e exatamente um mp3
  *    tocando, o FOGO-AA, andando; com `closeFires` = 0, exatamente um, o FOGO-AB.
- * 9. Com o som confirmado antes (a obra certa no módulo; Pd e Tone com contexto tocando e RMS > 0,
- *    mp3 com exatamente um tocando), "Parar" deixa em silêncio (nenhum contexto tocando, mp3
- *    pausado), e sair para o /pt/map3 não deixa nenhum contexto do simulador tocando.
+ * 9. Com o som confirmado antes (a obra certa no módulo; Pd, Tone e p5.sound com contexto tocando
+ *    e RMS > 0, mp3 com exatamente um tocando), "Parar" deixa em silêncio (nenhum contexto tocando,
+ *    mp3 pausado; no generativeStrings, numa página só dele, os taps em silêncio, porque o contexto
+ *    do p5.sound é global e não é dele fechar), e sair para o /pt/map3 não deixa nenhum contexto do
+ *    simulador tocando.
  *
  * Como mede o som, sem caixa de som e sem microfone: um init script envolve
  * `AudioNode.prototype.connect`, e toda ligação a um `AudioDestinationNode` também vai a um
@@ -462,11 +464,19 @@ async function passo9() {
     // O primeiro do rodízio da calmaria no B. O airports só chega à saída pelo delay de 6 s dele.
     { preset: "limpo", foco: "B", led: null, obra: "airports", som: "Tone" },
   ];
+  /**
+   * Síntese no p5.sound: soa quando uma bola bate numa corda. Só "Parar", e numa página só dela:
+   * o p5.sound troca o `AudioNode.prototype.connect` do documento, e depois dele o Tone do
+   * airports lança "Cannot read properties of undefined (reading 'connect')" (no
+   * standardized-audio-context) e não soa. É assim também sem a instrumentação deste teste.
+   */
+  const soNoParar = { preset: "limpo", foco: "atual", led: "generativeStrings", obra: "generativeStrings", som: "p5.sound" };
 
   /**
    * A pré-condição de "com som tocando", conferida antes de Parar ou de sair: a obra certa no
-   * módulo e o som dela saindo. Pd e Tone: um contexto tocando e RMS > 0 numa janela de 8 s,
-   * que começa 4 s depois do Tocar (o airports soa por volta dos 6 s). mp3: exatamente um tocando.
+   * módulo e o som dela saindo. Pd, Tone e p5.sound: um contexto tocando e RMS > 0 numa janela de
+   * 8 s, que começa 4 s depois do Tocar (o airports soa por volta dos 6 s). mp3: exatamente um
+   * tocando.
    */
   async function tocarEConfirmar(page, caso) {
     await preparar(page, caso.preset, caso.foco, caso.led);
@@ -488,23 +498,29 @@ async function passo9() {
     conferir(9, nome === caso.obra && ok, `antes, no ${nome} (esperado ${caso.obra}, ${caso.som}): ${texto}`);
   }
 
-  // "Parar"
-  {
+  /** Toca, confirma o som e para: depois, silêncio. */
+  async function pararEConferir(page, caso) {
+    await tocarEConfirmar(page, caso);
+    await parar(page);
+    await page.waitForTimeout(2500);
+    // O p5.sound fica com o contexto global dele ligado: o que conta são os taps calados, numa
+    // janela maior (3 s), em que as bolas, se ainda andassem, bateriam nas cordas.
+    const p5 = caso.som === "p5.sound";
+    const depois = await rmsMaximo(page, p5 ? 15 : 5);
+    const m = await medir(page);
+    const pausados = m.midias.every((x) => x.paused);
+    conferir(
+      9,
+      (p5 || m.running === 0) && depois.max === 0 && pausados,
+      `Parar no ${caso.obra}: ${m.running} contexto(s) tocando, RMS ${f4(depois.max)}${p5 ? " em 3 s" : ""}, mp3 ${m.midias.length ? m.midias.map((x) => `paused=${x.paused}`).join(",") : "nenhum"}`,
+    );
+  }
+
+  // "Parar": os três numa página, e o generativeStrings numa só dele.
+  for (const lista of [casos, [soNoParar]]) {
     const { contexto, page, erros } = await novaPagina();
     await abrirSimulador(page);
-    for (const caso of casos) {
-      await tocarEConfirmar(page, caso);
-      await parar(page);
-      await page.waitForTimeout(2500);
-      const depois = await rmsMaximo(page, 5);
-      const m = await medir(page);
-      const pausados = m.midias.every((x) => x.paused);
-      conferir(
-        9,
-        m.running === 0 && depois.max === 0 && pausados,
-        `Parar no ${caso.obra}: ${m.running} contexto(s) tocando, RMS ${f4(depois.max)}, mp3 ${m.midias.length ? m.midias.map((x) => `paused=${x.paused}`).join(",") : "nenhum"}`,
-      );
-    }
+    for (const caso of lista) await pararEConferir(page, caso);
     conferir(9, erros.outros.length === 0, `erros no console: ${erros.outros.length} (fora "sound toggle id": ${erros.r14})${erros.outros.length ? " — " + erros.outros.join(" | ") : ""}`);
     await contexto.close();
   }
