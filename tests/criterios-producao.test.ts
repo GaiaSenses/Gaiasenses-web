@@ -20,9 +20,11 @@ import {
   textoDoCookie,
 } from "@/lib/criterios/cookies";
 import { escolherObraDoSite } from "@/lib/criterios/escolha-do-site";
-import { gerenciador } from "@/lib/criterios/gerenciador";
+import { GerenciadorDeCriterios, gerenciador } from "@/lib/criterios/gerenciador";
+import { CriterioAtual } from "@/lib/criterios/criterio-atual";
+import { CriterioDeDecisao } from "@/lib/criterios/criterio-de-decisao";
 import { catalogoHabilitado } from "@/lib/criterios/catalogo";
-import type { EntradaClima } from "@/lib/criterios/tipos";
+import type { Calculo, EntradaClima, NomeEntrada } from "@/lib/criterios/tipos";
 import { getCompositionDecisionTrace } from "./fixtures/criterio-producao";
 import { climaDaPaginaEm894a0ac } from "./fixtures/clima-da-pagina";
 
@@ -389,5 +391,53 @@ describe("escolherObraDoSite", () => {
     // Memória forjada não derruba nada: vira memória vazia e a escolha volta à primeira.
     memorias[cookieDoRodizio("B")] = "{lixo";
     assert.equal(escolher().obra, primeira.obra);
+  });
+
+  test("um critério de teste que lança: a escolha segue com o padrão, sem derrubar a página", () => {
+    class Quebrado extends CriterioDeDecisao {
+      readonly id = "B";
+      readonly versao = 1;
+      readonly nome = "Quebrado";
+      readonly resumo = "Sempre lança.";
+      readonly usaMemoria = true;
+      readonly usaNormal = false;
+      readonly entradasUsadas: readonly NomeEntrada[] = [];
+      protected calcular(): Calculo {
+        throw new Error("quebrou");
+      }
+    }
+    const comQuebrado = new GerenciadorDeCriterios([new CriterioAtual(), new Quebrado()], "atual");
+    const entrada = paraEntradaClima({
+      weatherData: tempo({ temp: 25, humidity: 70, clouds: 80, speed: 3, rain: { "1h": 2 } }),
+      lightningData: null, fireSpotsData: null, lat: 0, lng: 0,
+    });
+    const args = { entrada, memoriaDoCookie: () => undefined, sortear: () => 0.5 };
+    const semCookie = escolherObraDoSite({ ...args, idDoCookie: undefined });
+
+    const avisos: unknown[][] = [];
+    const original = console.warn;
+    console.warn = (...a: unknown[]) => void avisos.push(a);
+    let r: ReturnType<typeof escolherObraDoSite>;
+    try {
+      r = escolherObraDoSite({ ...args, idDoCookie: "B" }, comQuebrado);
+    } finally {
+      console.warn = original;
+    }
+    assert.equal(r.criterio.id, "atual");
+    assert.equal(r.origem, "padrao");
+    assert.equal(r.deTeste, false);
+    assert.equal(r.obra, semCookie.obra);
+    assert.equal(avisos.length, 1);
+    assert.match(String(avisos[0][0]), /"B" falhou/);
+
+    // O mesmo gerenciador, sem cookie ou com o do padrão, não passa pelo aviso.
+    console.warn = (...a: unknown[]) => void avisos.push(a);
+    try {
+      assert.equal(escolherObraDoSite({ ...args, idDoCookie: undefined }, comQuebrado).obra, semCookie.obra);
+      assert.equal(escolherObraDoSite({ ...args, idDoCookie: "atual" }, comQuebrado).origem, "navegador");
+    } finally {
+      console.warn = original;
+    }
+    assert.equal(avisos.length, 1);
   });
 });
