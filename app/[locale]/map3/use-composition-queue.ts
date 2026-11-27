@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import CompositionsInfo from "@/components/compositions/compositions-info";
+import { pickEnabledComposition } from "./disabled-compositions";
 
 // 1. CONFIG (dados de satélite passados pelo servidor)
 export type ClimaData = {
@@ -132,7 +133,10 @@ export function getCompositionDecisionTrace(
     (a, b) => (scores[a] > scores[b] ? a : b),
   );
   const options = composicoes[categoria];
-  const escolha = options[Math.floor(Math.random() * options.length)];
+  // O sorteio pula as obras desabilitadas temporariamente
+  // (disabled-compositions.ts). Se uma categoria ficar sem nenhuma obra
+  // habilitada, toca a obra padrão.
+  const escolha = pickEnabledComposition(options) ?? "attractor";
 
   return {
     clima,

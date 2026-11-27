@@ -1,4 +1,5 @@
 import CompositionsInfo from "@/components/compositions/compositions-info";
+import { isCompositionEnabled } from "./disabled-compositions";
 
 export type MapLocation = {
   name: string;
@@ -70,8 +71,10 @@ const ENABLED_COMPOSITIONS = new Set([
   "pump",
 ]);
 
-export const comps = Object.entries(CompositionsInfo).filter(([key]) =>
-  ENABLED_COMPOSITIONS.has(key),
+// As obras desabilitadas temporariamente (disabled-compositions.ts) também
+// saem daqui, e por isso da lista de obras do modo exposição.
+export const comps = Object.entries(CompositionsInfo).filter(
+  ([key]) => ENABLED_COMPOSITIONS.has(key) && isCompositionEnabled(key),
 );
 
 export const enabledCompositionKeys = comps.map(([key]) => key);

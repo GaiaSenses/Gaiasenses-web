@@ -14,6 +14,7 @@ import CompositionsInfo from "@/components/compositions/compositions-info";
 import { useRouter } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import { usePd4Web } from "./pd4web-context";
+import { isCompositionEnabled } from "./disabled-compositions";
 import { getPatchIdForComposition } from "./pd4web-patches";
 import { useEffect, useState } from "react";
 
@@ -114,7 +115,11 @@ export function CompositionDropdown({
               value={selectedComposition}
               className="overflow-y-scroll h-48"
             >
-              {Object.entries(CompositionsInfo).map((item, index) => {
+              {/* As obras desabilitadas temporariamente não aparecem no menu;
+                  um link direto ?composition=<obra> ainda as abre. */}
+              {Object.entries(CompositionsInfo)
+                .filter(([name]) => isCompositionEnabled(name))
+                .map((item, index) => {
                 return (
                   <DropdownMenuRadioItem
                     key={index}
