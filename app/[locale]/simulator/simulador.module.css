@@ -1,0 +1,1269 @@
+/*
+ * Simulador de critérios: a página inteira é uma placa (D4).
+ * - Máscara de solda no fundo; as zonas são contornos de serigrafia com dois cantos em 45°, como
+ *   as trilhas.
+ * - Cobre quer dizer energia: só o que está ligado é cobre (trilha energizada, linha em foco,
+ *   interruptor ligado). ENIG é onde se toca (pads, botões, pinos).
+ * - A ousadia fica num lugar só: a corrente nas trilhas energizadas e um pulso quando a escolha
+ *   muda. Com prefers-reduced-motion, só cor e espessura.
+ */
+
+.pagina {
+  min-height: 100vh;
+  background: #0f3d2e;
+}
+
+.raiz {
+  /* Tokens da D4 (as peças do SVG repetem os mesmos valores em pecas-da-placa.tsx). */
+  --mascara: #0f3d2e;
+  --mascara-realce: #13493a;
+  --trilha-coberta: #2a6b52;
+  --cobre: #e8a15a;
+  --cobre-brilho: #ffd08a;
+  --enig: #d8b25c;
+  --serigrafia: #eef1e8;
+  --serigrafia-2: #a9bfb3;
+  /* Derivados: epóxi dos CIs e janela dos displays; linha das zonas. */
+  --epoxi: #17201c;
+  --linha-da-zona: rgba(169, 191, 179, 0.5);
+  --fonte-serigrafia: var(--font-serigrafia), "Barlow Semi Condensed", "Arial Narrow", sans-serif;
+  --chanfro: 14px;
+
+  color-scheme: dark;
+  max-width: 1920px;
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: 16px;
+  background: var(--mascara);
+  color: var(--serigrafia);
+  font-size: 14px;
+  line-height: 1.45;
+  display: grid;
+  gap: 32px 20px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "cabecalho"
+    "modulo"
+    "entradas"
+    "comparacao"
+    "placa";
+  align-items: start;
+}
+
+.raiz :focus-visible {
+  outline: 2px solid var(--cobre-brilho);
+  outline-offset: 2px;
+}
+
+.carregando {
+  min-height: 100vh;
+  padding: 24px;
+  background: #0f3d2e;
+  color: #a9bfb3;
+  font-family: var(--font-serigrafia), sans-serif;
+  font-size: 16px;
+}
+
+/* ---------- Cabeçalho ---------- */
+
+.cabecalho {
+  grid-area: cabecalho;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px 24px;
+  align-items: end;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--trilha-coberta);
+}
+
+.titulo {
+  font-family: var(--fonte-serigrafia);
+  font-weight: 600;
+  font-size: 30px;
+  line-height: 1.05;
+  letter-spacing: 0.005em;
+}
+
+.subtitulo {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--serigrafia-2);
+}
+
+.cabecalhoControles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+}
+
+.resumo {
+  grid-column: 1 / -1;
+  min-height: 1.45em;
+  padding-left: 10px;
+  border-left: 2px solid var(--cobre);
+  font-size: 13.5px;
+}
+
+/* ---------- Zonas: contorno de serigrafia com dois cantos em 45° ---------- */
+
+.zona {
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  padding: 26px 16px 16px;
+}
+
+.zona::before,
+.zona::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.zona::before {
+  inset: 0;
+  z-index: -2;
+  background: var(--linha-da-zona);
+  clip-path: polygon(
+    var(--chanfro) 0,
+    100% 0,
+    100% calc(100% - var(--chanfro)),
+    calc(100% - var(--chanfro)) 100%,
+    0 100%,
+    0 var(--chanfro)
+  );
+}
+
+.zona::after {
+  inset: 1px;
+  z-index: -1;
+  background: var(--mascara);
+  clip-path: polygon(
+    calc(var(--chanfro) - 0.6px) 0,
+    100% 0,
+    100% calc(100% - var(--chanfro) + 0.6px),
+    calc(100% - var(--chanfro) + 0.6px) 100%,
+    0 100%,
+    0 calc(var(--chanfro) - 0.6px)
+  );
+}
+
+.zonaTitulo {
+  position: absolute;
+  top: 0;
+  left: 26px;
+  transform: translateY(-52%);
+  padding: 0 8px;
+  background: var(--mascara);
+  font-family: var(--fonte-serigrafia);
+  font-weight: 600;
+  font-size: 17px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* ---------- Controles comuns ---------- */
+
+.campoRotulado {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--serigrafia-2);
+}
+
+.seletor {
+  appearance: none;
+  min-height: 34px;
+  padding: 6px 30px 6px 10px;
+  border: 1px solid var(--serigrafia-2);
+  border-radius: 2px;
+  background-color: var(--epoxi);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23A9BFB3' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  color: var(--serigrafia);
+  font: inherit;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.seletor option {
+  background: var(--epoxi);
+  color: var(--serigrafia);
+}
+
+.botao,
+.botaoSecundario {
+  min-height: 34px;
+  padding: 6px 12px;
+  border-radius: 2px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.botao {
+  border: 1px solid var(--enig);
+  background: var(--enig);
+  color: var(--mascara);
+}
+
+.botao:hover:not(:disabled) {
+  border-color: var(--cobre-brilho);
+  background: var(--cobre-brilho);
+}
+
+.botaoSecundario {
+  border: 1px solid var(--serigrafia-2);
+  background: transparent;
+  color: var(--serigrafia);
+}
+
+.botaoSecundario:hover:not(:disabled) {
+  border-color: var(--enig);
+  color: var(--cobre-brilho);
+}
+
+.botao:disabled,
+.botaoSecundario:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.botaoCopiar {
+  min-width: 14.5em;
+}
+
+.designador {
+  font-family: var(--fonte-serigrafia);
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--serigrafia-2);
+}
+
+/* Interruptor de alavanca */
+.interruptor {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 2px;
+  border: 0;
+  background: none;
+  color: var(--serigrafia-2);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.interruptorTrilho {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 16px;
+  border: 1px solid var(--serigrafia-2);
+  border-radius: 2px;
+  background: var(--epoxi);
+}
+
+.interruptorAlavanca {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 13px;
+  height: 10px;
+  border-radius: 1px;
+  background: var(--enig);
+  box-shadow: inset -3px 0 0 rgba(23, 32, 28, 0.35);
+  transition: transform 0.12s ease-out;
+}
+
+.interruptor[aria-checked="true"] {
+  color: var(--serigrafia);
+}
+
+.interruptor[aria-checked="true"] .interruptorTrilho {
+  border-color: var(--cobre);
+}
+
+.interruptor[aria-checked="true"] .interruptorAlavanca {
+  transform: translateX(16px);
+  background: var(--cobre);
+}
+
+/* SW1: chave táctil */
+.tact {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px;
+  border: 0;
+  background: none;
+  color: var(--serigrafia);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tactCorpo {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--enig);
+  border-radius: 2px;
+  background: var(--epoxi);
+}
+
+.tactCapa {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #2c3b34;
+  box-shadow:
+    inset 0 0 0 2px #0d1512,
+    0 1px 0 rgba(238, 241, 232, 0.18);
+  transition: transform 0.08s;
+}
+
+.tact:hover:not(:disabled) .tactCorpo {
+  border-color: var(--cobre-brilho);
+}
+
+.tact:active:not(:disabled) .tactCapa {
+  transform: scale(0.84);
+}
+
+.tact:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+/* ---------- Entradas ---------- */
+
+.zonaEntradas {
+  grid-area: entradas;
+  display: grid;
+  gap: 20px;
+}
+
+.grupo {
+  display: grid;
+  gap: 8px;
+}
+
+.grupoCabeca {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--trilha-coberta);
+}
+
+.grupoTitulo {
+  font-family: var(--fonte-serigrafia);
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.grupoNota {
+  font-size: 12px;
+  color: var(--serigrafia-2);
+}
+
+.grupoTrimpots {
+  display: grid;
+  gap: 6px 28px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+}
+
+.grupoNormal {
+  margin-top: 22px;
+}
+
+.trimpot {
+  display: grid;
+  grid-template-columns: minmax(0, 8.6em) minmax(0, 1fr);
+  align-items: center;
+  column-gap: 10px;
+  min-height: 32px;
+}
+
+.trimpotRotulo {
+  font-size: 12.5px;
+  line-height: 1.2;
+}
+
+.trimpotDica {
+  grid-column: 1;
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--serigrafia-2);
+}
+
+.trimpotLinha {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.trimpot[data-desabilitado] .trimpotRotulo {
+  color: var(--serigrafia-2);
+}
+
+/* Leitura: janela de epóxi com o número em cobre e a unidade dentro. */
+.trimpotLeitura {
+  display: flex;
+  flex: none;
+  align-items: baseline;
+  width: 5.8em;
+  border: 1px solid var(--serigrafia-2);
+  border-radius: 2px;
+  background: var(--epoxi);
+}
+
+.trimpotLeitura:focus-within {
+  outline: 2px solid var(--cobre-brilho);
+  outline-offset: 2px;
+}
+
+.raiz .trimpotCampo:focus-visible {
+  outline: none;
+}
+
+.trimpotCampo {
+  width: 100%;
+  min-width: 0;
+  padding: 3px 4px 3px 6px;
+  border: 0;
+  background: transparent;
+  color: var(--cobre-brilho);
+  font-family: var(--fonte-serigrafia);
+  font-size: 15px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.trimpotCampo:disabled {
+  color: var(--serigrafia-2);
+  opacity: 0.55;
+}
+
+.trimpotUnidade {
+  flex: none;
+  min-width: 1.2em;
+  padding-right: 6px;
+  font-size: 11.5px;
+  color: var(--serigrafia-2);
+}
+
+/* Trimpot: trilho serrilhado (cobre até o valor) e cursor ENIG com a fenda do rotor. */
+.serrilhado {
+  --serrilha: repeating-linear-gradient(90deg, rgba(15, 61, 46, 0.7) 0 1px, transparent 1px 4px);
+  --enchimento: linear-gradient(90deg, var(--cobre) 0 var(--pct, 0%), var(--trilha-coberta) var(--pct, 0%) 100%);
+  --cursor: linear-gradient(90deg, var(--enig) 0 5px, var(--epoxi) 5px 7px, var(--enig) 7px 12px);
+  flex: 1;
+  min-width: 64px;
+  height: 24px;
+  margin: 0;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.serrilhado::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 1px;
+  background: var(--serrilha), var(--enchimento);
+}
+
+.serrilhado::-webkit-slider-thumb {
+  width: 12px;
+  height: 20px;
+  margin-top: -6px;
+  border-radius: 2px;
+  background: var(--cursor);
+  box-shadow: 0 0 0 1px var(--epoxi);
+  -webkit-appearance: none;
+}
+
+.serrilhado::-moz-range-track {
+  height: 8px;
+  border-radius: 1px;
+  background: var(--serrilha), var(--enchimento);
+}
+
+.serrilhado::-moz-range-thumb {
+  width: 12px;
+  height: 20px;
+  border: 0;
+  border-radius: 2px;
+  background: var(--cursor);
+}
+
+.serrilhado:focus-visible {
+  outline-offset: 3px;
+}
+
+.serrilhado:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.normal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px;
+}
+
+.periodo {
+  display: inline-flex;
+  border: 1px solid var(--serigrafia-2);
+  border-radius: 2px;
+}
+
+.periodoOpcao {
+  position: relative;
+}
+
+.periodoOpcao input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.periodoOpcao span {
+  display: block;
+  padding: 7px 10px;
+  font-size: 13px;
+  color: var(--serigrafia-2);
+}
+
+.periodoOpcao input:checked + span {
+  background: var(--mascara-realce);
+  color: var(--cobre-brilho);
+}
+
+.periodoOpcao input:focus-visible + span {
+  outline: 2px solid var(--cobre-brilho);
+  outline-offset: 1px;
+}
+
+/* ---------- Comparação ---------- */
+
+.zonaComparacao {
+  grid-area: comparacao;
+  container-type: inline-size;
+}
+
+.tabelaCabeca,
+.linhaBotao {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1.55fr) minmax(0, 1fr) minmax(0, 1.15fr) 4.6em;
+  column-gap: 12px;
+  align-items: baseline;
+}
+
+.tabelaCabeca {
+  padding: 0 8px 6px 9px;
+  border-bottom: 1px solid var(--trilha-coberta);
+  margin-bottom: 4px;
+  font-family: var(--fonte-serigrafia);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--serigrafia-2);
+}
+
+.linhas {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.linha {
+  min-width: 0;
+  padding: 9px 8px 9px 6px;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+}
+
+.linha:hover {
+  background: rgba(19, 73, 58, 0.55);
+}
+
+.linha[data-foco="true"] {
+  border-left-color: var(--cobre);
+  background: var(--mascara-realce);
+}
+
+.linhaBotao {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pad {
+  align-self: center;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--enig);
+  border-radius: 50%;
+}
+
+.linha[data-foco="true"] .pad {
+  border-color: var(--cobre-brilho);
+  background: var(--cobre);
+}
+
+.celCriterio {
+  min-width: 0;
+}
+
+.criterioNome {
+  display: block;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.criterioId {
+  font-family: var(--fonte-serigrafia);
+  font-size: 16px;
+}
+
+.linha[data-foco="true"] .criterioId {
+  color: var(--cobre-brilho);
+}
+
+.selos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.selo {
+  padding: 2px 6px 3px;
+  border: 1px solid var(--serigrafia-2);
+  border-radius: 2px;
+  font-family: var(--fonte-serigrafia);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.1;
+  color: var(--serigrafia-2);
+}
+
+.seloNavegador {
+  border-color: var(--cobre);
+  color: var(--cobre-brilho);
+}
+
+.celTexto {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.celSelo {
+  font-size: 12.5px;
+  color: var(--serigrafia-2);
+}
+
+.numero {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.celMs {
+  font-size: 12.5px;
+  color: var(--serigrafia-2);
+}
+
+.celErro {
+  grid-column: 3 / -1;
+  font-weight: 600;
+}
+
+.motivo {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 4px;
+  padding-left: 26px;
+  font-size: 12.5px;
+  color: var(--serigrafia-2);
+}
+
+.motivoFechado,
+.motivoAberto {
+  flex: 1;
+  min-width: 0;
+}
+
+.motivoFechado {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.motivoBotao {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--enig);
+  font: inherit;
+  font-size: 12.5px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 0 2px 26px;
+}
+
+.acoesNota {
+  flex-basis: 100%;
+  font-size: 12.5px;
+  color: var(--serigrafia-2);
+}
+
+@container (max-width: 540px) {
+  .tabelaCabeca {
+    display: none;
+  }
+
+  .linhaBotao {
+    grid-template-columns: 14px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "pad criterio ms"
+      ". vencedor vencedor"
+      ". obra obra";
+    row-gap: 2px;
+  }
+
+  .linhaBotao > :nth-child(1) {
+    grid-area: pad;
+  }
+
+  .linhaBotao > :nth-child(2) {
+    grid-area: criterio;
+  }
+
+  .linhaBotao > :nth-child(3) {
+    grid-area: vencedor;
+  }
+
+  .linhaBotao > :nth-child(4) {
+    grid-area: obra;
+  }
+
+  .linhaBotao > :nth-child(5) {
+    grid-area: ms;
+  }
+
+  .celErro {
+    grid-area: vencedor;
+  }
+}
+
+/* ---------- Placa ---------- */
+
+.zonaPlaca {
+  grid-area: placa;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+.placaCabeca {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 24px;
+  margin-bottom: 12px;
+}
+
+.placaCriterio {
+  font-family: var(--fonte-serigrafia);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.placaResumo {
+  max-width: 72ch;
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--serigrafia-2);
+}
+
+.placaControles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 22px;
+}
+
+.memoria {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--serigrafia-2);
+}
+
+.placaRolagem {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.placaCaixa {
+  position: relative;
+}
+
+.placaNatural {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+
+.placaSvg {
+  display: block;
+  font-family: var(--fonte-serigrafia);
+}
+
+.placaErro {
+  padding: 24px 0;
+  font-weight: 600;
+}
+
+.placaDica {
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--serigrafia-2);
+}
+
+.legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-top: 12px;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: var(--serigrafia-2);
+}
+
+.legenda li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.legendaLed {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+/* LEDs das obras: botões transparentes por cima do desenho. */
+.led {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.led:disabled {
+  cursor: default;
+}
+
+.led:not(:disabled):hover {
+  background: rgba(255, 208, 138, 0.1);
+}
+
+.raiz .led:focus-visible {
+  outline-width: 3px;
+  outline-offset: 0;
+}
+
+/* Texto de serigrafia dentro do SVG */
+.tRotulo,
+.tRotuloMudo,
+.tObraDestaque {
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.tRotulo {
+  fill: var(--serigrafia);
+}
+
+.tRotuloMudo {
+  fill: var(--serigrafia-2);
+}
+
+.tObraDestaque {
+  font-weight: 600;
+  fill: var(--cobre-brilho);
+}
+
+.tDesignador {
+  font-size: 11px;
+  font-weight: 500;
+  fill: var(--serigrafia-2);
+}
+
+.tValor,
+.tValorMudo {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.tValor {
+  fill: var(--cobre);
+}
+
+.tValorMudo {
+  fill: var(--serigrafia-2);
+}
+
+.tColuna {
+  font-size: 13px;
+  font-weight: 500;
+  fill: var(--serigrafia-2);
+}
+
+.contornoSerigrafia {
+  stroke: var(--serigrafia-2);
+  stroke-opacity: 0.55;
+  stroke-width: 0.8;
+}
+
+/* Trilhas: coberta (apagada), energizada, a corrente e o pulso. */
+.trilhaMorta,
+.trilhaViva,
+.corrente,
+.pulso {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.trilhaMorta {
+  stroke: var(--trilha-coberta);
+  stroke-width: 2;
+}
+
+.trilhaViva {
+  stroke: var(--cobre);
+  transition: stroke-width 0.25s ease-out;
+}
+
+.corrente {
+  stroke: var(--cobre-brilho);
+  stroke-width: 1.4;
+  stroke-dasharray: 2 14;
+  animation: corrente 1.2s linear infinite;
+}
+
+@keyframes corrente {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+
+.pulsos {
+  pointer-events: none;
+}
+
+.pulso {
+  stroke: #fff3dc;
+  stroke-width: 5;
+  stroke-dasharray: 10 200;
+  stroke-dashoffset: 10;
+  opacity: 0.9;
+  animation: pulso 0.6s cubic-bezier(0.3, 0.6, 0.4, 1) both;
+}
+
+@keyframes pulso {
+  from {
+    stroke-dashoffset: 10;
+  }
+
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+
+/* ---------- Módulo da obra ---------- */
+
+.zonaModulo {
+  grid-area: modulo;
+  display: flex;
+  flex-direction: column;
+}
+
+.modulo {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+}
+
+/*
+ * A área que a tela do módulo pode ocupar. Tem a proporção da viewport (a das obras); o monitor
+ * dentro dela é medido em JS e reduzido por `scale` para caber, com tarja se a altura apertar.
+ */
+.moduloArea {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  aspect-ratio: var(--proporcao, 16 / 9);
+  max-height: 60vh;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--epoxi);
+  box-shadow: inset 0 0 0 1px var(--trilha-coberta);
+}
+
+.moduloTela {
+  position: relative;
+  overflow: hidden;
+  background: #000;
+}
+
+/* Do tamanho da viewport, como o canvas das obras; o `scale` vem inline. Em tela cheia, sem. */
+.monitor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  background: #000;
+  transform-origin: 0 0;
+}
+
+.monitor:fullscreen {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: none;
+}
+
+.obraCaixa {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.monitorDesligado {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  background: var(--epoxi);
+  color: var(--serigrafia-2);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+.moduloLegenda {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.moduloObra {
+  font-family: var(--fonte-serigrafia);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.moduloAutor {
+  font-size: 12.5px;
+  color: var(--serigrafia-2);
+}
+
+.moduloFicha {
+  display: grid;
+  gap: 2px;
+  margin: 8px 0 0;
+}
+
+.moduloFicha > div {
+  display: grid;
+  grid-template-columns: 4.6em minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+}
+
+.moduloFicha dt {
+  font-family: var(--fonte-serigrafia);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--serigrafia-2);
+}
+
+.moduloFicha dd {
+  margin: 0;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.moduloAviso {
+  justify-self: start;
+  margin-top: 6px;
+  padding: 2px 8px;
+  border: 1px dashed var(--serigrafia-2);
+  color: var(--serigrafia-2);
+  font-size: 12.5px;
+}
+
+.moduloBotoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* ---------- Responsivo ---------- */
+
+@media (max-width: 767px) {
+  .cabecalho {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .titulo {
+    font-size: 26px;
+  }
+
+  .zona {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
+
+/* 768–1279: o módulo vai para o topo, com ~40vh, fixo. */
+@media (min-width: 768px) {
+  .raiz {
+    padding: 24px;
+  }
+
+  .zonaModulo {
+    position: sticky;
+    top: 12px;
+    z-index: 5;
+    height: 40vh;
+    background: var(--mascara);
+    box-shadow: 0 -12px 0 var(--mascara);
+  }
+
+  .modulo {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .moduloArea {
+    height: 100%;
+    aspect-ratio: auto;
+    max-height: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  .raiz {
+    grid-template-columns: minmax(340px, 380px) minmax(0, 1fr);
+    grid-template-areas:
+      "cabecalho cabecalho"
+      "modulo modulo"
+      "entradas comparacao"
+      "placa placa";
+  }
+}
+
+/*
+ * ≥ 1280: 3 colunas (entradas | comparação | módulo fixo ao rolar). A placa ocupa as duas
+ * primeiras por baixo: espremida na do meio, a de 1256 px cairia para ~60 % e o texto do C não se
+ * leria.
+ */
+@media (min-width: 1280px) {
+  .raiz {
+    grid-template-columns: minmax(340px, min(28vw, 420px)) minmax(0, 1fr) minmax(300px, min(21vw, 400px));
+    grid-template-areas:
+      "cabecalho cabecalho cabecalho"
+      "entradas comparacao modulo"
+      "placa placa modulo";
+  }
+
+  .zonaModulo {
+    top: 24px;
+    height: auto;
+    box-shadow: none;
+  }
+
+  .modulo {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+  }
+
+  .moduloArea {
+    height: auto;
+    aspect-ratio: var(--proporcao, 16 / 9);
+    max-height: 70vh;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .corrente,
+  .pulso {
+    display: none;
+    animation: none;
+  }
+
+  .trilhaViva,
+  .interruptorAlavanca,
+  .tactCapa {
+    transition: none;
+  }
+}

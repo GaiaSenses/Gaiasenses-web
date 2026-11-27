@@ -20,9 +20,13 @@ import {
 import { cookies } from "next/headers";
 import DataSender from "@/components/dataSender";
 import { Suspense } from "react";
-import { getCompositionForClima } from "./use-composition-queue";
 import { Pd4WebProvider } from "./pd4web-context";
 import MuteButton from "./mute-button";
+import { paraEntradaClima } from "@/lib/criterios/entrada-do-site";
+import { escolherObraDoSite } from "@/lib/criterios/escolha-do-site";
+import { COOKIE_CRITERIO, cookieDoRodizio } from "@/lib/criterios/cookies";
+import AvancarRodizio from "./avancar-rodizio";
+import AvisoCriterioDeTeste from "./aviso-criterio-de-teste";
 
 function stringToBoolean(value: string | undefined): boolean {
   if (value === undefined) {
@@ -96,9 +100,10 @@ export default async function Page({ params, searchParams }: PageProps) {
   const lightningcount = lightningData?.count ?? null;
   const firecount = fireSpotsData?.count ?? null;
 
-  // A escolha automática de composição precisa de números. Tratar indisponível
-  // como zero aqui é deliberado e conservador: sem sinal, nenhuma obra de
-  // tempestade ou de fogo dispara. Quem conta a verdade ao público é o painel.
+  // O mapa e o patch do mapa recebem números. Tratar indisponível como zero
+  // aqui é deliberado e conservador: sem sinal, nenhuma obra de tempestade ou
+  // de fogo dispara. Quem conta a verdade ao público é o painel. (A escolha da
+  // obra recebe as fontes com null; o critério atual faz o mesmo zero.)
   const clima = {
     windSpeed: Number.isFinite(speed) ? speed : 0,
     humidity: Number.isFinite(humidity) ? humidity : 0,
@@ -109,12 +114,22 @@ export default async function Page({ params, searchParams }: PageProps) {
     rain: rainData?.["1h"] ?? 0,
   };
 
+  // A obra sugerida sai do critério deste navegador (cookie `gaia_criterio`,
+  // validado). Sem cookie é o critério atual, com a mesma escolha de antes —
+  // provado em tests/criterios-producao.test.ts. O `?composition=` continua
+  // mandando.
+  const escolha = escolherObraDoSite({
+    entrada: paraEntradaClima({ weatherData, lightningData, fireSpotsData, lat, lng }),
+    idDoCookie: cookieStore.get(COOKIE_CRITERIO)?.value,
+    memoriaDoCookie: (id) => cookieStore.get(cookieDoRodizio(id))?.value,
+    sortear: Math.random,
+  });
+
   const requestedComposition = searchParams.composition;
   const hasRequestedComposition =
     typeof requestedComposition === "string" &&
     compositionOptions.includes(requestedComposition);
-  const suggestedComposition =
-    getCompositionForClima(clima)[0] ?? DEFAULT_COMPOSITION;
+  const suggestedComposition = escolha.obra ?? DEFAULT_COMPOSITION;
   const composition: string = hasRequestedComposition
     ? requestedComposition
     : suggestedComposition;
@@ -224,18 +239,34 @@ export default async function Page({ params, searchParams }: PageProps) {
             titleButtonText={t("titleButtonText")}
           ></TitleScreen>
         </div>
-        <DataSender
-          isOpen={searchParams.mode === "player"}
-          composition={composition}
-          temp={temp}
-          speed={speed}
-          humidity={humidity}
-          lightningcount={lightningcount}
-          firecount={firecount}
-          date_timeplayed={date_timeplayed}
-          pinnedlocation={pinnedlocation}
-          userLocation={userLocation}
-        />
+        {/* Com um critério de teste neste navegador, o que ele toca não é o que
+            o público vê: fica fora do corpus (GaiaLogs), e o aviso diz isso. */}
+        {escolha.deTeste ? (
+          <AvisoCriterioDeTeste
+            texto={t("criterioDeTeste", {
+              nome: `${escolha.criterio.id} · ${escolha.criterio.nome}`,
+            })}
+          />
+        ) : (
+          <DataSender
+            isOpen={searchParams.mode === "player"}
+            composition={composition}
+            temp={temp}
+            speed={speed}
+            humidity={humidity}
+            lightningcount={lightningcount}
+            firecount={firecount}
+            date_timeplayed={date_timeplayed}
+            pinnedlocation={pinnedlocation}
+            userLocation={userLocation}
+          />
+        )}
+        {/* Toda obra que toca avança o rodízio do critério com memória, venha
+            ela da sugestão ou da lista: todo caminho até o player passa a obra
+            no `?composition=`. */}
+        {searchParams.mode === "player" && escolha.criterio.usaMemoria && (
+          <AvancarRodizio criterioId={escolha.criterio.id} obra={composition} />
+        )}
         <CompositionModal
           isOpen={searchParams.mode === "player" ? true : false}
           closeButton={
